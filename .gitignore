@@ -1,0 +1,6 @@
+coverage.txt
+bin/
+dist/
+.vscode
+.env
+.envrc

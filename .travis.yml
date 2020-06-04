@@ -1,0 +1,25 @@
+dist: bionic
+language: go
+go:
+  - '1.14.1'
+os:
+  - linux
+env:
+  - GO111MODULE=on
+install:
+  - make setup
+jobs:
+  include:
+    - name: check-mod
+      stage: test
+      script: make check-mod
+    - name: lint
+      stage: test
+      script:
+        - make lint-ci
+    - name: test
+      stage: test
+      script:
+        - make test
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)

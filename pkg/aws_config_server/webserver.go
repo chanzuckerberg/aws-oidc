@@ -1,0 +1,178 @@
+package aws_config_server
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	oidc "github.com/coreos/go-oidc"
+	"github.com/julienschmidt/httprouter"
+	"github.com/sirupsen/logrus"
+)
+
+type oidcVerifier interface {
+	Verify(context.Context, string) (*oidc.IDToken, error)
+}
+
+type contextKey int
+
+const contextKeyEmail contextKey = 0
+const contextKeySub contextKey = 1
+
+type claims struct {
+	Email   string `json:"email"`
+	Subject string `json:"sub"`
+}
+
+type AWSConfigGenerationParams struct {
+	OIDCProvider   string
+	AWSWorkerRole  string
+	AWSMasterRoles []string
+}
+
+func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.WriteHeader(http.StatusOK)
+}
+
+// From https://github.com/dgrijalva/jwt-go/blob/master/request/oauth2.go
+// Strips 'Bearer ' prefix from bearer token string
+func stripBearerPrefixFromTokenString(token string) string {
+	// Should be a bearer token
+	if len(token) > 6 && strings.ToUpper(token[0:7]) == "BEARER " {
+		return token[7:]
+	}
+	return token
+}
+
+func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+
+		authHeader := r.Header.Get("Authorization")
+		ctx := r.Context()
+		if len(authHeader) <= 0 {
+			logrus.Warn("error: No Authorization header found.")
+			http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
+			return
+		}
+		rawIDToken := stripBearerPrefixFromTokenString(authHeader)
+
+		idToken, err := verifier.Verify(ctx, rawIDToken)
+		if err != nil {
+			logrus.Warnf("error: Unable to verify idToken. %s", err)
+			http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
+			return
+		}
+
+		claims := &claims{}
+		err = idToken.Claims(claims)
+		if err != nil {
+			logrus.Warnf("error: Unable to parse email from id token. %s", err)
+			http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
+			return
+		}
+
+		ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
+		ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
+		rWithValues := r.WithContext(ctxWithValues)
+
+		next(w, rWithValues, ps)
+	}
+}
+
+func getEmailFromCtx(ctx context.Context) *string {
+	email, ok := ctx.Value(contextKeyEmail).(string)
+	if !ok {
+		return nil
+	}
+	return &email
+}
+
+func getSubFromCtx(ctx context.Context) *string {
+	sub, ok := ctx.Value(contextKeySub).(string)
+	if !ok {
+		return nil
+	}
+	return &sub
+}
+
+func Index(
+	awsGenerationParams *AWSConfigGenerationParams,
+	cachedClientIDtoProfiles *CachedGetClientIDToProfiles,
+	oktaClient okta.AppResource,
+) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+		ctx := r.Context()
+
+		email := getEmailFromCtx(ctx)
+		if email == nil {
+			logrus.Warn("Unable to get email")
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+
+		sub := getSubFromCtx(ctx)
+		if sub == nil {
+			logrus.Warnf("Unable to get subject ID from email: %s", *email)
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+
+		clientIDs, err := okta.GetClientIDs(ctx, oktaClient)
+		if err != nil {
+			logrus.Warnf("Unable to get list of ClientIDs for %s: %s", *email, err)
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+
+		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's clientIDs: %s\n", *email, clientIDs)
+		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
+		if err != nil {
+			logrus.Warnf("error: Unable to create mapping from clientID to roleARNs: %s", err)
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+
+		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's client mapping: %s\n", *email, clientMapping)
+		awsConfigFile, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
+		if err != nil {
+			logrus.Warnf("error: unable to get AWS Config File: %s", err)
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+
+		_, err = awsConfigFile.WriteTo(w)
+		if err != nil {
+			logrus.Warnf("error: Unable to write config file to http.ResponseWriter: %s", err)
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+	}
+}
+
+type RouterConfig struct {
+	Verifier              oidcVerifier
+	AwsGenerationParams   *AWSConfigGenerationParams
+	OktaAppClient         okta.AppResource
+	GetClientIDToProfiles *CachedGetClientIDToProfiles
+}
+
+func GetRouter(
+	ctx context.Context,
+	config *RouterConfig,
+) *httprouter.Router {
+	router := httprouter.New()
+	handle := requireAuthentication(
+		Index(
+			config.AwsGenerationParams,
+			config.GetClientIDToProfiles,
+			config.OktaAppClient,
+		),
+		config.Verifier,
+	)
+
+	router.GET("/", handle)
+	router.GET("/health", Health)
+	return router
+}
