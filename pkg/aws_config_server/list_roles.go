@@ -45,7 +45,7 @@ type ConfigProfile struct {
 	roleName string
 }
 
-func listRoles(ctx context.Context, svc iamiface.IAMAPI) []*iam.Role {
+func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	// Run the AWS list-roles command and save the output
 	input := &iam.ListRolesInput{}
 	output := []*iam.Role{}
@@ -57,10 +57,15 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) []*iam.Role {
 		},
 	)
 	if err != nil {
-		logrus.Error(err)
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == iam.ErrCodeInvalidAuthenticationCodeException {
+				logrus.Error(err)
+				return output, nil
+			}
+		}
+		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
-
-	return output
+	return output, nil
 }
 
 type Action []string
