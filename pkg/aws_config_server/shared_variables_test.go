@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/iam"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/okta/okta-sdk-golang/v2/okta"
@@ -229,27 +230,34 @@ var testRoles3 = []*iam.Role{
 	},
 }
 
+func MustParseARN(a arn.ARN, err error) arn.ARN {
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
 var testConfigMapping = map[string][]ConfigProfile{
 	"clientID1": {
 		{
-			acctName: "Account1",
-			roleARN:  "arn:aws:iam::AccountNumber1:role/WorkerRole",
+			AcctName: "Account1",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::AccountNumber1:role/WorkerRole")),
 		},
 		{
-			acctName: "Account2",
-			roleARN:  "arn:aws:iam::AccountNumber2:role/WorkerRole",
+			AcctName: "Account2",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::AccountNumber2:role/WorkerRole")),
 		},
 	},
 	"clientID2": {
 		{
-			acctName: "Account3",
-			roleARN:  "arn:aws:iam::AccountNumber3:role/WorkerRole",
+			AcctName: "Account3",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::AccountNumber3:role/WorkerRole")),
 		},
 	},
 	"clientID3": {
 		{
-			acctName: "account with space",
-			roleARN:  "arn:aws:iam::account-with-space:role/WorkerRole",
+			AcctName: "account with space",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::account-with-space:role/WorkerRole")),
 		},
 	},
 }
