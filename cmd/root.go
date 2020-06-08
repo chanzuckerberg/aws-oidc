@@ -72,10 +72,11 @@ func configureLogrusHooks() error {
 		logrus.FatalLevel,
 		logrus.ErrorLevel,
 	})
-
-	if err == nil {
-		log.AddHook(sentryHook)
-	}
+        if err != nil {
+           logrus.Errorf("Error configuring Sentry")
+           return nil
+        }
+        log.AddHook(sentryHook)
 	return nil
 }
 
