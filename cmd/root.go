@@ -48,7 +48,10 @@ var rootCmd = &cobra.Command{
 		if verbose {
 			log.SetLevel(log.DebugLevel)
 		}
-		configureLogrusHooks()
+		err = configureLogrusHooks()
+		if err != nil {
+			return errors.Wrap(err, "Unable to configure Logrus Hooks")
+		}
 		return nil
 	},
 }
