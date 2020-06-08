@@ -56,6 +56,7 @@ var configureCmd = &cobra.Command{
 	},
 }
 
+// For now generate dummy data, will later on use this for tests instead
 func generateDummyData() map[server.ClientID][]server.ConfigProfile {
 	configProfile1 := []server.ConfigProfile{
 		{
