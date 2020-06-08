@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
@@ -57,7 +58,6 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) []*iam.Role {
 	)
 	if err != nil {
 		logrus.Error(err)
-		return output
 	}
 
 	return output
