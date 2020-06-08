@@ -205,23 +205,27 @@ var alternatePolicyDocument = &AlternatePolicyDocument{
 
 var testRoles0 = []*iam.Role{
 	{
-		Arn: aws.String("roleARN"),
+		Arn:      aws.String("roleARN"),
+		RoleName: aws.String("testRoles0"),
 	},
 }
 var testRoles1 = []*iam.Role{
 	{
-		Arn: aws.String("roleARN0"),
+		Arn:      aws.String("roleARN0"),
+		RoleName: aws.String("testRoles1"),
 	},
 }
 var testRoles2 = []*iam.Role{
 	{
-		Arn: aws.String("roleARN1"),
+		Arn:      aws.String("roleARN1"),
+		RoleName: aws.String("testRoles2"),
 	},
 }
 
 var testRoles3 = []*iam.Role{
 	{
-		Arn: aws.String("roleARN0"),
+		Arn:      aws.String("roleARN0"),
+		RoleName: aws.String("testRoles3"),
 	},
 }
 

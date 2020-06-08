@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
@@ -41,6 +42,7 @@ type Principal struct {
 type ConfigProfile struct {
 	acctName string
 	roleARN  string
+	roleName string
 }
 
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
@@ -52,8 +54,19 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 		func(page *iam.ListRolesOutput, lastPage bool) bool {
 			output = append(output, page.Roles...)
 			return !lastPage
-		})
-	return output, errors.Wrap(err, "unable to get listRolesOutput")
+		},
+	)
+	if aerr, ok := err.(awserr.Error); ok {
+		if aerr.Code() == "403" { // access denied error
+			logrus.Error(err)
+			return output, nil
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get listRolesOutput")
+	}
+
+	return output, nil
 }
 
 type Action []string
@@ -129,6 +142,7 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 			currentConfig := ConfigProfile{
 				acctName: acctName,
 				roleARN:  *role.Arn,
+				roleName: *role.RoleName,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {
@@ -140,15 +154,6 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 		}
 	}
 	return nil
-}
-
-func MapClientIDRoleARN(ctx context.Context, acctName, oidcProvider string, svc iamiface.IAMAPI, clientRoleMapping map[string][]ConfigProfile) error {
-	roles, err := listRoles(ctx, svc)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to run AWS ListRoles for this IAM Session, account: %s", acctName)
-	}
-	err = clientRoleMapFromProfile(ctx, acctName, roles, oidcProvider, clientRoleMapping)
-	return errors.Wrapf(err, "Errors from mapping clientID to roleARN for %s", acctName)
 }
 
 func GetActiveAccountList(ctx context.Context, svc organizationsiface.OrganizationsAPI) ([]*organizations.Account, error) {
