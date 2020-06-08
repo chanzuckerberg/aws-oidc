@@ -70,14 +70,18 @@ func (a *ClientIDToAWSRoles) mapRoles(ctx context.Context, oidcProvider string) 
 	return nil
 }
 
-func createAWSConfig(ctx context.Context, configParams *AWSConfigGenerationParams, clientMapping map[string][]ConfigProfile, userClientIDs []string) (*ini.File, error) {
+func createAWSConfig(
+	ctx context.Context,
+	configParams *AWSConfigGenerationParams,
+	clientMapping map[string][]ConfigProfile,
+	userClientIDs []string) (*ini.File, error) {
 	configFile := ini.Empty()
 
 	for _, clientID := range userClientIDs {
 		configList := clientMapping[clientID]
 		for _, config := range configList {
 
-			profileNoSpace := strings.ReplaceAll(config.acctName, " ", "-")
+			profileNoSpace := strings.ReplaceAll(config.AcctName, " ", "-")
 			profileNoSpaceLowercase := strings.ToLower(profileNoSpace)
 
 			profileSection := fmt.Sprintf("profile %s", profileNoSpaceLowercase)
@@ -85,7 +89,7 @@ func createAWSConfig(ctx context.Context, configParams *AWSConfigGenerationParam
 				"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
 				configParams.OIDCProvider,
 				clientID,
-				config.roleARN,
+				config.RoleARN,
 			)
 
 			section, err := configFile.NewSection(profileSection)
