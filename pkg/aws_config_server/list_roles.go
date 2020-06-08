@@ -42,6 +42,7 @@ type Principal struct {
 type ConfigProfile struct {
 	acctName string
 	roleARN  string
+	roleName string
 }
 
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
@@ -141,6 +142,7 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 			currentConfig := ConfigProfile{
 				acctName: acctName,
 				roleARN:  *role.Arn,
+				roleName: *role.RoleName,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {
