@@ -1,7 +1,13 @@
 package aws_config_client
 
 import (
+	"fmt"
+	"regexp"
+
+	"github.com/AlecAivazis/survey/v2"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
+	"github.com/pkg/errors"
+	"gopkg.in/ini.v1"
 )
 
 type awsAccount struct {
@@ -11,9 +17,12 @@ type awsAccount struct {
 
 type completer struct {
 	awsAccounts map[awsAccount]map[server.ConfigProfile]server.ClientID
+
+	prompt Prompt
 }
 
 func NewCompleter(
+	prompt Prompt,
 	clientMapping map[server.ClientID][]server.ConfigProfile,
 ) *completer {
 
@@ -38,6 +47,7 @@ func NewCompleter(
 
 	return &completer{
 		awsAccounts: awsAccounts,
+		prompt:      prompt,
 	}
 }
 
@@ -50,29 +60,143 @@ func (c *completer) getAccounts() []awsAccount {
 	return accounts
 }
 
+func (c *completer) getAccountOptions(accounts []awsAccount) []string {
+	accountOptions := []string{}
+	for _, account := range accounts {
+		accountOptions = append(accountOptions, fmt.Sprintf("%s (%s)", account.name, account.id))
+	}
+	return accountOptions
+}
+
 func (c *completer) getRolesForAccount(account awsAccount) []server.ConfigProfile {
 	roles := []server.ConfigProfile{}
-	for configProfile := range c.awsAccounts[account] {
-		roles = append(roles, configProfile)
+	roleToClientIDs := c.awsAccounts[account]
+
+	for role := range roleToClientIDs {
+		roles = append(roles, role)
 	}
+
 	return roles
 }
 
-func (c *completer) getClientID(account awsAccount, profile server.ConfigProfile) server.ClientID {
-	return c.awsAccounts[account][profile]
-}
+func (c *completer) getRoleOptions(roles []server.ConfigProfile) []string {
+	roleOptions := []string{}
 
-func (c *completer) getAccountsSuggestions() []string {
-	accounts := c.getAccounts()
-
-	suggests := []string{}
-
-	for _, account := range accounts {
-		suggests = append(suggests, account.name)
+	for _, role := range roles {
+		roleOptions = append(roleOptions, role.RoleARN.String())
 	}
-	return suggests
+	return roleOptions
 }
 
-func (c *completer) CompleteAccount() []string {
-	return c.getAccountsSuggestions()
+// Validates that the inputted aws profile name is a valid one
+func (c *completer) awsProfileNameValidator(input interface{}) error {
+	inputString, ok := input.(string)
+	if !ok {
+		return errors.New("input not a string")
+	}
+	valid := regexp.MustCompile("^[a-zA-Z0-9_-]+$")
+	ok = valid.MatchString(inputString)
+	if !ok {
+		return errors.Errorf("Input %s not a valid AWS profile name", inputString)
+	}
+	return nil
+}
+
+func (c *completer) calculateDefaultProfileName(account awsAccount) string {
+	invalid := regexp.MustCompile("[^a-zA-Z0-9_-]")
+	return invalid.ReplaceAllString(account.name, "-")
+}
+
+func (c *completer) getClientID(account awsAccount, role server.ConfigProfile) server.ClientID {
+	return c.awsAccounts[account][role]
+}
+
+// SurveyProfile will ask a user to configure an aws profile
+func (c *completer) SurveyProfile() (*AWSConfigProfile, error) {
+	// first prompt for account
+	accounts := c.getAccounts()
+	accountIdx, err := c.prompt.Select(
+		"Select the AWS account you would like to configure for this profile:",
+		c.getAccountOptions(accounts),
+	)
+	if err != nil {
+		return nil, err
+	}
+	account := accounts[accountIdx]
+
+	// now ask for a role in that account
+	roles := c.getRolesForAccount(account)
+	roleIdx, err := c.prompt.Select(
+		"Select the AWS role you would like to configure for this profile:",
+		c.getRoleOptions(roles),
+	)
+	if err != nil {
+		return nil, err
+	}
+	role := roles[roleIdx]
+
+	// now attempt to name the profile
+	profileName, err := c.prompt.Input(
+		"What would you like to name this profile:",
+		c.calculateDefaultProfileName(account),
+		survey.WithValidator(c.awsProfileNameValidator),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	profile := &AWSConfigProfile{
+		Name:    profileName,
+		RoleARN: role.RoleARN.String(),
+
+		ClientID: c.getClientID(account, role),
+	}
+
+	return profile, nil
+}
+
+func (c *completer) Continue() (bool, error) {
+	return c.prompt.Confirm("Would you like to configure another profile?", true)
+}
+
+func (c *completer) writeAWSProfile(out *ini.File, profile *AWSConfigProfile) error {
+	profileSection := fmt.Sprintf("profile %s", profile.Name)
+
+	credsProcessValue := fmt.Sprintf(
+		"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
+		"TODO",
+		profile.ClientID,
+		profile.RoleARN,
+	)
+
+	section, err := out.NewSection(profileSection)
+	if err != nil {
+		return errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
+	}
+	section.Key("output").SetValue("json")
+	section.Key("credential_process").SetValue(credsProcessValue)
+	return nil
+}
+
+func (c *completer) Loop(out *ini.File) error {
+	for {
+		profile, err := c.SurveyProfile()
+		if err != nil {
+			return err
+		}
+
+		err = c.writeAWSProfile(out, profile)
+		if err != nil {
+			return err
+		}
+
+		cnt, err := c.Continue()
+		if err != nil {
+			return err
+		}
+		if !cnt {
+			break
+		}
+	}
+	return nil
 }
