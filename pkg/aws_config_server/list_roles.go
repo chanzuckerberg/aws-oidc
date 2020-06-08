@@ -156,15 +156,6 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 	return nil
 }
 
-func MapClientIDRoleARN(ctx context.Context, acctName, oidcProvider string, svc iamiface.IAMAPI, clientRoleMapping map[string][]ConfigProfile) error {
-	roles, err := listRoles(ctx, svc)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to run AWS ListRoles for this IAM Session, account: %s", acctName)
-	}
-	err = clientRoleMapFromProfile(ctx, acctName, roles, oidcProvider, clientRoleMapping)
-	return errors.Wrapf(err, "Errors from mapping clientID to roleARN for %s", acctName)
-}
-
 func GetActiveAccountList(ctx context.Context, svc organizationsiface.OrganizationsAPI) ([]*organizations.Account, error) {
 	orgInput := &organizations.ListAccountsInput{}
 
