@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
@@ -45,7 +44,7 @@ type ConfigProfile struct {
 	roleName string
 }
 
-func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
+func listRoles(ctx context.Context, svc iamiface.IAMAPI) []*iam.Role {
 	// Run the AWS list-roles command and save the output
 	input := &iam.ListRolesInput{}
 	output := []*iam.Role{}
@@ -56,17 +55,12 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 			return !lastPage
 		},
 	)
-	if aerr, ok := err.(awserr.Error); ok {
-		if aerr.Code() == "403" { // access denied error
-			logrus.Error(err)
-			return output, nil
-		}
-	}
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to get listRolesOutput")
+		logrus.Error(err)
+		return output
 	}
 
-	return output, nil
+	return output
 }
 
 type Action []string
