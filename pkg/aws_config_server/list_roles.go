@@ -45,6 +45,8 @@ type ConfigProfile struct {
 	roleName string
 }
 
+const ignoreAWSError = "AccessDenied"
+
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	// Run the AWS list-roles command and save the output
 	input := &iam.ListRolesInput{}
@@ -57,15 +59,11 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 		},
 	)
 	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok {
-			logrus.Errorf("Error:", awsErr.Code(), awsErr.Message())
-			if awsErr.Code() != "403" {
-				return output, errors.Wrap(err, "Error listing IAM roles")
-			}
+		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
+			logrus.WithError(err).Error("Unable to list roles for this account")
 			return output, nil
-		} else {
-			return output, errors.Wrap(err, "Error listing IAM roles")
 		}
+		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
 	return output, nil
 }
