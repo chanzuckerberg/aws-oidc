@@ -59,12 +59,13 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			logrus.Errorf("Error:", awsErr.Code(), awsErr.Message())
-			if awsErr.Code() == "403" {
-				logrus.Error(err)
-				return output, nil
+			if awsErr.Code() != "403" {
+				return output, errors.Wrap(err, "Error listing IAM roles")
 			}
+			return output, nil
+		} else {
+			return output, errors.Wrap(err, "Error listing IAM roles")
 		}
-		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
 	return output, nil
 }
