@@ -28,7 +28,11 @@ var configureCmd = &cobra.Command{
 	Long:  "Configure helps you configure your aws config. Depends on a config generation service running.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		survey := &aws_config_client.Survey{}
-		completer := aws_config_client.NewCompleter(survey, generateDummyData())
+		completer := aws_config_client.NewCompleter(
+			survey,
+			generateDummyData(),
+			issuerURL,
+		)
 
 		// TODO(el): should this be configurable?
 		awsConfigPath, err := homedir.Expand("~/.aws/config")
@@ -57,6 +61,7 @@ var configureCmd = &cobra.Command{
 }
 
 // For now generate dummy data, will later on use this for tests instead
+// TODO(el): get rid of this in the next pr
 func generateDummyData() map[server.ClientID][]server.ConfigProfile {
 	configProfile1 := []server.ConfigProfile{
 		{
