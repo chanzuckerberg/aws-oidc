@@ -58,7 +58,8 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
-			if aerr.Code() == iam.ErrCodeInvalidAuthenticationCodeException {
+			logrus.Errorf("Error:", awsErr.Code(), awsErr.Message())
+			if aerr.Code() == "403" {
 				logrus.Error(err)
 				return output, nil
 			}
