@@ -206,28 +206,36 @@ var alternatePolicyDocument = &AlternatePolicyDocument{
 
 var testRoles0 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN"),
+		Arn:      aws.String(BareRoleARN("roleARN").String()),
 		RoleName: aws.String("testRoles0"),
 	},
 }
 var testRoles1 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN0"),
+		Arn:      aws.String(BareRoleARN("roleARN0").String()),
 		RoleName: aws.String("testRoles1"),
 	},
 }
 var testRoles2 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN1"),
+		Arn:      aws.String(BareRoleARN("roleARN1").String()),
 		RoleName: aws.String("testRoles2"),
 	},
 }
 
 var testRoles3 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN0"),
+		Arn:      aws.String(BareRoleARN("roleARN0").String()),
 		RoleName: aws.String("testRoles3"),
 	},
+}
+
+func BareRoleARN(roleName string) *arn.ARN {
+	a := &arn.ARN{
+		Resource: roleName,
+	}
+
+	return a
 }
 
 func MustParseARN(a arn.ARN, err error) arn.ARN {
