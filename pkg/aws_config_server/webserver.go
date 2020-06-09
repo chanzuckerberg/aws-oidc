@@ -52,7 +52,7 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 		authHeader := r.Header.Get("Authorization")
 		ctx := r.Context()
 		if len(authHeader) <= 0 {
-			logrus.Error("error: No Authorization header found.")
+			logrus.Debugf("error: No Authorization header found.")
 			http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
 			return
 		}
@@ -60,7 +60,7 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 
 		idToken, err := verifier.Verify(ctx, rawIDToken)
 		if err != nil {
-			logrus.Errorf("error: Unable to verify idToken. %s", err)
+			logrus.Warnf("error: Unable to verify idToken. %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
 			return
 		}
