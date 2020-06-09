@@ -52,7 +52,7 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 		authHeader := r.Header.Get("Authorization")
 		ctx := r.Context()
 		if len(authHeader) <= 0 {
-			logrus.Warn("error: No Authorization header found.")
+			logrus.Debugf("error: No Authorization header found.")
 			http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
 			return
 		}
@@ -68,7 +68,7 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 		claims := &claims{}
 		err = idToken.Claims(claims)
 		if err != nil {
-			logrus.Warnf("error: Unable to parse email from id token. %s", err)
+			logrus.Errorf("error: Unable to parse email from id token. %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
 			return
 		}
@@ -107,21 +107,21 @@ func Index(
 
 		email := getEmailFromCtx(ctx)
 		if email == nil {
-			logrus.Warn("Unable to get email")
+			logrus.Error("Unable to get email")
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
-			logrus.Warnf("Unable to get subject ID from email: %s", *email)
+			logrus.Errorf("Unable to get subject ID from email: %s", *email)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
 		clientIDs, err := okta.GetClientIDs(ctx, oktaClient)
 		if err != nil {
-			logrus.Warnf("Unable to get list of ClientIDs for %s: %s", *email, err)
+			logrus.Errorf("Unable to get list of ClientIDs for %s: %s", *email, err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
@@ -129,7 +129,7 @@ func Index(
 		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's clientIDs: %s\n", *email, clientIDs)
 		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
 		if err != nil {
-			logrus.Warnf("error: Unable to create mapping from clientID to roleARNs: %s", err)
+			logrus.Errorf("error: Unable to create mapping from clientID to roleARNs: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
@@ -137,14 +137,14 @@ func Index(
 		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's client mapping: %s\n", *email, clientMapping)
 		awsConfigFile, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
 		if err != nil {
-			logrus.Warnf("error: unable to get AWS Config File: %s", err)
+			logrus.Errorf("error: unable to get AWS Config File: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
 		_, err = awsConfigFile.WriteTo(w)
 		if err != nil {
-			logrus.Warnf("error: Unable to write config file to http.ResponseWriter: %s", err)
+			logrus.Errorf("error: Unable to write config file to http.ResponseWriter: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
