@@ -21,16 +21,24 @@ credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --cli
 
 [profile my-second-new-profile]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=arn::::foo_id_2:foo2RoleName 2> /dev/tty'
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=arn::::test_id_1:test1RoleName 2> /dev/tty'
+
+[profile test1]
+output             = json
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=arn::::test_id_1:test2RoleName 2> /dev/tty'
 
 `
 
 	out := ini.Empty()
 	prompt := &MockPrompt{
-		// select the first role in the first account, select the first role in the second account
-		selectResponse:  []int{0, 0, 1, 0},
-		inputResponse:   []string{"", "my-second-new-profile"},
-		confirmResponse: []bool{true, false}, // just one loop iter
+
+		selectResponse: []int{
+			0, 0, // select the first role in the first account
+			1, 0, // select the first role in the second account
+			1, 1, // select the second role in the second account
+		},
+		inputResponse:   []string{"", "my-second-new-profile", ""},
+		confirmResponse: []bool{true, true, false},
 	}
 
 	c := NewCompleter(prompt, generateDummyData(), "issuer-url")
@@ -81,9 +89,9 @@ func generateDummyData() map[server.ClientID][]server.ConfigProfile {
 			},
 		},
 		{
-			AcctName: "test2",
+			AcctName: "test1",
 			RoleARN: arn.ARN{
-				AccountID: "test_id_2",
+				AccountID: "test_id_1",
 				Resource:  "test2RoleName",
 			},
 		},
@@ -97,9 +105,9 @@ func generateDummyData() map[server.ClientID][]server.ConfigProfile {
 			},
 		},
 		{
-			AcctName: "foo2",
+			AcctName: "Account Name With Spaces",
 			RoleARN: arn.ARN{
-				AccountID: "foo_id_2",
+				AccountID: "foo_id_1",
 				Resource:  "foo2RoleName",
 			},
 		},
