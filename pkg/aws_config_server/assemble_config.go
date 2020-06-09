@@ -59,8 +59,9 @@ func (a *ClientIDToAWSRoles) mapRoles(ctx context.Context, oidcProvider string) 
 		iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 		workerRoles, err := listRoles(ctx, iamClient)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to run AWS ListRoles for this IAM Session, account: %s", accountName)
+			return errors.Wrapf(err, "%s error", accountName)
 		}
+
 		logrus.Debugf("function: aws_config_server/assemble_config.go/mapRoles(), workerRoles: %v", workerRoles)
 		err = clientRoleMapFromProfile(ctx, accountName, workerRoles, oidcProvider, a.clientRoleMapping)
 		if err != nil {
