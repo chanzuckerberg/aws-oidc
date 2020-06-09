@@ -3,6 +3,8 @@ package aws_config_client
 import (
 	"fmt"
 	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
@@ -17,6 +19,7 @@ type awsAccount struct {
 
 type completer struct {
 	awsAccounts map[awsAccount]map[server.ConfigProfile]server.ClientID
+	issuerURL   string
 
 	prompt Prompt
 }
@@ -24,6 +27,7 @@ type completer struct {
 func NewCompleter(
 	prompt Prompt,
 	clientMapping map[server.ClientID][]server.ConfigProfile,
+	issuerURL string,
 ) *completer {
 
 	awsAccounts := map[awsAccount]map[server.ConfigProfile]server.ClientID{}
@@ -47,6 +51,7 @@ func NewCompleter(
 
 	return &completer{
 		awsAccounts: awsAccounts,
+		issuerURL:   issuerURL,
 		prompt:      prompt,
 	}
 }
@@ -57,6 +62,11 @@ func (c *completer) getAccounts() []awsAccount {
 	for account := range c.awsAccounts {
 		accounts = append(accounts, account)
 	}
+
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return accounts[i].name < accounts[j].name
+	})
+
 	return accounts
 }
 
@@ -75,6 +85,10 @@ func (c *completer) getRolesForAccount(account awsAccount) []server.ConfigProfil
 	for role := range roleToClientIDs {
 		roles = append(roles, role)
 	}
+
+	sort.SliceStable(roles, func(i, j int) bool {
+		return roles[i].RoleARN.String() < roles[j].RoleARN.String()
+	})
 
 	return roles
 }
@@ -97,14 +111,15 @@ func (c *completer) awsProfileNameValidator(input interface{}) error {
 	valid := regexp.MustCompile("^[a-zA-Z0-9_-]+$")
 	ok = valid.MatchString(inputString)
 	if !ok {
-		return errors.Errorf("Input %s not a valid AWS profile name", inputString)
+		return errors.Errorf("Input (%s) not a valid AWS profile name", inputString)
 	}
 	return nil
 }
 
 func (c *completer) calculateDefaultProfileName(account awsAccount) string {
 	invalid := regexp.MustCompile("[^a-zA-Z0-9_-]")
-	return invalid.ReplaceAllString(account.name, "-")
+	replaced := invalid.ReplaceAllString(account.name, "-")
+	return strings.ToLower(replaced)
 }
 
 func (c *completer) getClientID(account awsAccount, role server.ConfigProfile) server.ClientID {
@@ -164,7 +179,7 @@ func (c *completer) writeAWSProfile(out *ini.File, profile *AWSConfigProfile) er
 
 	credsProcessValue := fmt.Sprintf(
 		"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
-		"TODO",
+		c.issuerURL,
 		profile.ClientID,
 		profile.RoleARN,
 	)
