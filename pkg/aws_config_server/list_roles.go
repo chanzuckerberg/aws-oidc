@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
@@ -40,9 +41,8 @@ type Principal struct {
 }
 
 type ConfigProfile struct {
-	acctName string
-	roleARN  string
-	roleName string
+	AcctName string
+	RoleARN  arn.ARN
 }
 
 const ignoreAWSError = "AccessDenied"
@@ -138,10 +138,14 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 				continue
 			}
 
+			roleARN, err := arn.Parse(*role.Arn)
+			if err != nil {
+				return errors.Wrapf(err, "could not parse arn %s", *role.Arn)
+			}
+
 			currentConfig := ConfigProfile{
-				acctName: acctName,
-				roleARN:  *role.Arn,
-				roleName: *role.RoleName,
+				AcctName: acctName,
+				RoleARN:  roleARN,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {

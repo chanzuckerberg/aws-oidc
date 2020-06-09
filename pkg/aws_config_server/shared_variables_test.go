@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/iam"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/okta/okta-sdk-golang/v2/okta"
@@ -205,51 +206,66 @@ var alternatePolicyDocument = &AlternatePolicyDocument{
 
 var testRoles0 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN"),
+		Arn:      aws.String(BareRoleARN("roleARN").String()),
 		RoleName: aws.String("testRoles0"),
 	},
 }
 var testRoles1 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN0"),
+		Arn:      aws.String(BareRoleARN("roleARN0").String()),
 		RoleName: aws.String("testRoles1"),
 	},
 }
 var testRoles2 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN1"),
+		Arn:      aws.String(BareRoleARN("roleARN1").String()),
 		RoleName: aws.String("testRoles2"),
 	},
 }
 
 var testRoles3 = []*iam.Role{
 	{
-		Arn:      aws.String("roleARN0"),
+		Arn:      aws.String(BareRoleARN("roleARN0").String()),
 		RoleName: aws.String("testRoles3"),
 	},
+}
+
+func BareRoleARN(roleName string) *arn.ARN {
+	a := &arn.ARN{
+		Resource: roleName,
+	}
+
+	return a
+}
+
+func MustParseARN(a arn.ARN, err error) arn.ARN {
+	if err != nil {
+		panic(err)
+	}
+	return a
 }
 
 var testConfigMapping = map[string][]ConfigProfile{
 	"clientID1": {
 		{
-			acctName: "Account1",
-			roleARN:  "arn:aws:iam::AccountNumber1:role/WorkerRole",
+			AcctName: "Account1",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::AccountNumber1:role/WorkerRole")),
 		},
 		{
-			acctName: "Account2",
-			roleARN:  "arn:aws:iam::AccountNumber2:role/WorkerRole",
+			AcctName: "Account2",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::AccountNumber2:role/WorkerRole")),
 		},
 	},
 	"clientID2": {
 		{
-			acctName: "Account3",
-			roleARN:  "arn:aws:iam::AccountNumber3:role/WorkerRole",
+			AcctName: "Account3",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::AccountNumber3:role/WorkerRole")),
 		},
 	},
 	"clientID3": {
 		{
-			acctName: "account with space",
-			roleARN:  "arn:aws:iam::account-with-space:role/WorkerRole",
+			AcctName: "account with space",
+			RoleARN:  MustParseARN(arn.Parse("arn:aws:iam::account-with-space:role/WorkerRole")),
 		},
 	},
 }
