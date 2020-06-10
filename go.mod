@@ -4,10 +4,10 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
-	github.com/aws/aws-sdk-go v1.31.13
+	github.com/aws/aws-sdk-go v1.31.14
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
-	github.com/chanzuckerberg/go-misc v0.0.0-20200529180313-a208b9344c4b
+	github.com/chanzuckerberg/go-misc v0.0.0-20200610170753-2f14caa9b75f
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/danieljoos/wincred v1.1.0 // indirect
 	github.com/evalphobia/logrus_sentry v0.8.2
@@ -28,7 +28,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9 // indirect
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
-	golang.org/x/sys v0.0.0-20200602225109-6fdc65e7d980 // indirect
+	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
 	google.golang.org/protobuf v1.24.0 // indirect
 	gopkg.in/ini.v1 v1.57.0
 )
