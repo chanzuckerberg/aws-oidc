@@ -10,6 +10,8 @@ import (
 	oidc "github.com/coreos/go-oidc"
 	"github.com/okta/okta-sdk-golang/v2/okta"
 	"github.com/okta/okta-sdk-golang/v2/okta/query"
+
+	cziOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
 const oidcProvider = "https://localhost"
@@ -245,7 +247,7 @@ func MustParseARN(a arn.ARN, err error) arn.ARN {
 	return a
 }
 
-var testConfigMapping = map[string][]ConfigProfile{
+var testConfigMapping = map[cziOkta.ClientID][]ConfigProfile{
 	"clientID1": {
 		{
 			AcctName: "Account1",

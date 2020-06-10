@@ -8,6 +8,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/pkg/errors"
 	"gopkg.in/ini.v1"
 )
@@ -18,7 +19,7 @@ type awsAccount struct {
 }
 
 type completer struct {
-	awsAccounts map[awsAccount]map[server.ConfigProfile]server.ClientID
+	awsAccounts map[awsAccount]map[server.ConfigProfile]okta.ClientID
 	issuerURL   string
 
 	prompt Prompt
@@ -26,11 +27,11 @@ type completer struct {
 
 func NewCompleter(
 	prompt Prompt,
-	clientMapping map[server.ClientID][]server.ConfigProfile,
+	clientMapping map[okta.ClientID][]server.ConfigProfile,
 	issuerURL string,
 ) *completer {
 
-	awsAccounts := map[awsAccount]map[server.ConfigProfile]server.ClientID{}
+	awsAccounts := map[awsAccount]map[server.ConfigProfile]okta.ClientID{}
 
 	// Invert the map to help generate configs
 	for clientID, configProfiles := range clientMapping {
@@ -42,7 +43,7 @@ func NewCompleter(
 
 			awsRoles, ok := awsAccounts[awsAccount]
 			if !ok {
-				awsRoles = map[server.ConfigProfile]server.ClientID{}
+				awsRoles = map[server.ConfigProfile]okta.ClientID{}
 			}
 			awsRoles[configProfile] = clientID
 			awsAccounts[awsAccount] = awsRoles
@@ -122,7 +123,7 @@ func (c *completer) calculateDefaultProfileName(account awsAccount) string {
 	return strings.ToLower(replaced)
 }
 
-func (c *completer) getClientID(account awsAccount, role server.ConfigProfile) server.ClientID {
+func (c *completer) getClientID(account awsAccount, role server.ConfigProfile) okta.ClientID {
 	return c.awsAccounts[account][role]
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -91,7 +92,12 @@ func (s *Action) UnmarshalJSON(data []byte) error {
 	return errors.Wrap(err, "Unable to unmarshal Action")
 }
 
-func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam.Role, oidcProvider string, clientRoleMapping map[string][]ConfigProfile) error {
+func clientRoleMapFromProfile(
+	ctx context.Context,
+	acctName string,
+	roles []*iam.Role,
+	oidcProvider string,
+	clientRoleMapping map[okta.ClientID][]ConfigProfile) error {
 	identityProviderURL, err := url.Parse(oidcProvider)
 	if err != nil {
 		return errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
@@ -121,10 +127,12 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 			}
 
 			clientKey := fmt.Sprintf("%s:aud", oidcProviderHostname)
-			clientID, ok := statement.Condition.StringEquals[clientKey]
-			if !ok || (clientID == "") {
+			clientIDStr, ok := statement.Condition.StringEquals[clientKey]
+			if !ok || (clientIDStr == "") {
 				continue
 			}
+
+			clientID := okta.ClientID(clientIDStr)
 
 			// Searching through the Actions list
 			isWebIdentityAction := false
@@ -159,7 +167,10 @@ func clientRoleMapFromProfile(ctx context.Context, acctName string, roles []*iam
 	return nil
 }
 
-func GetActiveAccountList(ctx context.Context, svc organizationsiface.OrganizationsAPI) ([]*organizations.Account, error) {
+func GetActiveAccountList(
+	ctx context.Context,
+	svc organizationsiface.OrganizationsAPI,
+) ([]*organizations.Account, error) {
 	orgInput := &organizations.ListAccountsInput{}
 
 	orgAccounts := []*organizations.Account{}

@@ -53,7 +53,7 @@ func TestGetClientIDs(t *testing.T) {
 	}
 	clientIDs, err := getClientIDsfromApplications(ctx, appInterfaces)
 	r.NoError(err)
-	r.Equal(clientIDs, []string{"id1", "id2"})
+	r.Equal(clientIDs, []ClientID{"id1", "id2"})
 }
 
 // We're making an effort to exclude apps without a clientID
@@ -121,5 +121,5 @@ func TestPaginateWithNext(t *testing.T) {
 	)
 	clientIDs, err := GetClientIDs(ctx, oktaApps)
 	r.NoError(err)
-	r.Equal(clientIDs, []string{"id1", "id2", "id3"})
+	r.Equal(clientIDs, []ClientID{"id1", "id2", "id3"})
 }

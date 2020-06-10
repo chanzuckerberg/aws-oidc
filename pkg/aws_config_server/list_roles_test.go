@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/organizations"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -58,13 +59,13 @@ func TestClientRoleMapFromProfile(t *testing.T) {
 
 	testRoles1[0].AssumeRolePolicyDocument = &newPolicyStr
 
-	clientRoleMap := make(map[string][]ConfigProfile)
+	clientRoleMap := map[okta.ClientID][]ConfigProfile{}
 	err = clientRoleMapFromProfile(ctx, "accountName", testRoles1, oidcProvider, clientRoleMap)
-	r.NoError(err)                                  // Nothing weird happened
-	r.NotEmpty(clientRoleMap)                       // There are valid clientIDs
-	r.Contains(clientRoleMap, "clientIDValue1")     // Only the valid ID is present
-	r.Len(clientRoleMap, 1)                         // No more got added
-	r.NotContains(clientRoleMap, "invalidClientID") // none of the invalid policies (where clientID = invalidClientID) got added
+	r.NoError(err)                                                 // Nothing weird happened
+	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
+	r.Contains(clientRoleMap, okta.ClientID("clientIDValue1"))     // Only the valid ID is present
+	r.Len(clientRoleMap, 1)                                        // No more got added
+	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
 
 	// See if we can:
 	// * append another ARN to the clientRoleMap variable
@@ -79,16 +80,16 @@ func TestClientRoleMapFromProfile(t *testing.T) {
 	err = clientRoleMapFromProfile(ctx, "accountName2", testRoles2, oidcProvider, clientRoleMap)
 
 	r.NoError(err)
-	r.Len(clientRoleMap["clientIDValue1"], 2) // original ClientID has another entry
-	r.Len(clientRoleMap, 2)                   // new changes reflected in the updated map
-	r.Len(clientRoleMap["clientIDValue2"], 1) // new clientID from the new roles got added
+	r.Len(clientRoleMap[okta.ClientID("clientIDValue1")], 2) // original ClientID has another entry
+	r.Len(clientRoleMap, 2)                                  // new changes reflected in the updated map
+	r.Len(clientRoleMap[okta.ClientID("clientIDValue2")], 1) // new clientID from the new roles got added
 }
 
 func TestNoPolicyDocument(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
 
-	clientRoleMap := make(map[string][]ConfigProfile)
+	clientRoleMap := map[okta.ClientID][]ConfigProfile{}
 	err := clientRoleMapFromProfile(ctx, "accountName", testRoles0, oidcProvider, clientRoleMap)
 	r.NoError(err)
 	r.Empty(clientRoleMap)
