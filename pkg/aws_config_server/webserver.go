@@ -2,6 +2,7 @@ package aws_config_server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -135,16 +136,17 @@ func Index(
 		}
 
 		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's client mapping: %s\n", *email, clientMapping)
-		awsConfigFile, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
+		awsConfig, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
 		if err != nil {
 			logrus.Errorf("error: unable to get AWS Config File: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
-		_, err = awsConfigFile.WriteTo(w)
+		encoder := json.NewEncoder(w)
+		err = encoder.Encode(awsConfig)
 		if err != nil {
-			logrus.Errorf("error: Unable to write config file to http.ResponseWriter: %s", err)
+			logrus.Errorf("error: Unable to write config to http.ResponseWriter: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}

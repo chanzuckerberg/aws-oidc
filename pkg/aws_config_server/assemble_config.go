@@ -3,20 +3,19 @@ package aws_config_server
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/ini.v1"
 )
 
 type ClientIDToAWSRoles struct {
-	clientRoleMapping map[string][]ConfigProfile
+	clientRoleMapping map[okta.ClientID][]ConfigProfile
 	roleARNs          map[string]arn.ARN
 
 	awsSession *session.Session
@@ -50,7 +49,10 @@ func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string,
 	return nil
 }
 
-func (a *ClientIDToAWSRoles) mapRoles(ctx context.Context, oidcProvider string) error {
+func (a *ClientIDToAWSRoles) mapRoles(
+	ctx context.Context,
+	oidcProvider string,
+) error {
 	for accountName, roleARN := range a.roleARNs {
 		workerAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, roleARN.String()),
@@ -71,35 +73,29 @@ func (a *ClientIDToAWSRoles) mapRoles(ctx context.Context, oidcProvider string) 
 	return nil
 }
 
+// we send back a json representation of our config that can be consumed by the client
+// using the configure command
 func createAWSConfig(
 	ctx context.Context,
 	configParams *AWSConfigGenerationParams,
-	clientMapping map[string][]ConfigProfile,
-	userClientIDs []string) (*ini.File, error) {
-	configFile := ini.Empty()
+	clientMapping map[okta.ClientID][]ConfigProfile,
+	userClientIDs []okta.ClientID) (*AWSConfig, error) {
+
+	awsConfig := &AWSConfig{
+		Profiles: []AWSProfile{},
+	}
 
 	for _, clientID := range userClientIDs {
 		configList := clientMapping[clientID]
 		for _, config := range configList {
-
-			profileNoSpace := strings.ReplaceAll(config.AcctName, " ", "-")
-			profileNoSpaceLowercase := strings.ToLower(profileNoSpace)
-
-			profileSection := fmt.Sprintf("profile %s", profileNoSpaceLowercase)
-			credsProcessValue := fmt.Sprintf(
-				"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
-				configParams.OIDCProvider,
-				clientID,
-				config.RoleARN,
-			)
-
-			section, err := configFile.NewSection(profileSection)
-			if err != nil {
-				return nil, errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
+			profile := AWSProfile{
+				ClientID:       clientID,
+				RoleARN:        config.RoleARN.String(),
+				AWSAccountName: config.AcctName,
+				IssuerURL:      configParams.OIDCProvider,
 			}
-			section.Key("output").SetValue("json")
-			section.Key("credential_process").SetValue(credsProcessValue)
+			awsConfig.Profiles = append(awsConfig.Profiles, profile)
 		}
 	}
-	return configFile, nil
+	return awsConfig, nil
 }

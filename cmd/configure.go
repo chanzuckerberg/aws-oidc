@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -62,7 +63,7 @@ var configureCmd = &cobra.Command{
 
 // For now generate dummy data, will later on use this for tests instead
 // TODO(el): get rid of this in the next pr
-func generateDummyData() map[server.ClientID][]server.ConfigProfile {
+func generateDummyData() map[okta.ClientID][]server.ConfigProfile {
 	configProfile1 := []server.ConfigProfile{
 		{
 			AcctName: "test1",
@@ -96,7 +97,7 @@ func generateDummyData() map[server.ClientID][]server.ConfigProfile {
 		},
 	}
 
-	data := map[server.ClientID][]server.ConfigProfile{}
+	data := map[okta.ClientID][]server.ConfigProfile{}
 	data["test_client_id"] = configProfile1
 	data["foo_client_id"] = configProfile2
 	return data

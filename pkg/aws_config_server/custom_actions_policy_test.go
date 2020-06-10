@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -42,13 +43,13 @@ func TestMultipleActions(t *testing.T) {
 	r.NoError(err)
 	r.Len(iamOutput, 1)
 
-	clientRoleMap := make(map[string][]ConfigProfile)
+	clientRoleMap := make(map[okta.ClientID][]ConfigProfile)
 	err = clientRoleMapFromProfile(ctx, "accountName", testRoles3, oidcProvider, clientRoleMap)
-	r.NoError(err)                                  // Nothing weird happened
-	r.NotEmpty(clientRoleMap)                       // There are valid clientIDs
-	r.Contains(clientRoleMap, "clientIDValue3")     // Only the valid ID is present
-	r.Len(clientRoleMap, 1)                         // No more got added
-	r.NotContains(clientRoleMap, "invalidClientID") // none of the invalid policies (where clientID = invalidClientID) got added
+	r.NoError(err)                                                 // Nothing weird happened
+	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
+	r.Contains(clientRoleMap, okta.ClientID("clientIDValue3"))     // Only the valid ID is present
+	r.Len(clientRoleMap, 1)                                        // No more got added
+	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
 }
 
 func TestSingleStringAction(t *testing.T) {

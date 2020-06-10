@@ -10,6 +10,7 @@ require (
 	github.com/chanzuckerberg/go-misc v0.0.0-20200610170753-2f14caa9b75f
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/danieljoos/wincred v1.1.0 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/golang/mock v1.4.3

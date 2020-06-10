@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -15,7 +16,7 @@ import (
 type CachedGetClientIDToProfiles struct {
 	mu sync.RWMutex
 
-	clientIDToProfiles map[string][]ConfigProfile
+	clientIDToProfiles map[okta.ClientID][]ConfigProfile
 }
 
 func NewCachedGetClientIDToProfiles(
@@ -47,7 +48,7 @@ func NewCachedGetClientIDToProfiles(
 }
 
 // Get returns the cached values
-func (c *CachedGetClientIDToProfiles) Get(ctx context.Context) (map[string][]ConfigProfile, error) {
+func (c *CachedGetClientIDToProfiles) Get(ctx context.Context) (map[okta.ClientID][]ConfigProfile, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -65,7 +66,7 @@ func (c *CachedGetClientIDToProfiles) refresh(
 ) error {
 	configData := &ClientIDToAWSRoles{
 		awsSession:        awsSession,
-		clientRoleMapping: map[string][]ConfigProfile{},
+		clientRoleMapping: map[okta.ClientID][]ConfigProfile{},
 		roleARNs:          map[string]arn.ARN{},
 		awsClient:         cziAWS.New(awsSession),
 	}

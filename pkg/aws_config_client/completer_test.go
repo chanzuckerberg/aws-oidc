@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/arn"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
 )
@@ -79,7 +80,7 @@ func TestAWSProfileNameValidator(t *testing.T) {
 }
 
 // For now generate dummy data, will later on use this for tests instead
-func generateDummyData() map[server.ClientID][]server.ConfigProfile {
+func generateDummyData() map[okta.ClientID][]server.ConfigProfile {
 	configProfile1 := []server.ConfigProfile{
 		{
 			AcctName: "test1",
@@ -113,7 +114,7 @@ func generateDummyData() map[server.ClientID][]server.ConfigProfile {
 		},
 	}
 
-	data := map[server.ClientID][]server.ConfigProfile{}
+	data := map[okta.ClientID][]server.ConfigProfile{}
 	data["bar_client_id"] = configProfile1
 	data["foo_client_id"] = configProfile2
 	return data

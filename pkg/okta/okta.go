@@ -31,7 +31,7 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 	return client, errors.Wrap(err, "error creating Okta client")
 }
 
-func GetClientIDs(ctx context.Context, oktaClient AppResource) ([]string, error) {
+func GetClientIDs(ctx context.Context, oktaClient AppResource) ([]ClientID, error) {
 	apps, err := paginateListApplications(ctx, oktaClient)
 	if err != nil {
 		return nil, err
@@ -70,8 +70,10 @@ func paginateListApplications(ctx context.Context, client AppResource) ([]okta.A
 	}
 }
 
-func getClientIDsfromApplications(ctx context.Context, appInterfaces []okta.App) ([]string, error) {
-	clientIDs := []string{}
+func getClientIDsfromApplications(
+	ctx context.Context,
+	appInterfaces []okta.App) ([]ClientID, error) {
+	clientIDs := []ClientID{}
 	for _, appInterface := range appInterfaces {
 		// HACK(el): applications returned as interface which is useless...
 		// 		type assertion back to concrete okta.Application
@@ -80,7 +82,7 @@ func getClientIDsfromApplications(ctx context.Context, appInterfaces []okta.App)
 			return nil, errors.New("appInterface not an Application")
 		}
 		if app.Id != "" {
-			clientIDs = append(clientIDs, app.Id)
+			clientIDs = append(clientIDs, ClientID(app.Id))
 		}
 	}
 	return clientIDs, nil
