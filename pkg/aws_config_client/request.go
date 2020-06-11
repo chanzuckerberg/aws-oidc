@@ -33,6 +33,10 @@ func RequestConfig(
 	if err != nil {
 		return nil, errors.Wrapf(err, "error requesting from %s", configServiceURI)
 	}
+	if rsp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("non %d http status code received: %d", http.StatusOK, rsp.StatusCode)
+
+	}
 	defer rsp.Body.Close()
 
 	body := bytes.NewBuffer(nil)
