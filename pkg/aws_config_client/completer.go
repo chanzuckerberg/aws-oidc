@@ -131,6 +131,8 @@ func (c *completer) writeAWSProfile(out *ini.File, region string, profile *AWSNa
 		profile.AWSProfile.RoleARN,
 	)
 
+	// First delete sections with this name so old configuration doesn't persist
+	out.DeleteSection(profileSection)
 	section, err := out.NewSection(profileSection)
 	if err != nil {
 		return errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
