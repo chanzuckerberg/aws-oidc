@@ -73,9 +73,7 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 		}
 
 		nextLinkMapping := nextLinkURL.Query()
-		qp = query.Params{
-			After: nextLinkMapping.Get("after"),
-		}
+		qp.After = nextLinkMapping.Get("after")
 	}
 }
 
