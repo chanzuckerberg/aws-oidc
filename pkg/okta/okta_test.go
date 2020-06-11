@@ -77,7 +77,7 @@ func TestPaginateListApplications(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
 
-	appInterfaces, err := paginateListApplications(ctx, &oktaApplicationsWithNilResponse{})
+	appInterfaces, err := paginateListApplications(ctx, "okta user id", &oktaApplicationsWithNilResponse{})
 	r.NoError(err)
 	r.Len(appInterfaces, 2)
 }
@@ -119,7 +119,7 @@ func TestPaginateWithNext(t *testing.T) {
 			},
 		},
 	)
-	clientIDs, err := GetClientIDs(ctx, oktaApps)
+	clientIDs, err := GetClientIDs(ctx, "oktaUserID", oktaApps)
 	r.NoError(err)
 	r.Equal(clientIDs, []ClientID{"id1", "id2", "id3"})
 }
