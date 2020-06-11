@@ -120,7 +120,7 @@ func Index(
 			return
 		}
 
-		clientIDs, err := okta.GetClientIDs(ctx, oktaClient)
+		clientIDs, err := okta.GetClientIDs(ctx, *email, oktaClient)
 		if err != nil {
 			logrus.Errorf("Unable to get list of ClientIDs for %s: %s", *email, err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)

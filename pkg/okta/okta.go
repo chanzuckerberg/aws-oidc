@@ -2,6 +2,7 @@ package okta
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"github.com/okta/okta-sdk-golang/v2/okta"
@@ -31,8 +32,8 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 	return client, errors.Wrap(err, "error creating Okta client")
 }
 
-func GetClientIDs(ctx context.Context, oktaClient AppResource) ([]ClientID, error) {
-	apps, err := paginateListApplications(ctx, oktaClient)
+func GetClientIDs(ctx context.Context, userEmail string, oktaClient AppResource) ([]ClientID, error) {
+	apps, err := paginateListApplications(ctx, userEmail, oktaClient)
 	if err != nil {
 		return nil, err
 	}
@@ -40,12 +41,18 @@ func GetClientIDs(ctx context.Context, oktaClient AppResource) ([]ClientID, erro
 }
 
 type AppResource interface {
-	ListApplications(context.Context, *query.Params) ([]okta.App, *okta.Response, error)
+	ListApplications(
+		ctx context.Context,
+		qp *query.Params,
+	) ([]okta.App, *okta.Response, error)
 }
 
-func paginateListApplications(ctx context.Context, client AppResource) ([]okta.App, error) {
-	var qp query.Params
+func paginateListApplications(ctx context.Context, userEmail string, client AppResource) ([]okta.App, error) {
 	var apps []okta.App
+
+	qp := query.Params{
+		Filter: fmt.Sprintf("user.email+eq+\"%s\"", userEmail),
+	}
 
 	for {
 		currentApps, resp, err := client.ListApplications(ctx, &qp)
