@@ -26,6 +26,8 @@ github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894/go.mod h1:sGbDF6
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/chanzuckerberg/go-misc v0.0.0-20200610170753-2f14caa9b75f h1:DTefNjV/g0YRZlt+Hx2T+4BZxgYWyKkTkP0WZ0JxWKM=
 github.com/chanzuckerberg/go-misc v0.0.0-20200610170753-2f14caa9b75f/go.mod h1:gGIGjX+RnHrb8QB4Zwn9E8XWnkGS5kkdzdKtpdhoEIo=
+github.com/chanzuckerberg/go-misc v0.0.0-20200611000103-3caf6f173497 h1:Ga6JKBntAzkhTWClKHTa5wbeLJFWlFVUiLifXjYbZ2E=
+github.com/chanzuckerberg/go-misc v0.0.0-20200611000103-3caf6f173497/go.mod h1:gGIGjX+RnHrb8QB4Zwn9E8XWnkGS5kkdzdKtpdhoEIo=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=

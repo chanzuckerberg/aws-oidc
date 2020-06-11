@@ -3,10 +3,7 @@ package cmd
 import (
 	"os"
 
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
-	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -31,7 +28,7 @@ var configureCmd = &cobra.Command{
 		survey := &aws_config_client.Survey{}
 		completer := aws_config_client.NewCompleter(
 			survey,
-			generateDummyData(),
+			nil, // todo
 		)
 
 		// TODO(el): should this be configurable?
@@ -58,46 +55,4 @@ var configureCmd = &cobra.Command{
 		_, err = iniOut.WriteTo(awsConfigFile)
 		return errors.Wrap(err, "Could not write new aws config")
 	},
-}
-
-// For now generate dummy data, will later on use this for tests instead
-// TODO(el): get rid of this in the next pr
-func generateDummyData() map[okta.ClientID][]server.ConfigProfile {
-	configProfile1 := []server.ConfigProfile{
-		{
-			AcctName: "test1",
-			RoleARN: arn.ARN{
-				AccountID: "test_id_1",
-				Resource:  "test1RoleName",
-			},
-		},
-		{
-			AcctName: "test2",
-			RoleARN: arn.ARN{
-				AccountID: "test_id_2",
-				Resource:  "test2RoleName",
-			},
-		},
-	}
-	configProfile2 := []server.ConfigProfile{
-		{
-			AcctName: "foo1",
-			RoleARN: arn.ARN{
-				AccountID: "foo_id_1",
-				Resource:  "foo1RoleName",
-			},
-		},
-		{
-			AcctName: "foo2",
-			RoleARN: arn.ARN{
-				AccountID: "foo_id_2",
-				Resource:  "foo2RoleName",
-			},
-		},
-	}
-
-	data := map[okta.ClientID][]server.ConfigProfile{}
-	data["test_client_id"] = configProfile1
-	data["foo_client_id"] = configProfile2
-	return data
 }

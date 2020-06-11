@@ -117,7 +117,7 @@ func clientRoleMapFromProfile(
 		policyDoc := PolicyDocument{}
 		err = json.Unmarshal([]byte(policyStr), &policyDoc)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to unmarshal policy document to struct \npolicy: %s", policyStr)
+			return errors.Wrapf(err, "Unable to unmarshal policy document to struct policy: %s", policyStr)
 		}
 
 		for _, statement := range policyDoc.Statements {
@@ -160,7 +160,7 @@ func clientRoleMapFromProfile(
 				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
 				continue
 			}
-			logrus.Debug("function: aws_config_server/list_roles.go/clientRoleMapFromProfile()\n About to append currentConfig to clientRoleMapping")
+			logrus.Debug("function: aws_config_server/list_roles.go/clientRoleMapFromProfile(). About to append currentConfig to clientRoleMapping")
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
 	}

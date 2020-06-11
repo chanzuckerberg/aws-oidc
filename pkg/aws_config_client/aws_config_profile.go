@@ -1,10 +1,8 @@
 package aws_config_client
 
-import "github.com/chanzuckerberg/aws-oidc/pkg/okta"
+import server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 
-type AWSConfigProfile struct {
-	Name    string
-	RoleARN string
-
-	ClientID okta.ClientID
+type AWSNamedProfile struct {
+	Name       string
+	AWSProfile server.AWSProfile
 }

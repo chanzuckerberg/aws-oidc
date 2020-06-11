@@ -1,6 +1,8 @@
 package aws_config_server
 
 import (
+	"sort"
+
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
@@ -10,7 +12,7 @@ type AWSConfig struct {
 
 func (a *AWSConfig) HasAccount(acctName string) bool {
 	for _, profile := range a.Profiles {
-		if profile.AWSAccountName == acctName {
+		if profile.AWSAccount.Name == acctName {
 			return true
 		}
 	}
@@ -18,7 +20,36 @@ func (a *AWSConfig) HasAccount(acctName string) bool {
 }
 
 func (a *AWSConfig) GetAccounts() []AWSAccount {
-	sets.StringSet{}
+	set := map[AWSAccount]struct{}{}
+	for _, profile := range a.Profiles {
+		set[profile.AWSAccount] = struct{}{}
+	}
+
+	accounts := []AWSAccount{}
+	for account := range set {
+		accounts = append(accounts, account)
+	}
+
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return accounts[i].Name < accounts[j].Name
+	})
+	return accounts
+}
+
+func (a *AWSConfig) GetProfilesForAccount(account AWSAccount) []AWSProfile {
+	profiles := []AWSProfile{}
+
+	for _, profile := range a.Profiles {
+		if profile.AWSAccount == account {
+			profiles = append(profiles, profile)
+		}
+	}
+
+	sort.SliceStable(profiles, func(i, j int) bool {
+		return profiles[i].RoleARN < profiles[j].RoleARN
+	})
+
+	return profiles
 }
 
 type AWSProfile struct {
