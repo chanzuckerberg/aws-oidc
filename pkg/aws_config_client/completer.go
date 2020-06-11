@@ -11,6 +11,8 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+const DefaultAWSRegion = "us-west-2"
+
 type completer struct {
 	awsConfig *server.AWSConfig
 	prompt    Prompt
@@ -66,6 +68,13 @@ func (c *completer) calculateDefaultProfileName(account server.AWSAccount) strin
 	return strings.ToLower(replaced)
 }
 
+func (c *completer) SurveyRegion() (string, error) {
+	return c.prompt.Input(
+		"Please input your default AWS region:",
+		DefaultAWSRegion,
+	)
+}
+
 // SurveyProfile will ask a user to configure an aws profile
 func (c *completer) SurveyProfile() (*AWSNamedProfile, error) {
 	// first prompt for account
@@ -112,7 +121,7 @@ func (c *completer) Continue() (bool, error) {
 	return c.prompt.Confirm("Would you like to configure another profile?", true)
 }
 
-func (c *completer) writeAWSProfile(out *ini.File, profile *AWSNamedProfile) error {
+func (c *completer) writeAWSProfile(out *ini.File, region string, profile *AWSNamedProfile) error {
 	profileSection := fmt.Sprintf("profile %s", profile.Name)
 
 	credsProcessValue := fmt.Sprintf(
@@ -128,17 +137,24 @@ func (c *completer) writeAWSProfile(out *ini.File, profile *AWSNamedProfile) err
 	}
 	section.Key("output").SetValue("json")
 	section.Key("credential_process").SetValue(credsProcessValue)
+	section.Key("region").SetValue(region)
 	return nil
 }
 
 func (c *completer) Loop(out *ini.File) error {
+	// assume same region for all accounts configured in this run?
+	region, err := c.SurveyRegion()
+	if err != nil {
+		return err
+	}
+
 	for {
 		profile, err := c.SurveyProfile()
 		if err != nil {
 			return err
 		}
 
-		err = c.writeAWSProfile(out, profile)
+		err = c.writeAWSProfile(out, region, profile)
 		if err != nil {
 			return err
 		}

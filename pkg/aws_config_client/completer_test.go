@@ -17,14 +17,17 @@ func TestLoop(t *testing.T) {
 	expected := `[profile account-name-with-spaces]
 output             = json
 credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+region             = us-west-2
 
 [profile my-second-new-profile]
 output             = json
 credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+region             = us-west-2
 
 [profile test1]
 output             = json
 credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName 2> /dev/tty'
+region             = us-west-2
 
 `
 
@@ -36,7 +39,10 @@ credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --cli
 			1, 0, // select the first role in the second account
 			1, 1, // select the second role in the second account
 		},
-		inputResponse:   []string{"", "my-second-new-profile", ""},
+		inputResponse: []string{
+			"",                              // aws region
+			"", "my-second-new-profile", "", // aws profile names
+		},
 		confirmResponse: []bool{true, true, false},
 	}
 
