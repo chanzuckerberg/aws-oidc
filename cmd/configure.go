@@ -32,7 +32,6 @@ var configureCmd = &cobra.Command{
 		completer := aws_config_client.NewCompleter(
 			survey,
 			generateDummyData(),
-			issuerURL,
 		)
 
 		// TODO(el): should this be configurable?

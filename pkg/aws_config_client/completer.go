@@ -13,47 +13,19 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-type awsAccount struct {
-	id   string
-	name string
-}
-
 type completer struct {
-	awsAccounts map[awsAccount]map[server.ConfigProfile]okta.ClientID
-	issuerURL   string
-
-	prompt Prompt
+	awsConfig *server.AWSConfig
+	prompt    Prompt
 }
 
 func NewCompleter(
 	prompt Prompt,
-	clientMapping map[okta.ClientID][]server.ConfigProfile,
-	issuerURL string,
+	awsConfig *server.AWSConfig,
 ) *completer {
 
-	awsAccounts := map[awsAccount]map[server.ConfigProfile]okta.ClientID{}
-
-	// Invert the map to help generate configs
-	for clientID, configProfiles := range clientMapping {
-		for _, configProfile := range configProfiles {
-			awsAccount := awsAccount{
-				name: configProfile.AcctName,
-				id:   configProfile.RoleARN.AccountID,
-			}
-
-			awsRoles, ok := awsAccounts[awsAccount]
-			if !ok {
-				awsRoles = map[server.ConfigProfile]okta.ClientID{}
-			}
-			awsRoles[configProfile] = clientID
-			awsAccounts[awsAccount] = awsRoles
-		}
-	}
-
 	return &completer{
-		awsAccounts: awsAccounts,
-		issuerURL:   issuerURL,
-		prompt:      prompt,
+		awsConfig: awsConfig,
+		prompt:    prompt,
 	}
 }
 
