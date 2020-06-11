@@ -24,8 +24,6 @@ github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA
 github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 h1:JLaf/iINcLyjwbtTsCJjc6rtlASgHeIJPrB6QmwURnA=
 github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
-github.com/chanzuckerberg/go-misc v0.0.0-20200610170753-2f14caa9b75f h1:DTefNjV/g0YRZlt+Hx2T+4BZxgYWyKkTkP0WZ0JxWKM=
-github.com/chanzuckerberg/go-misc v0.0.0-20200610170753-2f14caa9b75f/go.mod h1:gGIGjX+RnHrb8QB4Zwn9E8XWnkGS5kkdzdKtpdhoEIo=
 github.com/chanzuckerberg/go-misc v0.0.0-20200611000103-3caf6f173497 h1:Ga6JKBntAzkhTWClKHTa5wbeLJFWlFVUiLifXjYbZ2E=
 github.com/chanzuckerberg/go-misc v0.0.0-20200611000103-3caf6f173497/go.mod h1:gGIGjX+RnHrb8QB4Zwn9E8XWnkGS5kkdzdKtpdhoEIo=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
@@ -156,8 +154,6 @@ github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/leodido/go-urn v1.2.0/go.mod h1:+8+nEpDfqqsY+g338gtMEUOtuK+4dEMhiQEgxpxOKII=
 github.com/lestrrat-go/jwx v0.9.0/go.mod h1:iEoxlYfZjvoGpuWwxUz+eR5e6KTJGsaRcy/YNA/UnBk=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
-github.com/masterzen/azure-sdk-for-go v0.2.0-beta h1:Prxwf/xKg0QY9asZZcLq3pxHUYQDl05Qr8lDgp2BcW0=
-github.com/masterzen/azure-sdk-for-go v5.0.0-beta+incompatible h1:KCuRPi9pN38I5MOfCiv2/gGmFCqiw6c8g6ztL0RVYjo=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
 github.com/mattn/go-colorable v0.1.6 h1:6Su7aK7lXmJ/U79bYtBjLNaha4Fs1Rg9plHpcH+vvnE=
 github.com/mattn/go-colorable v0.1.6/go.mod h1:u6P/XSegPjTcexA+o6vUJrdnUu04hMope9wVRipJSqc=
@@ -181,7 +177,6 @@ github.com/okta/okta-sdk-golang/v2 v2.0.0 h1:qwl5Ezpy5a3I2WphiHolpgTtOC+YMTDIpFq
 github.com/okta/okta-sdk-golang/v2 v2.0.0/go.mod h1:fQubbeV8gksr8e1pmRVSE8kIj1TFqlgYqi8WsvSKmQk=
 github.com/patrickmn/go-cache v0.0.0-20180815053127-5633e0862627 h1:pSCLCl6joCFRnjpeojzOpEYs4q7Vditq8fySFG5ap3Y=
 github.com/patrickmn/go-cache v0.0.0-20180815053127-5633e0862627/go.mod h1:3Qf8kWWT7OJRJbdiICTKqZju1ZixQ/KpMGzzAfe6+WQ=
-github.com/patrickmn/go-cache v1.0.0 h1:3gD5McaYs9CxjyK5AXGcq8gdeCARtd/9gJDUvVeaZ0Y=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/peterhellberg/link v1.1.0 h1:s2+RH8EGuI/mI4QwrWGSYQCRz7uNgip9BaM04HKu5kc=
 github.com/peterhellberg/link v1.1.0/go.mod h1:gtSlOT4jmkY8P47hbTc8PTgiDDWpdPbFYl75keYyBB8=
