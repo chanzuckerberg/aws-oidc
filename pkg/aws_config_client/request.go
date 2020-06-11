@@ -1,14 +1,17 @@
 package aws_config_client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/client"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 func RequestConfig(
@@ -32,9 +35,16 @@ func RequestConfig(
 	}
 	defer rsp.Body.Close()
 
+	body := bytes.NewBuffer(nil)
+	_, err = io.Copy(body, rsp.Body)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read request body")
+	}
+
+	logrus.Debugf("request body: %s", body.String())
+
 	config := &server.AWSConfig{}
-	decoder := json.NewDecoder(rsp.Body)
-	err = decoder.Decode(config)
+	err = json.Unmarshal(body.Bytes(), config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not json parse config from %s", configServiceURI)
 	}

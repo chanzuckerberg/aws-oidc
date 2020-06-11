@@ -32,8 +32,8 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 	return client, errors.Wrap(err, "error creating Okta client")
 }
 
-func GetClientIDs(ctx context.Context, userEmail string, oktaClient AppResource) ([]ClientID, error) {
-	apps, err := paginateListApplications(ctx, userEmail, oktaClient)
+func GetClientIDs(ctx context.Context, userID string, oktaClient AppResource) ([]ClientID, error) {
+	apps, err := paginateListApplications(ctx, userID, oktaClient)
 	if err != nil {
 		return nil, err
 	}
@@ -47,11 +47,11 @@ type AppResource interface {
 	) ([]okta.App, *okta.Response, error)
 }
 
-func paginateListApplications(ctx context.Context, userEmail string, client AppResource) ([]okta.App, error) {
+func paginateListApplications(ctx context.Context, userID string, client AppResource) ([]okta.App, error) {
 	var apps []okta.App
 
 	qp := query.Params{
-		Filter: fmt.Sprintf("user.email+eq+\"%s\"", userEmail),
+		Filter: fmt.Sprintf("user.id eq \"%s\"", userID),
 	}
 
 	for {
@@ -73,7 +73,9 @@ func paginateListApplications(ctx context.Context, userEmail string, client AppR
 		}
 
 		nextLinkMapping := nextLinkURL.Query()
-		qp.After = nextLinkMapping.Get("after")
+		qp = query.Params{
+			After: nextLinkMapping.Get("after"),
+		}
 	}
 }
 

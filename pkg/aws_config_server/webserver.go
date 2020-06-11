@@ -115,12 +115,12 @@ func Index(
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
-			logrus.Errorf("Unable to get subject ID from email: %s", *email)
+			logrus.Errorf("Unable to get subject ID for %s", *email)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
-		clientIDs, err := okta.GetClientIDs(ctx, *email, oktaClient)
+		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
 		if err != nil {
 			logrus.Errorf("Unable to get list of ClientIDs for %s: %s", *email, err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
