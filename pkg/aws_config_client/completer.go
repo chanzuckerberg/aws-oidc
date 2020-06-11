@@ -3,103 +3,46 @@ package aws_config_client
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/pkg/errors"
 	"gopkg.in/ini.v1"
 )
 
-type awsAccount struct {
-	id   string
-	name string
-}
-
 type completer struct {
-	awsAccounts map[awsAccount]map[server.ConfigProfile]okta.ClientID
-	issuerURL   string
-
-	prompt Prompt
+	awsConfig *server.AWSConfig
+	prompt    Prompt
 }
 
 func NewCompleter(
 	prompt Prompt,
-	clientMapping map[okta.ClientID][]server.ConfigProfile,
-	issuerURL string,
+	awsConfig *server.AWSConfig,
 ) *completer {
 
-	awsAccounts := map[awsAccount]map[server.ConfigProfile]okta.ClientID{}
-
-	// Invert the map to help generate configs
-	for clientID, configProfiles := range clientMapping {
-		for _, configProfile := range configProfiles {
-			awsAccount := awsAccount{
-				name: configProfile.AcctName,
-				id:   configProfile.RoleARN.AccountID,
-			}
-
-			awsRoles, ok := awsAccounts[awsAccount]
-			if !ok {
-				awsRoles = map[server.ConfigProfile]okta.ClientID{}
-			}
-			awsRoles[configProfile] = clientID
-			awsAccounts[awsAccount] = awsRoles
-		}
-	}
-
 	return &completer{
-		awsAccounts: awsAccounts,
-		issuerURL:   issuerURL,
-		prompt:      prompt,
+		awsConfig: awsConfig,
+		prompt:    prompt,
 	}
 }
 
-func (c *completer) getAccounts() []awsAccount {
-	accounts := []awsAccount{}
-
-	for account := range c.awsAccounts {
-		accounts = append(accounts, account)
-	}
-
-	sort.SliceStable(accounts, func(i, j int) bool {
-		return accounts[i].name < accounts[j].name
-	})
-
-	return accounts
-}
-
-func (c *completer) getAccountOptions(accounts []awsAccount) []string {
+func (c *completer) getAccountOptions(accounts []server.AWSAccount) []string {
 	accountOptions := []string{}
 	for _, account := range accounts {
-		accountOptions = append(accountOptions, fmt.Sprintf("%s (%s)", account.name, account.id))
+		accountOptions = append(
+			accountOptions,
+			fmt.Sprintf("%s (%s)", account.Name, account.ID))
 	}
 	return accountOptions
 }
 
-func (c *completer) getRolesForAccount(account awsAccount) []server.ConfigProfile {
-	roles := []server.ConfigProfile{}
-	roleToClientIDs := c.awsAccounts[account]
-
-	for role := range roleToClientIDs {
-		roles = append(roles, role)
-	}
-
-	sort.SliceStable(roles, func(i, j int) bool {
-		return roles[i].RoleARN.String() < roles[j].RoleARN.String()
-	})
-
-	return roles
-}
-
-func (c *completer) getRoleOptions(roles []server.ConfigProfile) []string {
+func (c *completer) getRoleOptions(profiles []server.AWSProfile) []string {
 	roleOptions := []string{}
-
-	for _, role := range roles {
-		roleOptions = append(roleOptions, role.RoleARN.String())
+	for _, profile := range profiles {
+		roleOptions = append(roleOptions, profile.RoleARN)
 	}
+
 	return roleOptions
 }
 
@@ -117,20 +60,16 @@ func (c *completer) awsProfileNameValidator(input interface{}) error {
 	return nil
 }
 
-func (c *completer) calculateDefaultProfileName(account awsAccount) string {
+func (c *completer) calculateDefaultProfileName(account server.AWSAccount) string {
 	invalid := regexp.MustCompile("[^a-zA-Z0-9_-]")
-	replaced := invalid.ReplaceAllString(account.name, "-")
+	replaced := invalid.ReplaceAllString(account.Name, "-")
 	return strings.ToLower(replaced)
 }
 
-func (c *completer) getClientID(account awsAccount, role server.ConfigProfile) okta.ClientID {
-	return c.awsAccounts[account][role]
-}
-
 // SurveyProfile will ask a user to configure an aws profile
-func (c *completer) SurveyProfile() (*AWSConfigProfile, error) {
+func (c *completer) SurveyProfile() (*AWSNamedProfile, error) {
 	// first prompt for account
-	accounts := c.getAccounts()
+	accounts := c.awsConfig.GetAccounts()
 	accountIdx, err := c.prompt.Select(
 		"Select the AWS account you would like to configure for this profile:",
 		c.getAccountOptions(accounts),
@@ -141,15 +80,15 @@ func (c *completer) SurveyProfile() (*AWSConfigProfile, error) {
 	account := accounts[accountIdx]
 
 	// now ask for a role in that account
-	roles := c.getRolesForAccount(account)
-	roleIdx, err := c.prompt.Select(
+	profiles := c.awsConfig.GetProfilesForAccount(account)
+	profileIdx, err := c.prompt.Select(
 		"Select the AWS role you would like to configure for this profile:",
-		c.getRoleOptions(roles),
+		c.getRoleOptions(profiles),
 	)
 	if err != nil {
 		return nil, err
 	}
-	role := roles[roleIdx]
+	profile := profiles[profileIdx]
 
 	// now attempt to name the profile
 	profileName, err := c.prompt.Input(
@@ -161,28 +100,26 @@ func (c *completer) SurveyProfile() (*AWSConfigProfile, error) {
 		return nil, err
 	}
 
-	profile := &AWSConfigProfile{
-		Name:    profileName,
-		RoleARN: role.RoleARN.String(),
-
-		ClientID: c.getClientID(account, role),
+	namedProfile := &AWSNamedProfile{
+		Name:       profileName,
+		AWSProfile: profile,
 	}
 
-	return profile, nil
+	return namedProfile, nil
 }
 
 func (c *completer) Continue() (bool, error) {
 	return c.prompt.Confirm("Would you like to configure another profile?", true)
 }
 
-func (c *completer) writeAWSProfile(out *ini.File, profile *AWSConfigProfile) error {
+func (c *completer) writeAWSProfile(out *ini.File, profile *AWSNamedProfile) error {
 	profileSection := fmt.Sprintf("profile %s", profile.Name)
 
 	credsProcessValue := fmt.Sprintf(
 		"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
-		c.issuerURL,
-		profile.ClientID,
-		profile.RoleARN,
+		profile.AWSProfile.IssuerURL,
+		profile.AWSProfile.ClientID,
+		profile.AWSProfile.RoleARN,
 	)
 
 	section, err := out.NewSection(profileSection)

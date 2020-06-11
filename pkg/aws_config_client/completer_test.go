@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws/arn"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
 )
@@ -18,15 +16,15 @@ func TestLoop(t *testing.T) {
 	// note how: "Account Name With Spaces" => "account-name-with-spaces"
 	expected := `[profile account-name-with-spaces]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=arn::::foo_id_1:foo1RoleName 2> /dev/tty'
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
 
 [profile my-second-new-profile]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=arn::::test_id_1:test1RoleName 2> /dev/tty'
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
 
 [profile test1]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=arn::::test_id_1:test2RoleName 2> /dev/tty'
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName 2> /dev/tty'
 
 `
 
@@ -42,7 +40,7 @@ credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --cli
 		confirmResponse: []bool{true, true, false},
 	}
 
-	c := NewCompleter(prompt, generateDummyData(), "issuer-url")
+	c := NewCompleter(prompt, generateDummyData())
 
 	err := c.Loop(out)
 	r.NoError(err)
@@ -66,7 +64,7 @@ func TestAWSProfileNameValidator(t *testing.T) {
 		{input: "valid", err: nil},
 	}
 
-	c := NewCompleter(nil, generateDummyData(), "issuer-url")
+	c := NewCompleter(nil, generateDummyData())
 	for _, test := range tests {
 		err := c.awsProfileNameValidator(test.input)
 		if test.err == nil {
@@ -79,43 +77,45 @@ func TestAWSProfileNameValidator(t *testing.T) {
 	}
 }
 
-// For now generate dummy data, will later on use this for tests instead
-func generateDummyData() map[okta.ClientID][]server.ConfigProfile {
-	configProfile1 := []server.ConfigProfile{
-		{
-			AcctName: "test1",
-			RoleARN: arn.ARN{
-				AccountID: "test_id_1",
-				Resource:  "test1RoleName",
+func generateDummyData() *server.AWSConfig {
+	return &server.AWSConfig{
+		Profiles: []server.AWSProfile{
+			{
+				ClientID: "bar_client_id",
+				AWSAccount: server.AWSAccount{
+					Name: "test1",
+					ID:   "test_id_1",
+				},
+				RoleARN:   "test1RoleName",
+				IssuerURL: "issuer-url",
 			},
-		},
-		{
-			AcctName: "test1",
-			RoleARN: arn.ARN{
-				AccountID: "test_id_1",
-				Resource:  "test2RoleName",
+			{
+				ClientID: "bar_client_id",
+				AWSAccount: server.AWSAccount{
+					Name: "test1",
+					ID:   "test_id_1",
+				},
+				RoleARN:   "test2RoleName",
+				IssuerURL: "issuer-url",
+			},
+			{
+				ClientID: "foo_client_id",
+				AWSAccount: server.AWSAccount{
+					Name: "Account Name With Spaces",
+					ID:   "account id 2",
+				},
+				RoleARN:   "test1RoleName",
+				IssuerURL: "issuer-url",
+			},
+			{
+				ClientID: "foo_client_id",
+				AWSAccount: server.AWSAccount{
+					Name: "Account Name With Spaces",
+					ID:   "account id 2",
+				},
+				RoleARN:   "test1RoleName",
+				IssuerURL: "issuer-url",
 			},
 		},
 	}
-	configProfile2 := []server.ConfigProfile{
-		{
-			AcctName: "Account Name With Spaces",
-			RoleARN: arn.ARN{
-				AccountID: "foo_id_1",
-				Resource:  "foo1RoleName",
-			},
-		},
-		{
-			AcctName: "Account Name With Spaces",
-			RoleARN: arn.ARN{
-				AccountID: "foo_id_1",
-				Resource:  "foo2RoleName",
-			},
-		},
-	}
-
-	data := map[okta.ClientID][]server.ConfigProfile{}
-	data["bar_client_id"] = configProfile1
-	data["foo_client_id"] = configProfile2
-	return data
 }
