@@ -29,7 +29,7 @@ func NewCompleter(
 	}
 }
 
-func (c *completer) getAccountOptions(accounts []*server.AWSAccount) []string {
+func (c *completer) getAccountOptions(accounts []server.AWSAccount) []string {
 	accountOptions := []string{}
 	for _, account := range accounts {
 		accountOptions = append(
@@ -76,7 +76,7 @@ func (c *completer) SurveyRegion() (string, error) {
 }
 
 // SurveyProfile will ask a user to configure an aws profile
-func (c *completer) SurveyRemainingProfiles(consumedProfiles []*AWSNamedProfile, remainingAccounts []*server.AWSAccount) ([]*server.AWSAccount, error) {
+func (c *completer) SurveyRemainingProfiles(consumedProfiles []*AWSNamedProfile, remainingAccounts []server.AWSAccount) ([]server.AWSAccount, error) {
 	// first prompt for account
 	// accounts := c.awsConfig.GetAccounts()
 	accountIdx, err := c.prompt.Select(
@@ -89,7 +89,7 @@ func (c *completer) SurveyRemainingProfiles(consumedProfiles []*AWSNamedProfile,
 	account := remainingAccounts[accountIdx]
 
 	// now ask for a role in that account
-	profiles := c.awsConfig.GetProfilesForAccount(*account)
+	profiles := c.awsConfig.GetProfilesForAccount(account)
 	profileIdx, err := c.prompt.Select(
 		"Select the AWS role you would like to configure for this profile:",
 		c.getRoleOptions(profiles),
@@ -102,7 +102,7 @@ func (c *completer) SurveyRemainingProfiles(consumedProfiles []*AWSNamedProfile,
 	// now attempt to name the profile
 	profileName, err := c.prompt.Input(
 		"What would you like to name this profile:",
-		c.calculateDefaultProfileName(*account),
+		c.calculateDefaultProfileName(account),
 		survey.WithValidator(c.awsProfileNameValidator),
 	)
 	if err != nil {
@@ -122,9 +122,9 @@ func (c *completer) SurveyRemainingProfiles(consumedProfiles []*AWSNamedProfile,
 	return remainingAccounts, nil
 }
 
-func (c *completer) consumeProfiles(targetRoleName string, accounts []server.AWSAccount) ([]*AWSNamedProfile, []*server.AWSAccount) {
+func (c *completer) consumeProfiles(targetRoleName string, accounts []server.AWSAccount) ([]*AWSNamedProfile, []server.AWSAccount) {
 	consumedProfiles := []*AWSNamedProfile{}
-	remainingAccounts := []*server.AWSAccount{}
+	remainingAccounts := []server.AWSAccount{}
 
 	for _, account := range accounts {
 		profileName := c.calculateDefaultProfileName(account)
@@ -137,8 +137,9 @@ func (c *completer) consumeProfiles(targetRoleName string, accounts []server.AWS
 				selectedProfile = profile
 			}
 		}
+
 		// if roleARN is populated, then we add it to the consumedProfiles list
-		if selectedProfile.RoleARN == "" {
+		if selectedProfile.RoleARN != "" {
 			currentProfile := &AWSNamedProfile{
 				Name:       profileName,
 				AWSProfile: selectedProfile,
@@ -147,7 +148,7 @@ func (c *completer) consumeProfiles(targetRoleName string, accounts []server.AWS
 			continue
 		}
 		// Else, then populate the remainingAccounts list
-		remainingAccounts = append(remainingAccounts, &account)
+		remainingAccounts = append(remainingAccounts, account)
 	}
 
 	return consumedProfiles, remainingAccounts
@@ -192,7 +193,7 @@ func (c *completer) Continue() (bool, error) {
 	return c.prompt.Confirm("Would you like to configure another profile?", true)
 }
 
-func (c *completer) ContinueRemaining(remainingAccounts []*server.AWSAccount) (bool, error) {
+func (c *completer) ContinueRemaining(remainingAccounts []server.AWSAccount) (bool, error) {
 	if len(remainingAccounts) == 0 {
 		return false, nil
 	}
