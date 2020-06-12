@@ -32,6 +32,9 @@ func (s *Survey) Select(prompt string, options []string, surveyOptions ...survey
 		return 0, errors.Wrap(err, "error asking user to select")
 	}
 
+	if len(options) == 1 {
+		return 0, nil
+	}
 	for idx, option := range options {
 		if chosen == option {
 			return idx, nil
