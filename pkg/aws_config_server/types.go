@@ -2,6 +2,7 @@ package aws_config_server
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
@@ -34,6 +35,20 @@ func (a *AWSConfig) GetAccounts() []AWSAccount {
 		return accounts[i].Name < accounts[j].Name
 	})
 	return accounts
+}
+
+func (a *AWSConfig) GetRoleNames() []string {
+	set := map[string]bool{}
+	roleNames := []string{}
+
+	for _, profile := range a.Profiles {
+		roleName := strings.Split(profile.RoleARN, "role/")[1]
+		if _, ok := set[roleName]; !ok {
+			set[roleName] = true
+			roleNames = append(roleNames, roleName)
+		}
+	}
+	return roleNames
 }
 
 func (a *AWSConfig) GetProfilesForAccount(account AWSAccount) []AWSProfile {
