@@ -50,7 +50,8 @@ var configureCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrap(err, "Could not parse aws config file path")
 		}
-		iniOut, err := ini.Load(awsConfigPath)
+		// LooseLoad ignores the aws config file if missing
+		iniOut, err := ini.LooseLoad(awsConfigPath)
 		if err != nil {
 			return errors.Wrap(err, "could not open aws config")
 		}
