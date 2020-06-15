@@ -11,7 +11,6 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type ClientIDToAWSRoles struct {
@@ -33,7 +32,6 @@ func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string,
 		if err != nil {
 			return errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
-		logrus.Debugf("function: aws_config_server/assemble_config.go/getRoles(), accountList: %v", accountList)
 		for _, acct := range accountList {
 			// create a new IAM session for each account
 			new_role_arn := arn.ARN{
@@ -42,7 +40,6 @@ func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string,
 				AccountID: *acct.Id,
 				Resource:  fmt.Sprintf("role/%s", workerRole),
 			}
-			logrus.Debugf("function: aws_config_server/assemble_config.go/getRoles(), new_role_arn: %s", new_role_arn)
 			a.roleARNs[*acct.Name] = new_role_arn
 		}
 	}
@@ -64,7 +61,6 @@ func (a *ClientIDToAWSRoles) mapRoles(
 			return errors.Wrapf(err, "%s error", accountName)
 		}
 
-		logrus.Debugf("function: aws_config_server/assemble_config.go/mapRoles(), workerRoles: %v", workerRoles)
 		err = clientRoleMapFromProfile(ctx, accountName, workerRoles, oidcProvider, a.clientRoleMapping)
 		if err != nil {
 			return errors.Wrap(err, "Unable to complete mapping between ClientIDs and ConfigProfiles")

@@ -74,12 +74,10 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	if err != nil {
 		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Master Roles")
 	}
-	logrus.Debugf("function: aws_config_server/assemble_config.go/GetClientIDToProfiles(), configData.roleARNs: %v", configData.roleARNs)
 	err = configData.mapRoles(ctx, configParams.OIDCProvider)
 	if err != nil {
 		return errors.Wrap(err, "Unable to create mapping needed for config generation")
 	}
-	logrus.Debugf("function: aws_config_server/assemble_config.go/GetClientIDToProfiles(), configData.clientRoleMapping: %v", configData.clientRoleMapping)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
