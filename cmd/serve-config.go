@@ -95,7 +95,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	awsSession, err := session.NewSessionWithOptions(
 		session.Options{
 			SharedConfigState: session.SharedConfigEnable,
-		}
+		},
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create aws session")
