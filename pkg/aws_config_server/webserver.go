@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	oidc "github.com/coreos/go-oidc"
+	"github.com/gorilla/handlers"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 )
@@ -163,7 +165,7 @@ type RouterConfig struct {
 func GetRouter(
 	ctx context.Context,
 	config *RouterConfig,
-) *httprouter.Router {
+) http.Handler {
 	router := httprouter.New()
 	handle := requireAuthentication(
 		Index(
@@ -176,5 +178,8 @@ func GetRouter(
 
 	router.GET("/", handle)
 	router.GET("/health", Health)
-	return router
+
+        loggingHandler := handlers.CombinedLoggingHandler(os.Stdout, router)
+        recoveryHandler := handlers.RecoveryHandler()(loggingHandler)
+        return recoveryHandler
 }
