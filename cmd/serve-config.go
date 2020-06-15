@@ -92,7 +92,11 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: oktaEnv.CLIENT_ID})
 
-	awsSession, err := session.NewSession()
+	awsSession, err := session.NewSessionWithOptions(
+		session.Options{
+			SharedConfigState: session.SharedConfigEnable,
+		},
+	)
 	if err != nil {
 		return errors.Wrap(err, "failed to create aws session")
 	}
