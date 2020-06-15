@@ -96,6 +96,7 @@ func createAWSConfig(
 					ID:   config.RoleARN.AccountID,
 				},
 				IssuerURL: configParams.OIDCProvider,
+				RoleName:  config.RoleName,
 			}
 			awsConfig.Profiles = append(awsConfig.Profiles, profile)
 		}

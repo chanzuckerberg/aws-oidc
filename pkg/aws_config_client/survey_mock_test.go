@@ -1,6 +1,8 @@
 package aws_config_client
 
-import "github.com/AlecAivazis/survey/v2"
+import (
+	"github.com/AlecAivazis/survey/v2"
+)
 
 type MockPrompt struct {
 	selectResponse []int

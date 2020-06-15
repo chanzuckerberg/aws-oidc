@@ -44,6 +44,7 @@ type Principal struct {
 type ConfigProfile struct {
 	AcctName string
 	RoleARN  arn.ARN
+	RoleName string
 }
 
 const ignoreAWSError = "AccessDenied"
@@ -154,6 +155,7 @@ func clientRoleMapFromProfile(
 			currentConfig := ConfigProfile{
 				AcctName: acctName,
 				RoleARN:  roleARN,
+				RoleName: *role.RoleName,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {

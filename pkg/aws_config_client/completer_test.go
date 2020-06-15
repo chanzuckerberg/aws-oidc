@@ -32,12 +32,6 @@ region             = us-west-2
 `
 
 	out := ini.Empty()
-
-	// we add a junk section and make sure it disappears in the output
-	junkSection, err := out.NewSection("profile test1")
-	r.NoError(err)
-	junkSection.Key("role_arn").SetValue("this should disappear")
-
 	prompt := &MockPrompt{
 
 		selectResponse: []int{
@@ -54,7 +48,7 @@ region             = us-west-2
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err = c.Loop(out)
+	err := c.Loop(out)
 	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
