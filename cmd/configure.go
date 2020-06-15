@@ -7,6 +7,7 @@ import (
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -38,6 +39,8 @@ var configureCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+
+		logrus.Debug("config: ", config)
 
 		survey := &aws_config_client.Survey{}
 		completer := aws_config_client.NewCompleter(

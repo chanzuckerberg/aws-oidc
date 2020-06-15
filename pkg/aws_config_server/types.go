@@ -1,8 +1,8 @@
 package aws_config_server
 
 import (
-	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
@@ -40,15 +40,14 @@ func (a *AWSConfig) GetAccounts() []AWSAccount {
 func (a *AWSConfig) GetRoleNames() []string {
 	set := map[string]bool{}
 	roleNames := []string{}
+
 	for _, profile := range a.Profiles {
-		fmt.Println("profile: ", profile)
-		_, ok := set[profile.RoleName]
-		if !ok {
-			set[profile.RoleName] = true
-			roleNames = append(roleNames, profile.RoleName)
+		roleName := strings.Split(profile.RoleARN, "role/")[1]
+		if _, ok := set[roleName]; !ok {
+			set[roleName] = true
+			roleNames = append(roleNames, roleName)
 		}
 	}
-	fmt.Println("roleNames: ", roleNames)
 	return roleNames
 }
 
@@ -72,8 +71,8 @@ type AWSProfile struct {
 	ClientID   okta.ClientID `json:"client_id,omitempty"`
 	AWSAccount AWSAccount    `json:"aws_account,omitempty"`
 	RoleARN    string        `json:"role_arn,omitempty"`
-	RoleName   string        `json:"role_name,omitempty"`
 	IssuerURL  string        `json:"issuer_url,omitempty"`
+	RoleName   string        `json:"role_name,omitempty"`
 }
 
 type AWSAccount struct {
