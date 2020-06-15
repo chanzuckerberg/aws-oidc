@@ -179,6 +179,7 @@ func GetRouter(
 	router.GET("/", handle)
 	router.GET("/health", Health)
 
-	httpHandler := handlers.RecoveryHandler()(handlers.CombinedLoggingHandler(os.Stdout, router))
-	return httpHandler
+        loggingHandler := handlers.CombinedLoggingHandler(os.Stdout, router)
+        recoveryHandler := handlers.RecoveryHandler()(loggingHandler)
+        return recoveryHandler
 }
