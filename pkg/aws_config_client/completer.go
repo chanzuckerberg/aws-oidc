@@ -217,7 +217,7 @@ func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*A
 
 func (c *completer) Loop(out *ini.File) error {
 	if len(c.awsConfig.Profiles) == 0 {
-		c.prompt.Input("You do not have any AWS roles. Press return to exit", "")
+		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
 		return nil
 	}
 
