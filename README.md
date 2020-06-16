@@ -45,39 +45,22 @@ $ aws-oidc exec --issuer-url=<issuer url> --client-id=<client ID> --aws-role-arn
 ### serve-config
 Deploys a service that displays an AWS Config file for any authorized visitor (see [Deployment Requirements](#deployment-requirements))
 
+### configure
+Will query your aws config service (serve-config command) to help populate your `~/.aws/config`. It will guide you through the process of setting this up.
+
+### env
+Env is primarily here to assist when running docker locally. It requires your `~/.aws/config` to be properly configured. You can run the following to test it out:
+
+```
+docker run -it --env-file <(go run main.go env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
+```
+
 ### version
 Prints the version of aws-oidc to stdout.
 
 
-# Deployment Requirements
-Deploying the web service requires a few things:
-A master role with permission to run [List Accounts](https://docs.aws.amazon.com/cli/latest/reference/organizations/list-accounts.html) in the AWS Organization
-A reader role in each account with permission to run [List Roles](https://docs.aws.amazon.com/cli/latest/reference/iam/list-roles.html) in the accounts
-An Okta Identity Provider with a private key, client ID, and issuer URL.
-
-This deployment relies on a working identity provider, which will provide the ID Token needed for identifying any clients that try to interact with the server. The aws-oidc docker image includes [chamber](https://github.com/segmentio/chamber/), which we use for loading sensitive environment variables.
-
-Using the latest version of aws-oidc, run `aws-oidc serve-config --web-server-port=8080`
-
-Ping localhost:8080/health to make sure your service is up and running.
-
-## Environment Variables for Deploying
-### Okta Identity Provider:
-OKTA_PRIVATE_KEY: the private key from the Okta
-
-OKTA_SERVICE_CLIENT_ID: The client ID of the Okta Client that manages Okta apps for your clients
-
-OKTA_CLIENT_ID: the client ID of the Okta Identity Provider that verifies your clients
-
-OKTA_ISSUER_URL: the URL of the identity provider
-
-You can create create those values using [this tutorial](https://developer.okta.com/docs/guides/create-an-api-token/overview/)
-
-
-###  AWS Config Generation:
-AWS_READER_ROLE_NAME: role name that can run AWS List Roles in any account in your AWS Organization
-
-AWS_MASTER_ROLE_ARNS: a list of role ARNs that can list accounts in your AWS Organization
+# More docs
+See [docs](docs) for more docs.
 
 # Contributing
 We use standard go tools + makefiles to build aws-oidc. Getting started should be as simple as-
