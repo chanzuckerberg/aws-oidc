@@ -32,7 +32,7 @@ var envCmd = &cobra.Command{
 	Use:   "env",
 	Short: "aws-oidc env",
 	Long: `Env will output relevant AWS credentials to environment variables.
-	Useful when running docker such "docker run -it --env-file <(aws-oidc env --profile foobar) ubuntu env"
+	Useful when running docker such "docker run -it --env-file <(aws-oidc env --profile foobar) amazon/aws-cli sts get-caller-identity"
 	`,
 	RunE: envRun,
 }
