@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/pkg/errors"
@@ -48,19 +49,24 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
 	}
 
-	tokenOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
+	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
 	if err != nil {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}
 
-	awsEnvVars := []string{
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", string(*tokenOutput.Credentials.AccessKeyId)),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", string(*tokenOutput.Credentials.SecretAccessKey)),
-		fmt.Sprintf("AWS_SESSION_TOKEN=%s", string(*tokenOutput.Credentials.SessionToken)),
-	}
-
 	// our calculated awsEnvVars take precedence
-	envVars := append(awsEnvVars, os.Environ()...)
+	envVars := append(
+		getAWSEnvVars(assumeRoleOutput),
+		os.Environ()...,
+	)
 
 	return exec(ctx, command, commandArgs, envVars)
+}
+
+func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput) []string {
+	return []string{
+		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", string(*assumeRoleOutput.Credentials.AccessKeyId)),
+		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", string(*assumeRoleOutput.Credentials.SecretAccessKey)),
+		fmt.Sprintf("AWS_SESSION_TOKEN=%s", string(*assumeRoleOutput.Credentials.SessionToken)),
+	}
 }

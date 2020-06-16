@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/pkg/errors"
@@ -44,22 +46,22 @@ var credProcessCmd = &cobra.Command{
 func credProcessRun(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
-	token, err := oidc.GetToken(ctx, clientID, issuerURL)
+	assumeRoleOutput, err := assumeRole(
+		ctx,
+		clientID,
+		issuerURL,
+		roleARN,
+	)
 	if err != nil {
-		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
-	}
-
-	tokenOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
-	if err != nil {
-		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
+		return err
 	}
 
 	creds := credProcess{
 		Version:         credProcessVersion,
-		AccessKeyID:     string(*tokenOutput.Credentials.AccessKeyId),
-		SecretAccessKey: string(*tokenOutput.Credentials.SecretAccessKey),
-		SessionToken:    string(*tokenOutput.Credentials.SessionToken),
-		Expiration:      token.Expiry.Format(time.RFC3339),
+		AccessKeyID:     string(*assumeRoleOutput.Credentials.AccessKeyId),
+		SecretAccessKey: string(*assumeRoleOutput.Credentials.SecretAccessKey),
+		SessionToken:    string(*assumeRoleOutput.Credentials.SessionToken),
+		Expiration:      assumeRoleOutput.Credentials.Expiration.Format(time.RFC3339),
 	}
 
 	output, err := json.MarshalIndent(creds, "", "	")
@@ -69,4 +71,18 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 	fmt.Println(string(output))
 
 	return nil
+}
+
+func assumeRole(
+	ctx context.Context,
+	clientID string,
+	issuerURL string,
+	roleARN string,
+) (*sts.AssumeRoleWithWebIdentityOutput, error) {
+	token, err := oidc.GetToken(ctx, clientID, issuerURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to obtain OIDC token")
+	}
+	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
+	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
 }
