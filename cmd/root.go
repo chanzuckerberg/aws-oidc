@@ -47,6 +47,7 @@ var rootCmd = &cobra.Command{
 		}
 		if verbose {
 			log.SetLevel(log.DebugLevel)
+			log.SetReportCaller(true)
 		}
 		err = configureLogrusHooks()
 		if err != nil {
@@ -72,11 +73,11 @@ func configureLogrusHooks() error {
 		logrus.FatalLevel,
 		logrus.ErrorLevel,
 	})
-  if err != nil {
-        logrus.Errorf("Error configuring Sentry")
-        return nil
-  }
-  log.AddHook(sentryHook)
+	if err != nil {
+		logrus.Errorf("Error configuring Sentry")
+		return nil
+	}
+	log.AddHook(sentryHook)
 	return nil
 }
 

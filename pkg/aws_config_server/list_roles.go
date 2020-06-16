@@ -104,7 +104,7 @@ func clientRoleMapFromProfile(
 		return errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
 	}
 	oidcProviderHostname := identityProviderURL.Hostname()
-	logrus.Debugf("function: aws_config_server/list_roles.go/clientRoleMapFromProfile(), oidcProviderHostname: %s", oidcProviderHostname)
+	logrus.Debugf("oidcProviderHostname: %s", oidcProviderHostname)
 
 	for _, role := range roles {
 		if role.AssumeRolePolicyDocument == nil {
@@ -162,7 +162,7 @@ func clientRoleMapFromProfile(
 				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
 				continue
 			}
-			logrus.Debug("function: aws_config_server/list_roles.go/clientRoleMapFromProfile(). About to append currentConfig to clientRoleMapping")
+			logrus.Debug("About to append currentConfig to clientRoleMapping")
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
 	}
