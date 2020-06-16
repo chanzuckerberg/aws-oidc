@@ -216,6 +216,11 @@ func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*A
 }
 
 func (c *completer) Loop(out *ini.File) error {
+	if len(c.awsConfig.Profiles) == 0 {
+		c.prompt.Input("You do not have any AWS roles. Press return to exit", "")
+		return nil
+	}
+
 	// assume same region for all accounts configured in this run?
 	region, err := c.SurveyRegion()
 	if err != nil {
