@@ -137,9 +137,9 @@ func (c *completer) writeAWSProfile(out *ini.File, region string, profile *AWSNa
 	if err != nil {
 		return errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
 	}
-	section.Key("output").SetValue("json")
-	section.Key("credential_process").SetValue(credsProcessValue)
-	section.Key("region").SetValue(region)
+	section.Key(AWSConfigSectionOutput).SetValue("json")
+	section.Key(AWSConfigSectionCredentialProcess).SetValue(credsProcessValue)
+	section.Key(AWSConfigSectionRegion).SetValue(region)
 	return nil
 }
 
