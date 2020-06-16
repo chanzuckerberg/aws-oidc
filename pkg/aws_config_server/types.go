@@ -36,6 +36,20 @@ func (a *AWSConfig) GetAccounts() []AWSAccount {
 	return accounts
 }
 
+func (a *AWSConfig) GetRoleNames() []string {
+	set := map[string]bool{}
+	roleNames := []string{}
+
+	for _, profile := range a.Profiles {
+		roleName := profile.RoleName
+		if _, ok := set[roleName]; !ok {
+			set[roleName] = true
+			roleNames = append(roleNames, roleName)
+		}
+	}
+	return roleNames
+}
+
 func (a *AWSConfig) GetProfilesForAccount(account AWSAccount) []AWSProfile {
 	profiles := []AWSProfile{}
 
@@ -57,6 +71,7 @@ type AWSProfile struct {
 	AWSAccount AWSAccount    `json:"aws_account,omitempty"`
 	RoleARN    string        `json:"role_arn,omitempty"`
 	IssuerURL  string        `json:"issuer_url,omitempty"`
+	RoleName   string        `json:"role_name,omitempty"`
 }
 
 type AWSAccount struct {

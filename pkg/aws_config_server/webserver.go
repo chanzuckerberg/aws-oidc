@@ -129,7 +129,7 @@ func Index(
 			return
 		}
 
-		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's clientIDs: %s", *email, clientIDs)
+		logrus.Debugf("%s's clientIDs: %s", *email, clientIDs)
 		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
 		if err != nil {
 			logrus.Errorf("error: Unable to create mapping from clientID to roleARNs: %s", err)
@@ -137,7 +137,7 @@ func Index(
 			return
 		}
 
-		logrus.Debugf("function: aws_config_server/webserver.go/Index(), %s's client mapping: %s", *email, clientMapping)
+		logrus.Debugf("%s's client mapping: %s", *email, clientMapping)
 		awsConfig, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
 		if err != nil {
 			logrus.Errorf("error: unable to get AWS Config File: %s", err)

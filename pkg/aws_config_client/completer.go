@@ -8,6 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 )
 
@@ -42,7 +43,7 @@ func (c *completer) getAccountOptions(accounts []server.AWSAccount) []string {
 func (c *completer) getRoleOptions(profiles []server.AWSProfile) []string {
 	roleOptions := []string{}
 	for _, profile := range profiles {
-		roleOptions = append(roleOptions, profile.RoleARN)
+		roleOptions = append(roleOptions, profile.RoleName)
 	}
 
 	return roleOptions
@@ -117,57 +118,140 @@ func (c *completer) SurveyProfile() (*AWSNamedProfile, error) {
 	return namedProfile, nil
 }
 
+// SurveyRole will ask a user to configure a default role
+func (c *completer) SurveyRoles() ([]*AWSNamedProfile, error) {
+	// first prompt for roles
+	roles := c.awsConfig.GetRoleNames()
+	accounts := c.awsConfig.GetAccounts()
+
+	roleIdx, err := c.prompt.Select(
+		"Select the AWS role you would like to make default:",
+		roles,
+	)
+	if err != nil {
+		return nil, err
+	}
+	targetRole := roles[roleIdx]
+
+	configuredProfiles := []*AWSNamedProfile{}
+
+	for _, account := range accounts {
+		profileName := c.calculateDefaultProfileName(account)
+
+		// get the roles associated with this account
+		profiles := c.awsConfig.GetProfilesForAccount(account)
+		for _, profile := range profiles {
+
+			// Initialize a new AWSNamedProfile
+			currentProfile := AWSNamedProfile{
+				AWSProfile: server.AWSProfile{
+					ClientID:   profile.ClientID,
+					AWSAccount: profile.AWSAccount,
+					RoleARN:    profile.RoleARN,
+					IssuerURL:  profile.IssuerURL,
+				},
+			}
+
+			currentProfile.Name = fmt.Sprintf("%s-%s", profileName, profile.RoleName)
+			configuredProfiles = append(configuredProfiles, &currentProfile)
+
+			if profile.RoleName == targetRole {
+				defaultProfile := AWSNamedProfile{
+					Name: profileName,
+					AWSProfile: server.AWSProfile{
+						ClientID:   profile.ClientID,
+						AWSAccount: profile.AWSAccount,
+						RoleARN:    profile.RoleARN,
+						IssuerURL:  profile.IssuerURL,
+					},
+				}
+				configuredProfiles = append(configuredProfiles, &defaultProfile)
+			}
+		}
+	}
+	return configuredProfiles, nil
+}
+
+func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
+	collectedProfiles := []*AWSNamedProfile{}
+	for {
+		currentProfile, err := c.SurveyProfile()
+		if err != nil {
+			return nil, err
+		}
+		collectedProfiles = append(collectedProfiles, currentProfile)
+		cnt, err := c.Continue()
+		if err != nil {
+			return nil, err
+		}
+		if !cnt {
+			break
+		}
+	}
+	return collectedProfiles, nil
+}
+
+func (c *completer) Survey() ([]*AWSNamedProfile, error) {
+	configureOptions := []string{
+		"Automatically configure the same role for each account?",
+		"Configure one role at a time?"}
+	configureFuncs := []func() ([]*AWSNamedProfile, error){c.SurveyRoles, c.SurveyProfiles}
+	configureIdx, err := c.prompt.Select("How would you like to configure your AWS config?", configureOptions)
+	if err != nil {
+		return nil, err
+	}
+	return configureFuncs[configureIdx]()
+}
+
 func (c *completer) Continue() (bool, error) {
 	return c.prompt.Confirm("Would you like to configure another profile?", true)
 }
 
-func (c *completer) writeAWSProfile(out *ini.File, region string, profile *AWSNamedProfile) error {
-	profileSection := fmt.Sprintf("profile %s", profile.Name)
+func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*AWSNamedProfile) error {
 
-	credsProcessValue := fmt.Sprintf(
-		"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
-		profile.AWSProfile.IssuerURL,
-		profile.AWSProfile.ClientID,
-		profile.AWSProfile.RoleARN,
-	)
+	for _, profile := range profiles {
+		profileSection := fmt.Sprintf("profile %s", profile.Name)
 
-	// First delete sections with this name so old configuration doesn't persist
-	out.DeleteSection(profileSection)
-	section, err := out.NewSection(profileSection)
-	if err != nil {
-		return errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
+		credsProcessValue := fmt.Sprintf(
+			"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
+			profile.AWSProfile.IssuerURL,
+			profile.AWSProfile.ClientID,
+			profile.AWSProfile.RoleARN,
+		)
+
+		// First delete sections with this name so old configuration doesn't persist
+		out.DeleteSection(profileSection)
+		section, err := out.NewSection(profileSection)
+		if err != nil {
+			return errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
+		}
+		section.Key(AWSConfigSectionOutput).SetValue("json")
+		section.Key(AWSConfigSectionCredentialProcess).SetValue(credsProcessValue)
+		section.Key(AWSConfigSectionRegion).SetValue(region)
 	}
-	section.Key(AWSConfigSectionOutput).SetValue("json")
-	section.Key(AWSConfigSectionCredentialProcess).SetValue(credsProcessValue)
-	section.Key(AWSConfigSectionRegion).SetValue(region)
 	return nil
 }
 
 func (c *completer) Loop(out *ini.File) error {
+	if len(c.awsConfig.Profiles) == 0 {
+		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
+		return nil
+	}
+
 	// assume same region for all accounts configured in this run?
 	region, err := c.SurveyRegion()
 	if err != nil {
 		return err
 	}
 
-	for {
-		profile, err := c.SurveyProfile()
-		if err != nil {
-			return err
-		}
+	profiles, err := c.Survey()
+	if err != nil {
+		return err
+	}
 
-		err = c.writeAWSProfile(out, region, profile)
-		if err != nil {
-			return err
-		}
-
-		cnt, err := c.Continue()
-		if err != nil {
-			return err
-		}
-		if !cnt {
-			break
-		}
+	err = c.writeAWSProfiles(out, region, profiles)
+	if err != nil {
+		return err
 	}
 	return nil
 }

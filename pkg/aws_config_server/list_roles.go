@@ -44,6 +44,7 @@ type Principal struct {
 type ConfigProfile struct {
 	AcctName string
 	RoleARN  arn.ARN
+	RoleName string
 }
 
 const ignoreAWSError = "AccessDenied"
@@ -103,7 +104,7 @@ func clientRoleMapFromProfile(
 		return errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
 	}
 	oidcProviderHostname := identityProviderURL.Hostname()
-	logrus.Debugf("function: aws_config_server/list_roles.go/clientRoleMapFromProfile(), oidcProviderHostname: %s", oidcProviderHostname)
+	logrus.Debugf("oidcProviderHostname: %s", oidcProviderHostname)
 
 	for _, role := range roles {
 		if role.AssumeRolePolicyDocument == nil {
@@ -154,13 +155,14 @@ func clientRoleMapFromProfile(
 			currentConfig := ConfigProfile{
 				AcctName: acctName,
 				RoleARN:  roleARN,
+				RoleName: *role.RoleName,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {
 				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
 				continue
 			}
-			logrus.Debug("function: aws_config_server/list_roles.go/clientRoleMapFromProfile(). About to append currentConfig to clientRoleMapping")
+			logrus.Debug("About to append currentConfig to clientRoleMapping")
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
 	}
