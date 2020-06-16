@@ -192,8 +192,13 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 }
 
 func (c *completer) Survey() ([]*AWSNamedProfile, error) {
-	configureOptions := []string{"Role", "Profile"}
-	configureIdx, err := c.prompt.Select("Would you like to configure AWS by role or profile?", configureOptions)
+	configureOptions := []string{
+	   "Automatically configure the same role for each account?", 
+	   "Configure one role at a time?"}
+	 configureFuncs := []func()...{c.SurveyProfile, c.SurveyRole}
+	configureIdx, err := c.prompt.Select("How would you like to configure your AWS config?", configureOptions)
+	
+	return configureFuncs[configureIdx]()
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +214,7 @@ func (c *completer) Continue() (bool, error) {
 	return c.prompt.Confirm("Would you like to configure another profile?", true)
 }
 
-func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*AWSNamedProfile) error {
+func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles ...AWSNamedProfile) error {
 
 	for _, profile := range profiles {
 		profileSection := fmt.Sprintf("profile %s", profile.Name)
