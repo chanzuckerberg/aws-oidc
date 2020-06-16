@@ -8,6 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 )
 
@@ -76,7 +77,7 @@ func (c *completer) SurveyRegion() (string, error) {
 }
 
 // SurveyProfile will ask a user to configure an aws profile
-func (c *completer) SurveyProfile() ([]*AWSNamedProfile, error) {
+func (c *completer) SurveyProfile() (*AWSNamedProfile, error) {
 	// first prompt for account
 	accounts := c.awsConfig.GetAccounts()
 	accountIdx, err := c.prompt.Select(
@@ -114,7 +115,7 @@ func (c *completer) SurveyProfile() ([]*AWSNamedProfile, error) {
 		AWSProfile: profile,
 	}
 
-	return []*AWSNamedProfile{namedProfile}, nil
+	return namedProfile, nil
 }
 
 // SurveyRole will ask a user to configure a default role
@@ -171,6 +172,25 @@ func (c *completer) SurveyRoles() ([]*AWSNamedProfile, error) {
 	return configuredProfiles, nil
 }
 
+func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
+	collectedProfiles := []*AWSNamedProfile{}
+	for {
+		currentProfile, err := c.SurveyProfile()
+		if err != nil {
+			return nil, err
+		}
+		collectedProfiles = append(collectedProfiles, currentProfile)
+		cnt, err := c.Continue()
+		if err != nil {
+			return nil, err
+		}
+		if !cnt {
+			break
+		}
+	}
+	return collectedProfiles, nil
+}
+
 func (c *completer) Survey() ([]*AWSNamedProfile, error) {
 	configureOptions := []string{"Role", "Profile"}
 	configureIdx, err := c.prompt.Select("Would you like to configure AWS by role or profile?", configureOptions)
@@ -182,7 +202,7 @@ func (c *completer) Survey() ([]*AWSNamedProfile, error) {
 	if configureMethod == "Role" {
 		return c.SurveyRoles()
 	}
-	return c.SurveyProfile()
+	return c.SurveyProfiles()
 }
 
 func (c *completer) Continue() (bool, error) {
@@ -217,7 +237,7 @@ func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*A
 
 func (c *completer) Loop(out *ini.File) error {
 	if len(c.awsConfig.Profiles) == 0 {
-		c.prompt.Input("You do not have any AWS roles. Press return to exit", "")
+		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
 		return nil
 	}
 
@@ -227,24 +247,14 @@ func (c *completer) Loop(out *ini.File) error {
 		return err
 	}
 
-	for {
-		profiles, err := c.Survey()
-		if err != nil {
-			return err
-		}
+	profiles, err := c.Survey()
+	if err != nil {
+		return err
+	}
 
-		err = c.writeAWSProfiles(out, region, profiles)
-		if err != nil {
-			return err
-		}
-
-		cnt, err := c.Continue()
-		if err != nil {
-			return err
-		}
-		if !cnt {
-			break
-		}
+	err = c.writeAWSProfiles(out, region, profiles)
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -2,7 +2,6 @@ package aws_config_server
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
@@ -42,7 +41,7 @@ func (a *AWSConfig) GetRoleNames() []string {
 	roleNames := []string{}
 
 	for _, profile := range a.Profiles {
-		roleName := strings.Split(profile.RoleARN, "role/")[1]
+		roleName := profile.RoleName
 		if _, ok := set[roleName]; !ok {
 			set[roleName] = true
 			roleNames = append(roleNames, roleName)
