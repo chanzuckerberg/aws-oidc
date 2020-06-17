@@ -4,10 +4,10 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
-	github.com/aws/aws-sdk-go v1.32.3
+	github.com/aws/aws-sdk-go v1.32.4
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
-	github.com/chanzuckerberg/go-misc v0.0.0-20200616231150-89819dae4bfb
+	github.com/chanzuckerberg/go-misc v0.0.0-20200617191514-c995aa16b6e6
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/getsentry/raven-go v0.2.0 // indirect
