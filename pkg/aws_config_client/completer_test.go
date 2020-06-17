@@ -55,7 +55,7 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err = c.Loop(out)
+	err = c.Complete(out)
 	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
@@ -109,7 +109,7 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err := c.Loop(out)
+	err := c.Complete(out)
 	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
@@ -131,7 +131,7 @@ func TestNoRoles(t *testing.T) {
 
 	c := NewCompleter(prompt, generateEmptyData())
 
-	err := c.Loop(out)
+	err := c.Complete(out)
 	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
