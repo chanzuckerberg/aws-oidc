@@ -42,7 +42,9 @@ func TestListRoles(t *testing.T) {
 
 	iamOutput, err := listRoles(ctx, mock)
 	r.NoError(err)
+	r.Len(testRoles1, 2) // we skipped over a role
 	r.Len(iamOutput, 1)
+	r.Equal(*iamOutput[0].RoleName, *testRoles1[0].RoleName)
 }
 
 func TestClientRoleMapFromProfile(t *testing.T) {
