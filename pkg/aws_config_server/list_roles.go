@@ -47,7 +47,28 @@ type ConfigProfile struct {
 	RoleName string
 }
 
-const ignoreAWSError = "AccessDenied"
+// We can skip over roles with specific tags
+func filterRoles(in []*iam.Role) []*iam.Role {
+	out := []*iam.Role{}
+
+	shouldSkipTags := func(tags []*iam.Tag) bool {
+		for _, tag := range tags {
+			if tag != nil && tag.Key != nil && *tag.Key == skipRolesTagKey {
+				return true
+			}
+		}
+		return false
+	}
+
+	for _, role := range in {
+		if role == nil || shouldSkipTags(role.Tags) {
+			continue
+		}
+
+		out = append(out, role)
+	}
+	return out
+}
 
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	// Run the AWS list-roles command and save the output
@@ -56,7 +77,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	err := svc.ListRolesPagesWithContext(ctx,
 		input,
 		func(page *iam.ListRolesOutput, lastPage bool) bool {
-			output = append(output, page.Roles...)
+			output = append(output, filterRoles(page.Roles)...)
 			return !lastPage
 		},
 	)

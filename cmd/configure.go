@@ -56,7 +56,7 @@ var configureCmd = &cobra.Command{
 			return errors.Wrap(err, "could not open aws config")
 		}
 
-		err = completer.Loop(iniOut)
+		err = completer.Complete(iniOut)
 		if err != nil {
 			return err
 		}

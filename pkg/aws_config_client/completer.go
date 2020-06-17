@@ -193,8 +193,8 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 
 func (c *completer) Survey() ([]*AWSNamedProfile, error) {
 	configureOptions := []string{
-		"Automatically configure the same role for each account?",
-		"Configure one role at a time?"}
+		"Automatically configure the same role for each account? (recommended)",
+		"Configure one role at a time? (advanced)"}
 	configureFuncs := []func() ([]*AWSNamedProfile, error){c.SurveyRoles, c.SurveyProfiles}
 	configureIdx, err := c.prompt.Select("How would you like to configure your AWS config?", configureOptions)
 	if err != nil {
@@ -232,7 +232,7 @@ func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*A
 	return nil
 }
 
-func (c *completer) Loop(out *ini.File) error {
+func (c *completer) Complete(out *ini.File) error {
 	if len(c.awsConfig.Profiles) == 0 {
 		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
 		return nil
