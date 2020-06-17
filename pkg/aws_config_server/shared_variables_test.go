@@ -217,6 +217,13 @@ var testRoles1 = []*iam.Role{
 		Arn:      aws.String(BareRoleARN("roleARN0").String()),
 		RoleName: aws.String("testRoles1"),
 	},
+	{
+		Arn:      aws.String(BareRoleARN("skip-me").String()),
+		RoleName: aws.String("skip-me"),
+		Tags: []*iam.Tag{
+			{Key: aws.String(skipRolesTagKey)},
+		},
+	},
 }
 var testRoles2 = []*iam.Role{
 	{

@@ -24,6 +24,9 @@ You can create create those values using [this tutorial](https://developer.okta.
 
 
 ###  AWS Config Generation:
-AWS_READER_ROLE_NAME: role name that can run AWS List Roles in any account in your AWS Organization
+AWS_READER_ROLE_NAME: role name that can run AWS List Roles in within each account in your AWS Organization
 
 AWS_MASTER_ROLE_ARNS: a list of role ARNs that can list accounts in your AWS Organizatio
+
+### Skipping roles
+You can tag AWS Roles with "aws-oidc/skip-role" if you don't want serve-config to return this role to users.
