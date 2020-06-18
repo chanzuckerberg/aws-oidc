@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/pkg/errors"
@@ -49,11 +48,9 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 	assumeRoleOutput, err := assumeRole(
 		ctx,
-		&aws_config_client.AWSOIDCConfiguration{
-			ClientID:  clientID,
-			IssuerURL: issuerURL,
-			RoleARN:   roleARN,
-		},
+		clientID,
+		issuerURL,
+		roleARN,
 	)
 	if err != nil {
 		return err
@@ -78,18 +75,14 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 func assumeRole(
 	ctx context.Context,
-	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
+	clientID string,
+	issuerURL string,
+	roleARN string,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	token, err := oidc.GetToken(
-		ctx,
-		awsOIDCConfig.ClientID,
-		awsOIDCConfig.IssuerURL)
+	token, err := oidc.GetToken(ctx, clientID, issuerURL, serverConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to obtain OIDC token")
 	}
-	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
-		ctx,
-		token,
-		awsOIDCConfig.RoleARN)
+	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
 	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
 }

@@ -29,7 +29,7 @@ var configureCmd = &cobra.Command{
 	Short: "aws-oidc configure",
 	Long:  "Configure helps you configure your aws config. Depends on a config generation service running.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, err := oidc.GetToken(cmd.Context(), clientID, issuerURL)
+		token, err := oidc.GetToken(cmd.Context(), clientID, issuerURL, serverConfig)
 		if err != nil {
 			return err
 		}

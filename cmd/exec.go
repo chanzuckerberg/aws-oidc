@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/pkg/errors"
@@ -13,13 +12,13 @@ import (
 )
 
 func init() {
-	execCmd.Flags().StringVar(
-		&flagProfileName,
-		aws_config_client.FlagProfile,
-		"",
-		"AWS Profile to fetch credentials from. Can set AWS_PROFILE instead.")
-
 	rootCmd.AddCommand(execCmd)
+	execCmd.Flags().StringVar(&clientID, "client-id", "", "CLIENT_ID generated from the OIDC application")
+	execCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
+	execCmd.Flags().StringVar(&roleARN, "aws-role-arn", "", "ARN value of role to assume")
+	execCmd.MarkFlagRequired("client-id")    // nolint:errcheck
+	execCmd.MarkFlagRequired("issuer-url")   // nolint:errcheck
+	execCmd.MarkFlagRequired("aws-role-arn") // nolint:errcheck
 }
 
 var execCmd = &cobra.Command{
@@ -45,19 +44,12 @@ func execRun(cmd *cobra.Command, args []string) error {
 	command := args[dashIndex]
 	commandArgs := args[dashIndex+1:]
 
-	awsOIDCConfig, err := aws_config_client.FetchParamsFromAWSConfig(
-		cmd,
-		aws_config_client.DefaultAWSConfigPath)
-	if err != nil {
-		return err
-	}
-
-	token, err := oidc.GetToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL)
+	token, err := oidc.GetToken(ctx, clientID, issuerURL, serverConfig)
 	if err != nil {
 		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
 	}
 
-	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, awsOIDCConfig.RoleARN)
+	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
 	if err != nil {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}

@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"time"
 
+	oidcClient "github.com/chanzuckerberg/go-misc/oidc_cli/client"
 	"github.com/evalphobia/logrus_sentry"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
@@ -16,8 +18,17 @@ var issuerURL string
 var roleARN string
 
 const (
-	flagVerbose = "verbose"
+	flagVerbose    = "verbose"
+	timeoutSeconds = 90
+	serverFromPort = 49152
+	serverToPort   = 49152 + 63
 )
+
+var serverConfig = oidcClient.ServerConfig{
+	FromPort: serverFromPort,
+	ToPort:   serverToPort,
+	Timeout:  time.Duration(timeoutSeconds) * time.Second,
+}
 
 type SentryEnvironment struct {
 	DSN string
