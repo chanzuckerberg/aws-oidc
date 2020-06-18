@@ -24,7 +24,8 @@ func init() {
 		&sessionDuration,
 		"session-duration",
 		time.Hour,
-		"The duration, of the role session. Must be between 1-12 hours. `1h` means 1 hour.",
+		`The duration, of the role session. "1h" means 1 hour.
+		Must be between 1-12 hours and must be <= the target role's max session duration.`,
 	)
 
 	rootCmd.AddCommand(execCmd)
