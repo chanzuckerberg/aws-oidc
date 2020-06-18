@@ -54,6 +54,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 			IssuerURL: issuerURL,
 			RoleARN:   roleARN,
 		},
+		time.Hour, // default to 1 hour
 	)
 	if err != nil {
 		return err
@@ -79,6 +80,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 func assumeRole(
 	ctx context.Context,
 	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
+	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 	token, err := oidc.GetToken(
 		ctx,
@@ -90,6 +92,8 @@ func assumeRole(
 	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
 		ctx,
 		token,
-		awsOIDCConfig.RoleARN)
+		awsOIDCConfig.RoleARN,
+		sessionDuration,
+	)
 	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
 }

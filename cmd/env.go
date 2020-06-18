@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/spf13/cobra"
 )
 
 var flagProfileName string
+var sessionDuration time.Duration
 
 func init() {
 	envCmd.Flags().StringVar(
@@ -17,6 +19,14 @@ func init() {
 		aws_config_client.FlagProfile,
 		"",
 		"AWS Profile to fetch credentials from.")
+
+	envCmd.Flags().DurationVar(
+		&sessionDuration,
+		"session-duration",
+		time.Hour,
+		`The duration, of the role session. "1h" means 1 hour.
+		Must be between 1-12 hours and must be <= the target role's max session duration.`,
+	)
 
 	rootCmd.AddCommand(envCmd)
 }
@@ -39,7 +49,7 @@ func envRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	assumeRoleOutput, err := assumeRole(ctx, awsOIDCConfig)
+	assumeRoleOutput, err := assumeRole(ctx, awsOIDCConfig, sessionDuration)
 	if err != nil {
 		return err
 	}

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
@@ -18,6 +19,14 @@ func init() {
 		aws_config_client.FlagProfile,
 		"",
 		"AWS Profile to fetch credentials from. Can set AWS_PROFILE instead.")
+
+	execCmd.Flags().DurationVar(
+		&sessionDuration,
+		"session-duration",
+		time.Hour,
+		`The duration, of the role session. "1h" means 1 hour.
+		Must be between 1-12 hours and must be <= the target role's max session duration.`,
+	)
 
 	rootCmd.AddCommand(execCmd)
 }
@@ -57,7 +66,11 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
 	}
 
-	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, awsOIDCConfig.RoleARN)
+	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
+		ctx,
+		token,
+		awsOIDCConfig.RoleARN,
+		sessionDuration)
 	if err != nil {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}

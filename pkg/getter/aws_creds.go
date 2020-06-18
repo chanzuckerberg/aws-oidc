@@ -2,6 +2,7 @@ package getter
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -10,17 +11,24 @@ import (
 	"github.com/pkg/errors"
 )
 
-func GetAWSAssumeIdentity(ctx context.Context, token *client.Token, roleARN string) (*sts.AssumeRoleWithWebIdentityOutput, error) {
+func GetAWSAssumeIdentity(
+	ctx context.Context,
+	token *client.Token,
+	roleARN string,
+	sessionDuration time.Duration,
+) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 	sess, err := session.NewSession()
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to create AWS session")
 	}
 	stsSession := sts.New(sess)
+	sessionDurationSeconds := int64(sessionDuration.Seconds())
 
 	input := &sts.AssumeRoleWithWebIdentityInput{
 		RoleArn:          aws.String(roleARN),
 		RoleSessionName:  aws.String(token.Claims.Email),
 		WebIdentityToken: aws.String(token.IDToken),
+		DurationSeconds:  &sessionDurationSeconds,
 	}
 
 	tokenOutput, err := stsSession.AssumeRoleWithWebIdentityWithContext(ctx, input)
