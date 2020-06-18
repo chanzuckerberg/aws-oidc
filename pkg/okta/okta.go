@@ -26,7 +26,7 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 		okta.WithScopes(([]string{"okta.apps.read"})),
 		okta.WithPrivateKey(conf.PrivateKeyPEM),
 		okta.WithOrgUrl(conf.OrgURL),
-		okta.WithCache(false),
+		okta.WithCache(true),
 	)
 
 	return client, errors.Wrap(err, "error creating Okta client")
