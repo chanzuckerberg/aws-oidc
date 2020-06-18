@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/mitchellh/go-homedir"
@@ -14,6 +15,7 @@ import (
 )
 
 var profileName string
+var sessionDuration time.Duration
 
 const (
 	clientIDRegex  = "--client-id=(?P<ClientID>\\S+)"
@@ -24,6 +26,13 @@ const (
 func init() {
 	envCmd.Flags().StringVar(&profileName, "profile", "", "AWS Profile to fetch credentials from.")
 	envCmd.MarkFlagRequired("profile") //nolint:errcheck
+
+	envCmd.Flags().DurationVar(
+		&sessionDuration,
+		"session-duration",
+		time.Hour,
+		"The duration, of the role session. Must be between 1-12 hours. `1h` means 1 hour."
+	)
 
 	rootCmd.AddCommand(envCmd)
 }

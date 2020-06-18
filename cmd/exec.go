@@ -19,6 +19,13 @@ func init() {
 	execCmd.MarkFlagRequired("client-id")    // nolint:errcheck
 	execCmd.MarkFlagRequired("issuer-url")   // nolint:errcheck
 	execCmd.MarkFlagRequired("aws-role-arn") // nolint:errcheck
+
+	execCmd.Flags().DurationVar(
+		&sessionDuration,
+		"session-duration",
+		time.Hour,
+		"The duration, of the role session. Must be between 1-12 hours. `1h` means 1 hour."
+	)
 }
 
 var execCmd = &cobra.Command{
@@ -49,7 +56,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
 	}
 
-	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
+	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN, sessionDuration)
 	if err != nil {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}

@@ -51,6 +51,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 		clientID,
 		issuerURL,
 		roleARN,
+		time.Hour, // default to 1 hour
 	)
 	if err != nil {
 		return err
@@ -78,6 +79,7 @@ func assumeRole(
 	clientID string,
 	issuerURL string,
 	roleARN string,
+	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
 	token, err := oidc.GetToken(ctx, clientID, issuerURL)
 	if err != nil {
