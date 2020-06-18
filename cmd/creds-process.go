@@ -92,6 +92,8 @@ func assumeRole(
 	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
 		ctx,
 		token,
-		awsOIDCConfig.RoleARN)
+		awsOIDCConfig.RoleARN,
+		sessionDuration,
+	)
 	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
 }

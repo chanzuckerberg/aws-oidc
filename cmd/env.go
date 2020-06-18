@@ -24,7 +24,7 @@ func init() {
 		&sessionDuration,
 		"session-duration",
 		time.Hour,
-		"The duration, of the role session. Must be between 1-12 hours. `1h` means 1 hour."
+		"The duration, of the role session. Must be between 1-12 hours. `1h` means 1 hour.",
 	)
 
 	rootCmd.AddCommand(envCmd)
@@ -48,7 +48,7 @@ func envRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	assumeRoleOutput, err := assumeRole(ctx, awsOIDCConfig)
+	assumeRoleOutput, err := assumeRole(ctx, awsOIDCConfig, sessionDuration)
 	if err != nil {
 		return err
 	}
