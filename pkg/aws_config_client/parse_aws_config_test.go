@@ -1,4 +1,4 @@
-package cmd
+package aws_config_client
 
 import (
 	"os"
@@ -26,24 +26,33 @@ func TestResolveProfile(t *testing.T) {
 	r.NoError(os.Unsetenv(envAWSProfile))
 
 	// default
-	r.Equal(defaultAWSProfile, resolveProfile(nil))
+	prof, err := resolveProfile(nil)
+	r.NoError(err)
+	r.Equal(defaultAWSProfile, prof)
 
 	// from env
 	expectedProfile := "asdfasdfalkwq;e"
 	os.Setenv(envAWSProfile, expectedProfile)
-	r.Equal(expectedProfile, resolveProfile(nil))
+	prof, err = resolveProfile(nil)
+	r.NoError(err)
+	r.Equal(expectedProfile, prof)
 
 	// flag
+	var flagVal string
+
 	expectedProfile = "flag-profile"
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(
-		&flagProfileName,
-		flagProfile,
+		&flagVal,
+		FlagProfile,
 		"",
 		"AWS Profile to fetch credentials from.")
 
 	r.NoError(cmd.Flags().Set(
-		flagProfile,
+		FlagProfile,
 		expectedProfile))
-	r.Equal(expectedProfile, resolveProfile(cmd))
+
+	prof, err = resolveProfile(cmd)
+	r.NoError(err)
+	r.Equal(expectedProfile, prof)
 }
