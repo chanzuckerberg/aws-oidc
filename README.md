@@ -52,7 +52,7 @@ Will query your aws config service (serve-config command) to help populate your 
 Env is primarily here to assist when running docker locally. It requires your `~/.aws/config` to be properly configured. You can run the following to test it out:
 
 ```
-docker run -it --env-file <(go run main.go env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
+docker run -it --env-file <(aws-oidc env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
 ```
 
 ### version
