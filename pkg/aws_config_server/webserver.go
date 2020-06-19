@@ -11,6 +11,7 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
+	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 )
@@ -181,5 +182,6 @@ func GetRouter(
 
 	loggingHandler := handlers.CombinedLoggingHandler(os.Stdout, router)
 	recoveryHandler := handlers.RecoveryHandler()(loggingHandler)
-	return recoveryHandler
+	honeycombHandler := hnynethttp.WrapHandler(recoveryHandler)
+	return honeycombHandler
 }

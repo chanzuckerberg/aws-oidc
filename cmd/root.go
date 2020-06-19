@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/evalphobia/logrus_sentry"
+	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -32,6 +33,19 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 	return env, nil
 }
 
+type HoneycombEnvironment struct {
+	SECRET_KEY string
+}
+
+func loadHoneycombEnv() (*HoneycombEnvironment, error) {
+	env := &HoneycombEnvironment{}
+	err := envconfig.Process("HONEYCOMB", env)
+	if err != nil {
+		return env, errors.Wrap(err, "Unable to load all the honeycomb environment variables")
+	}
+	return env, nil
+}
+
 func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
 }
@@ -49,10 +63,21 @@ var rootCmd = &cobra.Command{
 			log.SetLevel(log.DebugLevel)
 			log.SetReportCaller(true)
 		}
+		// Configure Logrus
 		err = configureLogrusHooks()
 		if err != nil {
 			return errors.Wrap(err, "Unable to configure Logrus Hooks")
 		}
+		// Configure Honeycomb Telemetry
+		honeycombEnv, err := loadHoneycombEnv()
+		if err != nil {
+			return err
+		}
+		beeline.Init(beeline.Config{
+			WriteKey:    honeycombEnv.SECRET_KEY,
+			Dataset:     "aws-oidc",
+			ServiceName: "aws-oidc",
+		})
 		return nil
 	},
 }

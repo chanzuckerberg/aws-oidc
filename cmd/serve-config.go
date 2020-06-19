@@ -46,7 +46,7 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	env := &OktaWebserverEnvironment{}
 	err := envconfig.Process("OKTA", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the environment variables")
+		return env, errors.Wrap(err, "Unable to load all the okta environment variables")
 	}
 	return env, nil
 }
@@ -55,7 +55,7 @@ func loadAWSEnv() (*AWSEnvironment, error) {
 	env := &AWSEnvironment{}
 	err := envconfig.Process("AWS", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the environment variables")
+		return env, errors.Wrap(err, "Unable to load all the aws environment variables")
 	}
 	return env, nil
 }
@@ -76,6 +76,7 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 func serveConfigRun(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
 
+	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()
 	if err != nil {
 		return err
