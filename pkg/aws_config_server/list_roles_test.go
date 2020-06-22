@@ -62,7 +62,7 @@ func TestClientRoleMapFromProfile(t *testing.T) {
 	testRoles1[0].AssumeRolePolicyDocument = &newPolicyStr
 
 	clientRoleMap := map[okta.ClientID][]ConfigProfile{}
-	err = clientRoleMapFromProfile(ctx, "accountName", testRoles1, oidcProvider, clientRoleMap)
+	err = clientRoleMapFromProfile(ctx, "accountName", "accountAlias", testRoles1, oidcProvider, clientRoleMap)
 	r.NoError(err)                                                 // Nothing weird happened
 	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
 	r.Contains(clientRoleMap, okta.ClientID("clientIDValue1"))     // Only the valid ID is present
@@ -79,7 +79,7 @@ func TestClientRoleMapFromProfile(t *testing.T) {
 	newPolicyStr = url.PathEscape(string(newPolicyData))
 	testRoles2[0].AssumeRolePolicyDocument = &newPolicyStr
 
-	err = clientRoleMapFromProfile(ctx, "accountName2", testRoles2, oidcProvider, clientRoleMap)
+	err = clientRoleMapFromProfile(ctx, "accountName2", "accountAlias2", testRoles2, oidcProvider, clientRoleMap)
 
 	r.NoError(err)
 	r.Len(clientRoleMap[okta.ClientID("clientIDValue1")], 2) // original ClientID has another entry
@@ -92,7 +92,7 @@ func TestNoPolicyDocument(t *testing.T) {
 	r := require.New(t)
 
 	clientRoleMap := map[okta.ClientID][]ConfigProfile{}
-	err := clientRoleMapFromProfile(ctx, "accountName", testRoles0, oidcProvider, clientRoleMap)
+	err := clientRoleMapFromProfile(ctx, "accountName", "accountAlias", testRoles0, oidcProvider, clientRoleMap)
 	r.NoError(err)
 	r.Empty(clientRoleMap)
 }
@@ -134,4 +134,22 @@ func TestGetActiveAccountList(t *testing.T) {
 	r.NotEmpty(acctList)
 	r.Len(acctList, 1)
 	r.Equal(*acctList[0].Name, "Account1") // the active account
+}
+
+func TestGetAcctAlias(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockIAM(ctrl)
+
+	testAlias := "account_alias_1"
+
+	mock.EXPECT().
+		ListAccountAliases(gomock.Any()).Return(&iam.ListAccountAliasesOutput{AccountAliases: []*string{&testAlias}}, nil)
+
+	outputString, err := getAcctAlias(ctx, mock)
+	r.NoError(err)
+	r.Equal(testAlias, outputString)
 }
