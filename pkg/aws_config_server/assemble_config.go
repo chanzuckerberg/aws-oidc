@@ -21,7 +21,7 @@ type ClientIDToAWSRoles struct {
 	awsClient  *cziAWS.Client
 }
 
-func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string, workerRole string) error {
+func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []string, workerRole string) error {
 	for _, role_arn := range masterRoles {
 		masterAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
@@ -33,6 +33,12 @@ func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string,
 			return errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
 		for _, acct := range accountList {
+
+			// HACK until permission issue gets resolved for the account
+			if *acct.Name == "hca-prod" {
+				continue
+			}
+
 			// create a new IAM session for each account
 			new_role_arn := arn.ARN{
 				Partition: "aws",
@@ -46,7 +52,7 @@ func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string,
 	return nil
 }
 
-func (a *ClientIDToAWSRoles) mapRoles(
+func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 	ctx context.Context,
 	oidcProvider string,
 ) error {
@@ -55,13 +61,20 @@ func (a *ClientIDToAWSRoles) mapRoles(
 			Credentials:                   stscreds.NewCredentials(a.awsSession, roleARN.String()),
 			CredentialsChainVerboseErrors: aws.Bool(true),
 		}
+
 		iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 		workerRoles, err := listRoles(ctx, iamClient)
 		if err != nil {
 			return errors.Wrapf(err, "%s error", accountName)
 		}
-
-		err = clientRoleMapFromProfile(ctx, accountName, workerRoles, oidcProvider, a.clientRoleMapping)
+		// account aliases will be used to determine profile names
+		// by the completer in cli
+		accountAlias, err := getAcctAlias(ctx, iamClient)
+		if err != nil {
+			// TODO instead of crashing, should we just use account name in this case?
+			return errors.Wrapf(err, "%s error", accountName)
+		}
+		err = clientRoleMapFromProfile(ctx, accountName, accountAlias, workerRoles, oidcProvider, a.clientRoleMapping)
 		if err != nil {
 			return errors.Wrap(err, "Unable to complete mapping between ClientIDs and ConfigProfiles")
 		}
@@ -89,11 +102,13 @@ func createAWSConfig(
 				RoleARN:  config.RoleARN.String(),
 				AWSAccount: AWSAccount{
 					Name: config.AcctName,
+					Alias: config.AcctAlias,
 					ID:   config.RoleARN.AccountID,
 				},
 				IssuerURL: configParams.OIDCProvider,
 				RoleName:  config.RoleName,
 			}
+
 			awsConfig.Profiles = append(awsConfig.Profiles, profile)
 		}
 	}

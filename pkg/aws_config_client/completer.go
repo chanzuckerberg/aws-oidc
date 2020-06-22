@@ -65,7 +65,11 @@ func (c *completer) awsProfileNameValidator(input interface{}) error {
 
 func (c *completer) calculateDefaultProfileName(account server.AWSAccount) string {
 	invalid := regexp.MustCompile("[^a-zA-Z0-9_-]")
-	replaced := invalid.ReplaceAllString(account.Name, "-")
+	accountName := account.Alias
+	if accountName == "" {
+		accountName = account.Name
+	}
+	replaced := invalid.ReplaceAllString(accountName, "-")
 	return strings.ToLower(replaced)
 }
 

@@ -70,11 +70,11 @@ func (c *CachedGetClientIDToProfiles) refresh(
 		roleARNs:          map[string]arn.ARN{},
 		awsClient:         cziAWS.New(awsSession),
 	}
-	err := configData.getRoles(ctx, configParams.AWSMasterRoles, configParams.AWSWorkerRole)
+	err := configData.getWorkerRoles(ctx, configParams.AWSMasterRoles, configParams.AWSWorkerRole)
 	if err != nil {
 		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Master Roles")
 	}
-	err = configData.mapRoles(ctx, configParams.OIDCProvider)
+	err = configData.fetchAssumableRoles(ctx, configParams.OIDCProvider)
 	if err != nil {
 		return errors.Wrap(err, "Unable to create mapping needed for config generation")
 	}
