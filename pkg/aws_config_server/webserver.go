@@ -180,8 +180,8 @@ func GetRouter(
 	router.GET("/", handle)
 	router.GET("/health", Health)
 
-	loggingHandler := handlers.CombinedLoggingHandler(os.Stdout, router)
-	recoveryHandler := handlers.RecoveryHandler()(loggingHandler)
+	handler := handlers.CombinedLoggingHandler(os.Stdout, router)
+	handler = handlers.RecoveryHandler()(handler)
 	honeycombHandler := hnynethttp.WrapHandler(recoveryHandler)
 	return honeycombHandler
 }
