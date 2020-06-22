@@ -34,7 +34,9 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 }
 
 type HoneycombEnvironment struct {
-	SECRET_KEY string
+	SECRET_KEY   string
+	DATASET_NAME string
+	SERVICE_NAME string
 }
 
 func loadHoneycombEnv() (*HoneycombEnvironment, error) {
@@ -68,16 +70,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrap(err, "Unable to configure Logrus Hooks")
 		}
-		// Configure Honeycomb Telemetry
-		honeycombEnv, err := loadHoneycombEnv()
-		if err != nil {
-			return err
-		}
-		beeline.Init(beeline.Config{
-			WriteKey:    honeycombEnv.SECRET_KEY,
-			Dataset:     "aws-oidc",
-			ServiceName: "aws-oidc",
-		})
+
 		return nil
 	},
 }
@@ -103,6 +96,31 @@ func configureLogrusHooks() error {
 		return nil
 	}
 	log.AddHook(sentryHook)
+	return nil
+}
+
+func configureHoneycombTelemetry() error {
+	honeycombEnv, err := loadHoneycombEnv()
+	if err != nil {
+		return err
+	}
+	// if env var not set, ignore
+	if honeycombEnv.SECRET_KEY == "" {
+		return nil
+	}
+	datasetName := honeycombEnv.DATASET_NAME
+	serviceName := honeycombEnv.SERVICE_NAME
+	if datasetName == "" {
+		datasetName = "aws-oidc"
+	}
+	if serviceName == "" {
+		serviceName = "aws-oidc"
+	}
+	beeline.Init(beeline.Config{
+		WriteKey:    honeycombEnv.SECRET_KEY,
+		Dataset:     datasetName,
+		ServiceName: serviceName,
+	})
 	return nil
 }
 
