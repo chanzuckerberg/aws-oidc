@@ -3,6 +3,7 @@ package aws_config_client
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"testing"
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
@@ -31,10 +32,10 @@ region             = test-region
 
 `
 
-	out := ini.Empty()
+	baseAWSConfig := ini.Empty()
 
 	// we add a junk section and make sure it disappears in the output
-	junkSection, err := out.NewSection("profile test1")
+	junkSection, err := baseAWSConfig.NewSection("profile test1")
 	r.NoError(err)
 	junkSection.Key("role_arn").SetValue("this should disappear")
 
@@ -55,11 +56,13 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err = c.Complete(out)
+	testWriter :=
+	err = c.Complete(baseAWSConfig, testWriter)
 	r.NoError(err)
+	r.NotEmpty(testWriter)
 
 	generatedConfig := bytes.NewBuffer(nil)
-	_, err = out.WriteTo(generatedConfig)
+	_, err = baseAWSConfig.WriteTo(generatedConfig)
 	r.NoError(err)
 	r.Equal(expected, generatedConfig.String())
 }
@@ -93,7 +96,7 @@ credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --cli
 region             = test-region
 
 `
-	out := ini.Empty()
+	newAWSProfiles := ini.Empty()
 
 	prompt := &MockPrompt{
 
@@ -109,11 +112,12 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err := c.Complete(out)
+	testWriter :=
+	err = c.Complete(newAWSProfiles, testWriter)
 	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
-	_, err = out.WriteTo(generatedConfig)
+	_, err = newAWSProfiles.WriteTo(generatedConfig)
 	r.NoError(err)
 	r.Equal(expected, generatedConfig.String())
 }
@@ -122,7 +126,7 @@ func TestNoRoles(t *testing.T) {
 	r := require.New(t)
 	expected := ``
 
-	out := ini.Empty()
+	newAWSProfiles := ini.Empty()
 	prompt := &MockPrompt{
 		selectResponse:  []int{},
 		inputResponse:   []string{},
@@ -131,11 +135,13 @@ func TestNoRoles(t *testing.T) {
 
 	c := NewCompleter(prompt, generateEmptyData())
 
-	err := c.Complete(out)
+	testWriter :=
+	err := c.Complete(newAWSProfiles, testWriter)
 	r.NoError(err)
+	r.Empty(testWriter)
 
 	generatedConfig := bytes.NewBuffer(nil)
-	_, err = out.WriteTo(generatedConfig)
+	_, err = newAWSProfiles.WriteTo(generatedConfig)
 	r.NoError(err)
 	r.Equal(expected, generatedConfig.String())
 }

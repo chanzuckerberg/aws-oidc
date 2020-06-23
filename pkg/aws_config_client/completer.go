@@ -1,11 +1,15 @@
 package aws_config_client
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"regexp"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -176,6 +180,10 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 	collectedProfiles := []*AWSNamedProfile{}
 	for {
 		currentProfile, err := c.SurveyProfile()
+		if err == terminal.InterruptErr {
+			logrus.Info("Process Interrupted. Exiting")
+			break
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -207,7 +215,8 @@ func (c *completer) Continue() (bool, error) {
 	return c.prompt.Confirm("Would you like to configure another profile?", true)
 }
 
-func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*AWSNamedProfile) error {
+func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile) (*ini.File, error) {
+	out := ini.Empty()
 
 	for _, profile := range profiles {
 		profileSection := fmt.Sprintf("profile %s", profile.Name)
@@ -223,16 +232,43 @@ func (c *completer) writeAWSProfiles(out *ini.File, region string, profiles []*A
 		out.DeleteSection(profileSection)
 		section, err := out.NewSection(profileSection)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
+			return nil, errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
 		}
 		section.Key(AWSConfigSectionOutput).SetValue("json")
 		section.Key(AWSConfigSectionCredentialProcess).SetValue(credsProcessValue)
 		section.Key(AWSConfigSectionRegion).SetValue(region)
 	}
-	return nil
+	return out, nil
 }
 
-func (c *completer) Complete(out *ini.File) error {
+func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini.File, error) {
+
+	// Ask user to confirm that this is the AWS config they want
+	fmt.Println(newAWSProfiles.WriteTo(os.Stdout))
+	cnt, err := c.prompt.Confirm("Does this config file look right?", true)
+	// Print a string version of out (the ini file)
+	if !cnt {
+		logrus.Info("Discarding changes")
+		return nil, nil
+	}
+	baseBytes := bytes.NewBuffer(nil)
+	newAWSProfileBytes := bytes.NewBuffer(nil)
+	_, err = newAWSProfiles.WriteTo(newAWSProfileBytes)
+	if err != nil {
+		return nil, err
+	}
+	_, err = base.WriteTo(baseBytes)
+	if err != nil {
+		return nil, err
+	}
+	mergedConfig, err := ini.Load(baseBytes, newAWSProfileBytes)
+	if err != nil {
+		return nil, err
+	}
+	return mergedConfig, nil
+}
+
+func (c *completer) Complete(base *ini.File, w io.Writer) error {
 	if len(c.awsConfig.Profiles) == 0 {
 		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
 		return nil
@@ -248,10 +284,17 @@ func (c *completer) Complete(out *ini.File) error {
 	if err != nil {
 		return err
 	}
+	if len(profiles) == 0 {
+		logrus.Info("No AWS profiles configured")
+		return nil
+	}
 
-	err = c.writeAWSProfiles(out, region, profiles)
+	newAWSProfiles, err := c.assembleAWSConfig(region, profiles)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	mergedConfig, err := c.mergeConfigs(newAWSProfiles, base)
+	_, err = mergedConfig.WriteTo(w)
+	return errors.Wrap(err, "Could not write new aws config")
 }

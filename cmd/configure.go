@@ -56,18 +56,14 @@ var configureCmd = &cobra.Command{
 			return errors.Wrap(err, "could not open aws config")
 		}
 
-		err = completer.Complete(iniOut)
-		if err != nil {
-			return err
-		}
-
 		awsConfigFile, err := os.OpenFile(awsConfigPath, os.O_WRONLY|os.O_CREATE, 0600)
 		if err != nil {
 			return err
 		}
 		defer awsConfigFile.Close()
 
-		_, err = iniOut.WriteTo(awsConfigFile)
-		return errors.Wrap(err, "Could not write new aws config")
+		return completer.Complete(iniOut, awsConfigFile)
+		// _, err = iniOut.WriteTo(awsConfigFile)
+		// return errors.Wrap(err, "Could not write new aws config")
 	},
 }

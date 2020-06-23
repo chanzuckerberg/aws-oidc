@@ -1,12 +1,8 @@
 package aws_config_client
 
 import (
-	"os"
-
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 type Prompt interface {
@@ -32,10 +28,7 @@ func (s *Survey) Select(prompt string, options []string, surveyOptions ...survey
 		&chosen,
 		surveyOptions...,
 	)
-	if err == terminal.InterruptErr {
-		logrus.Info("Process Interrupted. Exiting")
-		os.Exit(0)
-	}
+
 	if err != nil {
 		return 0, errors.Wrap(err, "error asking user to select")
 	}
@@ -62,10 +55,7 @@ func (s *Survey) Input(prompt string, defaulted string, surveyOptions ...survey.
 		&input,
 		surveyOptions...,
 	)
-	if err == terminal.InterruptErr {
-		logrus.Info("Process Interrupted. Exiting")
-		os.Exit(0)
-	}
+
 	if err != nil {
 		return "", errors.Wrap(err, "error asking user for input")
 	}
@@ -84,10 +74,7 @@ func (s *Survey) Confirm(prompt string, defaulted bool, surveyOptions ...survey.
 		&answer,
 		surveyOptions...,
 	)
-	if err == terminal.InterruptErr {
-		logrus.Info("Process Interrupted. Exiting")
-		os.Exit(0)
-	}
+
 	if err != nil {
 		return false, errors.Wrap(err, "error asking for confirmation")
 	}
