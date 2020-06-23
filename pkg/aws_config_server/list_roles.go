@@ -226,7 +226,12 @@ func GetActiveAccountList(
 func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
 	input := &iam.ListAccountAliasesInput{}
 	output, err := svc.ListAccountAliases(input)
+
 	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
+			logrus.WithError(err).Error("Unable to get aliases for this account")
+			return "", nil
+		}
 		return "", errors.Wrap(err, "Error getting account alias")
 	}
 

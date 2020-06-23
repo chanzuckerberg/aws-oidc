@@ -34,11 +34,6 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []s
 		}
 		for _, acct := range accountList {
 
-			// HACK until permission issue gets resolved for the account
-			if *acct.Name == "hca-prod" {
-				continue
-			}
-
 			// create a new IAM session for each account
 			new_role_arn := arn.ARN{
 				Partition: "aws",

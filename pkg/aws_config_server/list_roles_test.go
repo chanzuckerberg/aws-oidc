@@ -15,8 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestListRoles(t *testing.T) {
-	ctx := context.Background()
+func TestListRoles(t *testing.T) {ctx := context.Background()
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -147,7 +146,9 @@ func TestGetAcctAlias(t *testing.T) {
 	testAlias := "account_alias_1"
 
 	mock.EXPECT().
-		ListAccountAliases(gomock.Any()).Return(&iam.ListAccountAliasesOutput{AccountAliases: []*string{&testAlias}}, nil)
+		ListAccountAliases(gomock.Any()).Return(
+		&iam.ListAccountAliasesOutput{AccountAliases: []*string{&testAlias}}, nil,
+	)
 
 	outputString, err := getAcctAlias(ctx, mock)
 	r.NoError(err)
