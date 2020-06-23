@@ -33,7 +33,6 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []s
 			return errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
 		for _, acct := range accountList {
-
 			// create a new IAM session for each account
 			new_role_arn := arn.ARN{
 				Partition: "aws",
@@ -66,7 +65,6 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 		// by the completer in cli
 		accountAlias, err := getAcctAlias(ctx, iamClient)
 		if err != nil {
-			// TODO instead of crashing, should we just use account name in this case?
 			return errors.Wrapf(err, "%s error", accountName)
 		}
 		err = clientRoleMapFromProfile(ctx, accountName, accountAlias, workerRoles, oidcProvider, a.clientRoleMapping)
