@@ -88,10 +88,6 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 
 	provider, err := oidc.NewProvider(ctx, oktaEnv.ISSUER_URL)
 	if err != nil {
-		webserver.AddBeelineFields(ctx, webserver.BeelineField{
-			Key:   "OIDC New Provider error",
-			Value: err.Error(),
-		})
 		return errors.Wrap(err, "Unable to create OIDC provider")
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: oktaEnv.CLIENT_ID})
@@ -102,19 +98,11 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		},
 	)
 	if err != nil {
-		webserver.AddBeelineFields(ctx, webserver.BeelineField{
-			Key:   "AWS New Session Error",
-			Value: err.Error(),
-		})
 		return errors.Wrap(err, "failed to create aws session")
 	}
 
 	oktaAppClient, err := createOktaClientApps(ctx, oktaEnv.ISSUER_URL, oktaEnv.PRIVATE_KEY, oktaEnv.SERVICE_CLIENT_ID)
 	if err != nil {
-		webserver.AddBeelineFields(ctx, webserver.BeelineField{
-			Key:   "OIDC New Provider error",
-			Value: err.Error(),
-		})
 		return errors.Wrap(err, "failed to create okta apps")
 	}
 
@@ -130,10 +118,6 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		awsSession,
 	)
 	if err != nil {
-		webserver.AddBeelineFields(ctx, webserver.BeelineField{
-			Key:   "Get Cached ClientIDs error",
-			Value: err.Error(),
-		})
 		return errors.Wrap(err, "could not generate client id to aws role mapping")
 	}
 
