@@ -235,5 +235,9 @@ func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
 		return "", errors.Wrap(err, "Error getting account alias")
 	}
 
+        // no alias
+        if output == nil || len(output.AccountAliases) == 0 {
+            return "", nil
+        }
 	return *output.AccountAliases[0], nil
 }
