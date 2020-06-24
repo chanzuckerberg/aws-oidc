@@ -5,7 +5,6 @@ import (
 	"sort"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	"github.com/honeycombio/beeline-go"
 )
 
 type AWSConfig struct {
@@ -87,8 +86,8 @@ type BeelineField struct {
 }
 
 func AddBeelineFields(ctx context.Context, fields ...BeelineField) error {
-	for _, field := range fields {
-		beeline.AddField(ctx, field.Key, field.Value)
-	}
+	// for _, field := range fields {
+	// 	beeline.AddField(ctx, field.Key, field.Value)
+	// }
 	return nil
 }

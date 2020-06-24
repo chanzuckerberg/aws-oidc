@@ -117,7 +117,6 @@ func configureHoneycombTelemetry() error {
 		WriteKey:    honeycombEnv.SECRET_KEY,
 		Dataset:     honeycombEnv.DATASET_NAME,
 		ServiceName: honeycombEnv.SERVICE_NAME,
-		Debug:       true,
 	})
 
 	return nil
