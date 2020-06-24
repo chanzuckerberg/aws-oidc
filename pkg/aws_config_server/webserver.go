@@ -54,6 +54,10 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 		authHeader := r.Header.Get("Authorization")
+		AddBeelineFields(r.Context(), BeelineField{
+			Key:   "authHeader",
+			Value: authHeader,
+		})
 		ctx := r.Context()
 		if len(authHeader) <= 0 {
 			logrus.Debugf("error: No Authorization header found.")
@@ -68,6 +72,10 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 			http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
 			return
 		}
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "verifiedToken",
+			Value: fmt.Sprintf("%v", idToken),
+		})
 
 		claims := &claims{}
 		err = idToken.Claims(claims)
@@ -76,7 +84,10 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 			http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
 			return
 		}
-
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "claims",
+			Value: fmt.Sprintf("%v", claims),
+		})
 		ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
 		ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
 		rWithValues := r.WithContext(ctxWithValues)
@@ -115,6 +126,10 @@ func Index(
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "email",
+			Value: *email,
+		})
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
@@ -122,6 +137,10 @@ func Index(
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "subjectID",
+			Value: *sub,
+		})
 
 		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
 		if err != nil {
@@ -130,15 +149,24 @@ func Index(
 			return
 		}
 
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "clientIDs",
+			Value: fmt.Sprintf("%v", clientIDs),
+		})
 		logrus.Debugf("%s's clientIDs: %s", *email, clientIDs)
+
 		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
 		if err != nil {
 			logrus.Errorf("error: Unable to create mapping from clientID to roleARNs: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "clientMapping",
+			Value: fmt.Sprintf("%v", clientMapping),
+		})
 		logrus.Debugf("%s's client mapping: %s", *email, clientMapping)
+
 		awsConfig, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
 		if err != nil {
 			logrus.Errorf("error: unable to get AWS Config File: %s", err)

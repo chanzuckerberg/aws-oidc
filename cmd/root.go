@@ -70,6 +70,11 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrap(err, "Unable to configure Logrus Hooks")
 		}
+
+		err = configureHoneycombTelemetry()
+		if err != nil {
+			return errors.Wrap(err, "Unable to set up Honeycomb Telemetry")
+		}
 		return nil
 	},
 }
@@ -114,9 +119,11 @@ func configureHoneycombTelemetry() error {
 		ServiceName: honeycombEnv.SERVICE_NAME,
 		Debug:       true,
 	})
+
 	return nil
 }
 
 func Execute(ctx context.Context) error {
+	defer beeline.Close()
 	return rootCmd.ExecuteContext(ctx)
 }

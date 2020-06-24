@@ -1,9 +1,11 @@
 package aws_config_server
 
 import (
+	"context"
 	"sort"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/honeycombio/beeline-go"
 )
 
 type AWSConfig struct {
@@ -77,4 +79,16 @@ type AWSProfile struct {
 type AWSAccount struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
+}
+
+type BeelineField struct {
+	Key   string
+	Value string
+}
+
+func AddBeelineFields(ctx context.Context, fields ...BeelineField) error {
+	for _, field := range fields {
+		beeline.AddField(ctx, field.Key, field.Value)
+	}
+	return nil
 }

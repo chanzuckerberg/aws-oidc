@@ -28,14 +28,21 @@ func RequestConfig(
 		"Authorization",
 		fmt.Sprintf("BEARER %s", token.IDToken),
 	)
+	server.AddBeelineFields(ctx, server.BeelineField{
+		Key:   "aws_config_clien http request Authorization header",
+		Value: req.Header.Get("Authorization"),
+	})
 
 	rsp, err := http.DefaultClient.Do(req)
+	server.AddBeelineFields(ctx, server.BeelineField{
+		Key:   "aws_config_clien http response status",
+		Value: rsp.Status,
+	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "error requesting from %s", configServiceURI)
 	}
 	if rsp.StatusCode != http.StatusOK {
 		return nil, errors.Errorf("non %d http status code received: %d", http.StatusOK, rsp.StatusCode)
-
 	}
 	defer rsp.Body.Close()
 

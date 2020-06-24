@@ -2,6 +2,7 @@ package aws_config_server
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -53,8 +54,17 @@ func (c *CachedGetClientIDToProfiles) Get(ctx context.Context) (map[okta.ClientI
 	defer c.mu.RUnlock()
 
 	if c.clientIDToProfiles == nil {
+		AddBeelineFields(ctx, BeelineField{
+			Key:   "cached ClientIDs",
+			Value: "empty",
+		})
 		return nil, errors.New("nil mapping of client_ids to aws profiles")
 	}
+
+	AddBeelineFields(ctx, BeelineField{
+		Key:   "cache ClientIDs",
+		Value: fmt.Sprintf("%v", c.clientIDToProfiles),
+	})
 	// return the cached value
 	return c.clientIDToProfiles, nil
 }
@@ -74,10 +84,19 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	if err != nil {
 		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Master Roles")
 	}
+	AddBeelineFields(ctx, BeelineField{
+		Key:   "refreshedRoles",
+		Value: fmt.Sprintf("%v", configData.roleARNs),
+	})
+
 	err = configData.mapRoles(ctx, configParams.OIDCProvider)
 	if err != nil {
 		return errors.Wrap(err, "Unable to create mapping needed for config generation")
 	}
+	AddBeelineFields(ctx, BeelineField{
+		Key:   "refreshedRoleMapping",
+		Value: fmt.Sprintf("%v", configData.clientRoleMapping),
+	})
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

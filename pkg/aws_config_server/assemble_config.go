@@ -43,6 +43,11 @@ func (a *ClientIDToAWSRoles) getRoles(ctx context.Context, masterRoles []string,
 			a.roleARNs[*acct.Name] = new_role_arn
 		}
 	}
+	AddBeelineFields(ctx, BeelineField{
+		Key:   "roles",
+		Value: fmt.Sprintf("%v", a.roleARNs),
+	})
+
 	return nil
 }
 
@@ -66,6 +71,10 @@ func (a *ClientIDToAWSRoles) mapRoles(
 			return errors.Wrap(err, "Unable to complete mapping between ClientIDs and ConfigProfiles")
 		}
 	}
+	AddBeelineFields(ctx, BeelineField{
+		Key:   "role mapping",
+		Value: fmt.Sprintf("%v", a.clientRoleMapping),
+	})
 	return nil
 }
 
@@ -97,5 +106,10 @@ func createAWSConfig(
 			awsConfig.Profiles = append(awsConfig.Profiles, profile)
 		}
 	}
+	AddBeelineFields(ctx, BeelineField{
+		Key:   "awsConfig.Profiles",
+		Value: fmt.Sprintf("%v", awsConfig.Profiles),
+	})
+
 	return awsConfig, nil
 }

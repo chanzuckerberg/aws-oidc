@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
+	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/pkg/errors"
@@ -87,13 +88,22 @@ func assumeRole(
 		awsOIDCConfig.ClientID,
 		awsOIDCConfig.IssuerURL)
 	if err != nil {
+		server.AddBeelineFields(ctx, server.BeelineField{
+			Key:   "GetToken error",
+			Value: err.Error(),
+		})
 		return nil, errors.Wrap(err, "unable to obtain OIDC token")
 	}
+
 	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
 		ctx,
 		token,
 		awsOIDCConfig.RoleARN,
 		sessionDuration,
 	)
+	server.AddBeelineFields(ctx, server.BeelineField{
+		Key:   "assume role output",
+		Value: fmt.Sprintf("%v", assumeRoleOutput),
+	})
 	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
 }
