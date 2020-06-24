@@ -208,7 +208,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "test1",
 					ID:   "test_id_1",
-					Alias: "alias1",
+					Alias: "test1",
 				},
 				RoleARN:   "test1RoleName",
 				IssuerURL: "issuer-url",
@@ -219,7 +219,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "test1",
 					ID:   "test_id_1",
-					Alias: "alias1",
+					Alias: "test1",
 				},
 				RoleARN:   "test2RoleName",
 				IssuerURL: "issuer-url",
@@ -230,7 +230,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "Account Name With Spaces",
 					ID:   "account id 2",
-					Alias: "alias2",
+					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
 				IssuerURL: "issuer-url",
@@ -241,7 +241,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "Account Name With Spaces",
 					ID:   "account id 2",
-					Alias: "alias2",
+					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
 				IssuerURL: "issuer-url",
