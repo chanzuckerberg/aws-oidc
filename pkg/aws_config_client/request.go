@@ -10,6 +10,8 @@ import (
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/honeycombio/beeline-go"
+	"github.com/honeycombio/beeline-go/propagation"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -19,6 +21,9 @@ func RequestConfig(
 	token *client.Token,
 	configServiceURI string,
 ) (*server.AWSConfig, error) {
+	ctx, span := beeline.StartSpan(ctx, "get_aws_config")
+	defer span.Send()
+
 	req, err := http.NewRequest(http.MethodGet, configServiceURI, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not create request for %s", configServiceURI)
@@ -29,11 +34,13 @@ func RequestConfig(
 		fmt.Sprintf("BEARER %s", token.IDToken),
 	)
 
+	span.SerializeHeaders()
+	req.Header.Add(
+		propagation.TracePropagationHTTPHeader,
+		span.SerializeHeaders(),
+	)
+
 	rsp, err := http.DefaultClient.Do(req)
-	server.AddBeelineFields(ctx, server.BeelineField{
-		Key:   "aws_config_client http response status",
-		Value: rsp.Status,
-	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "error requesting from %s", configServiceURI)
 	}

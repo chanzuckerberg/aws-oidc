@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/honeycombio/beeline-go"
 	"github.com/okta/okta-sdk-golang/v2/okta"
 	"github.com/okta/okta-sdk-golang/v2/okta/query"
 	"github.com/peterhellberg/link"
@@ -33,6 +34,9 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 }
 
 func GetClientIDs(ctx context.Context, userID string, oktaClient AppResource) ([]ClientID, error) {
+	ctx, span := beeline.StartSpan(ctx, "okta_get_client_ids")
+	defer span.Send()
+
 	apps, err := paginateListApplications(ctx, userID, oktaClient)
 	if err != nil {
 		return nil, err

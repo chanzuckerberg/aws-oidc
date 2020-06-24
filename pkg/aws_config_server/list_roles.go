@@ -42,9 +42,10 @@ type Principal struct {
 }
 
 type ConfigProfile struct {
-	AcctName string
-	RoleARN  arn.ARN
-	RoleName string
+	AcctName  string
+	AcctAlias string
+	RoleARN   arn.ARN
+	RoleName  string
 }
 
 // We can skip over roles with specific tags
@@ -117,6 +118,7 @@ func (s *Action) UnmarshalJSON(data []byte) error {
 func clientRoleMapFromProfile(
 	ctx context.Context,
 	acctName string,
+	acctAlias string,
 	roles []*iam.Role,
 	oidcProvider string,
 	clientRoleMapping map[okta.ClientID][]ConfigProfile) error {
@@ -174,9 +176,10 @@ func clientRoleMapFromProfile(
 			}
 
 			currentConfig := ConfigProfile{
-				AcctName: acctName,
-				RoleARN:  roleARN,
-				RoleName: *role.RoleName,
+				AcctName:  acctName,
+				AcctAlias: acctAlias,
+				RoleARN:   roleARN,
+				RoleName:  *role.RoleName,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {
@@ -218,4 +221,23 @@ func GetActiveAccountList(
 	}
 
 	return activeAccounts, nil
+}
+
+func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
+	input := &iam.ListAccountAliasesInput{}
+	output, err := svc.ListAccountAliases(input)
+
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
+			logrus.WithError(err).Error("Unable to get aliases for this account")
+			return "", nil
+		}
+		return "", errors.Wrap(err, "Error getting account alias")
+	}
+
+	// no alias
+	if output == nil || len(output.AccountAliases) == 0 {
+		return "", nil
+	}
+	return *output.AccountAliases[0], nil
 }

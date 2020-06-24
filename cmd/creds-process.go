@@ -8,9 +8,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
-	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
+	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -87,23 +87,28 @@ func assumeRole(
 	ctx, span := beeline.StartSpan(ctx, "assumeAWSRole")
 	defer span.Send()
 
-	token, err := oidc.GetToken(
-		ctx,
-		awsOIDCConfig.ClientID,
-		awsOIDCConfig.IssuerURL)
+	token, err := getOIDCToken(ctx, awsOIDCConfig)
 	if err != nil {
-		server.AddBeelineFields(ctx, server.BeelineField{
-			Key:   "GetToken error",
-			Value: "Unable to get OIDC token",
-		})
-		return nil, errors.Wrap(err, "unable to obtain OIDC token")
+		return nil, err
 	}
 
-	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
+	return getter.GetAWSAssumeIdentity(
 		ctx,
 		token,
 		awsOIDCConfig.RoleARN,
 		sessionDuration,
 	)
-	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
+}
+
+func getOIDCToken(
+	ctx context.Context,
+	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
+) (*oidc_client.Token, error) {
+	ctx, span := beeline.StartSpan(ctx, "get_oidc_token")
+	defer span.Send()
+
+	return oidc.GetToken(
+		ctx,
+		awsOIDCConfig.ClientID,
+		awsOIDCConfig.IssuerURL)
 }

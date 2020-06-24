@@ -75,6 +75,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrap(err, "Unable to set up Honeycomb Telemetry")
 		}
+
 		return nil
 	},
 }

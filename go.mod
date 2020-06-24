@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
-	github.com/aws/aws-sdk-go v1.32.8
+	github.com/aws/aws-sdk-go v1.32.9
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
 	github.com/chanzuckerberg/go-misc v0.0.0-20200622164707-c19d1f2e9ea7
