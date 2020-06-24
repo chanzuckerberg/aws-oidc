@@ -155,3 +155,21 @@ func TestGetAcctAlias(t *testing.T) {
 	r.NoError(err)
 	r.Equal(testAlias, outputString)
 }
+
+func TestGetAcctAliasNoAlias(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockIAM(ctrl)
+
+	mock.EXPECT().
+		ListAccountAliases(gomock.Any()).Return(
+		&iam.ListAccountAliasesOutput{AccountAliases: []*string{}}, nil,
+	)
+
+	outputString, err := getAcctAlias(ctx, mock)
+	r.NoError(err)
+	r.Equal("", outputString)
+}

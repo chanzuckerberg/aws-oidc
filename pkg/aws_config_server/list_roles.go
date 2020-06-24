@@ -42,10 +42,10 @@ type Principal struct {
 }
 
 type ConfigProfile struct {
-	AcctName string
+	AcctName  string
 	AcctAlias string
-	RoleARN  arn.ARN
-	RoleName string
+	RoleARN   arn.ARN
+	RoleName  string
 }
 
 // We can skip over roles with specific tags
@@ -176,10 +176,10 @@ func clientRoleMapFromProfile(
 			}
 
 			currentConfig := ConfigProfile{
-				AcctName: acctName,
+				AcctName:  acctName,
 				AcctAlias: acctAlias,
-				RoleARN:  roleARN,
-				RoleName: *role.RoleName,
+				RoleARN:   roleARN,
+				RoleName:  *role.RoleName,
 			}
 
 			if _, ok := clientRoleMapping[clientID]; !ok {
@@ -235,9 +235,9 @@ func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
 		return "", errors.Wrap(err, "Error getting account alias")
 	}
 
-        // no alias
-        if output == nil || len(output.AccountAliases) == 0 {
-            return "", nil
-        }
+	// no alias
+	if output == nil || len(output.AccountAliases) == 0 {
+		return "", nil
+	}
 	return *output.AccountAliases[0], nil
 }
