@@ -52,6 +52,9 @@ type AppResource interface {
 }
 
 func paginateListApplications(ctx context.Context, userID string, client AppResource) ([]okta.App, error) {
+	ctx, span := beeline.StartSpan(ctx, "okta_list_applications")
+	defer span.Send()
+
 	var apps []okta.App
 
 	qp := query.Params{

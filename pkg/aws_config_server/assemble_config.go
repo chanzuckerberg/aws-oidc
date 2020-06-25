@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
+	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 )
 
@@ -22,6 +23,8 @@ type ClientIDToAWSRoles struct {
 }
 
 func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []string, workerRole string) error {
+	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
+	defer span.Send()
 	for _, role_arn := range masterRoles {
 		masterAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
@@ -50,6 +53,8 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 	ctx context.Context,
 	oidcProvider string,
 ) error {
+	ctx, span := beeline.StartSpan(ctx, "server_fetch_assumable_roles")
+	defer span.Send()
 	for accountName, roleARN := range a.roleARNs {
 		workerAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, roleARN.String()),

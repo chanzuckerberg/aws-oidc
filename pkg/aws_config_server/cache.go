@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
+	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -64,6 +65,8 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	configParams *AWSConfigGenerationParams,
 	awsSession *session.Session,
 ) error {
+	ctx, span := beeline.StartSpan(ctx, "refresh_client_mapping")
+	defer span.Send()
 	configData := &ClientIDToAWSRoles{
 		awsSession:        awsSession,
 		clientRoleMapping: map[okta.ClientID][]ConfigProfile{},
