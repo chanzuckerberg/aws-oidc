@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
+	"github.com/honeycombio/beeline-go"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +42,9 @@ var envCmd = &cobra.Command{
 }
 
 func envRun(cmd *cobra.Command, args []string) error {
-	ctx := cmd.Context()
+	ctx, span := beeline.StartSpan(cmd.Context(), "env_command")
+	defer span.Send()
+
 	awsOIDCConfig, err := aws_config_client.FetchParamsFromAWSConfig(
 		cmd,
 		aws_config_client.DefaultAWSConfigPath)
