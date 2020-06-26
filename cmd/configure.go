@@ -63,7 +63,5 @@ var configureCmd = &cobra.Command{
 		defer awsConfigFile.Close()
 
 		return completer.Complete(iniOut, awsConfigFile)
-		// _, err = iniOut.WriteTo(awsConfigFile)
-		// return errors.Wrap(err, "Could not write new aws config")
 	},
 }

@@ -51,12 +51,14 @@ region             = test-region
 			"test-region",                   // aws region
 			"", "my-second-new-profile", "", // aws profile names
 		},
-		confirmResponse: []bool{true, true, false},
+		confirmResponse: []bool{true, true, false, true},
 	}
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	testWriter :=
+	testWriter, err := os.OpenFile("testfile", os.O_WRONLY|os.O_CREATE, 0600)
+	defer testWriter.Close()
+	r.NoError(err)
 	err = c.Complete(baseAWSConfig, testWriter)
 	r.NoError(err)
 	r.NotEmpty(testWriter)
@@ -107,12 +109,14 @@ region             = test-region
 		inputResponse: []string{
 			"test-region", // aws region
 		},
-		confirmResponse: []bool{false},
+		confirmResponse: []bool{true},
 	}
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	testWriter :=
+	testWriter, err := os.OpenFile("testfile", os.O_WRONLY|os.O_CREATE, 0600)
+	defer testWriter.Close()
+	r.NoError(err)
 	err = c.Complete(newAWSProfiles, testWriter)
 	r.NoError(err)
 
@@ -135,10 +139,11 @@ func TestNoRoles(t *testing.T) {
 
 	c := NewCompleter(prompt, generateEmptyData())
 
-	testWriter :=
-	err := c.Complete(newAWSProfiles, testWriter)
+	testWriter, err := os.OpenFile("testfile", os.O_WRONLY|os.O_CREATE, 0600)
+	defer testWriter.Close()
 	r.NoError(err)
-	r.Empty(testWriter)
+	err = c.Complete(newAWSProfiles, testWriter)
+	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
 	_, err = newAWSProfiles.WriteTo(generatedConfig)
@@ -174,23 +179,23 @@ func TestAWSProfileNameValidator(t *testing.T) {
 
 func TestCalCulateDefaultProfileName(t *testing.T) {
 	type test struct {
-		input server.AWSAccount
+		input  server.AWSAccount
 		output string
 	}
 
 	tests := []test{
 		{
 			input: server.AWSAccount{
-				Name: "test1",
-				ID:   "test_id_1",
+				Name:  "test1",
+				ID:    "test_id_1",
 				Alias: "",
 			},
 			output: "test1",
 		},
 		{
 			input: server.AWSAccount{
-				Name: "test2",
-				ID:   "test_id_2",
+				Name:  "test2",
+				ID:    "test_id_2",
 				Alias: "alias2",
 			},
 			output: "alias2",
@@ -212,8 +217,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "bar_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "test1",
-					ID:   "test_id_1",
+					Name:  "test1",
+					ID:    "test_id_1",
 					Alias: "test1",
 				},
 				RoleARN:   "test1RoleName",
@@ -223,8 +228,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "bar_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "test1",
-					ID:   "test_id_1",
+					Name:  "test1",
+					ID:    "test_id_1",
 					Alias: "test1",
 				},
 				RoleARN:   "test2RoleName",
@@ -234,8 +239,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "foo_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "Account Name With Spaces",
-					ID:   "account id 2",
+					Name:  "Account Name With Spaces",
+					ID:    "account id 2",
 					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
@@ -245,8 +250,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "foo_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "Account Name With Spaces",
-					ID:   "account id 2",
+					Name:  "Account Name With Spaces",
+					ID:    "account id 2",
 					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
