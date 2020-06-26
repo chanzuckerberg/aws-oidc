@@ -248,7 +248,7 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini.File, error) {
 
 	// Ask user to confirm that this is the AWS config they want
-	fmt.Println(newAWSProfiles.WriteTo(os.Stdout))
+	newAWSProfiles.WriteTo(os.Stdout)
 	cnt, err := c.prompt.Confirm("Does this config file look right?", true)
 	// Print a string version of out (the ini file)
 	if !cnt {
@@ -299,6 +299,6 @@ func (c *completer) Complete(base *ini.File, w io.Writer) error {
 	}
 
 	mergedConfig, err := c.mergeConfigs(newAWSProfiles, base)
-	_, err = mergedConfig.WriteTo(w)
-	return errors.Wrap(err, "Could not write new aws config")
+	writeCode, err := mergedConfig.WriteTo(w)
+	return errors.Wrapf(err, "Could not write new aws config. WriteCode: %d", writeCode)
 }
