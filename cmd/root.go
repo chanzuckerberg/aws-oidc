@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/evalphobia/logrus_sentry"
+	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -32,6 +33,21 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 	return env, nil
 }
 
+type HoneycombEnvironment struct {
+	SECRET_KEY   string
+	DATASET_NAME string `default:"aws-oidc"`
+	SERVICE_NAME string `default:"aws-oidc"`
+}
+
+func loadHoneycombEnv() (*HoneycombEnvironment, error) {
+	env := &HoneycombEnvironment{}
+	err := envconfig.Process("HONEYCOMB", env)
+	if err != nil {
+		return env, errors.Wrap(err, "Unable to load all the honeycomb environment variables")
+	}
+	return env, nil
+}
+
 func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
 }
@@ -49,22 +65,29 @@ var rootCmd = &cobra.Command{
 			log.SetLevel(log.DebugLevel)
 			log.SetReportCaller(true)
 		}
+
 		err = configureLogrusHooks()
 		if err != nil {
 			return errors.Wrap(err, "Unable to configure Logrus Hooks")
 		}
+
+		err = configureHoneycombTelemetry()
+		if err != nil {
+			return errors.Wrap(err, "Unable to set up Honeycomb Telemetry")
+		}
+
 		return nil
 	},
 }
 
 func configureLogrusHooks() error {
-	// Load Sentry Env
 	sentryEnv, err := loadSentryEnv()
 	if err != nil {
 		return err
 	}
 	// if env var not set, ignore
 	if sentryEnv.DSN == "" {
+		logrus.Debug("Sentry DSN not set. Skipping Sentry Configuration")
 		return nil
 	}
 
@@ -81,6 +104,26 @@ func configureLogrusHooks() error {
 	return nil
 }
 
+func configureHoneycombTelemetry() error {
+	honeycombEnv, err := loadHoneycombEnv()
+	if err != nil {
+		return err
+	}
+	// if env var not set, ignore
+	if honeycombEnv.SECRET_KEY == "" {
+		logrus.Debug("Honeycomb Secret Key not set. Skipping Honeycomb Configuration")
+		return nil
+	}
+	beeline.Init(beeline.Config{
+		WriteKey:    honeycombEnv.SECRET_KEY,
+		Dataset:     honeycombEnv.DATASET_NAME,
+		ServiceName: honeycombEnv.SERVICE_NAME,
+	})
+
+	return nil
+}
+
 func Execute(ctx context.Context) error {
+	defer beeline.Close()
 	return rootCmd.ExecuteContext(ctx)
 }

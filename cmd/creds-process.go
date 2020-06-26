@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
+	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -48,9 +51,12 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 	assumeRoleOutput, err := assumeRole(
 		ctx,
-		clientID,
-		issuerURL,
-		roleARN,
+		&aws_config_client.AWSOIDCConfiguration{
+			ClientID:  clientID,
+			IssuerURL: issuerURL,
+			RoleARN:   roleARN,
+		},
+		time.Hour, // default to 1 hour
 	)
 	if err != nil {
 		return err
@@ -75,14 +81,34 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 func assumeRole(
 	ctx context.Context,
-	clientID string,
-	issuerURL string,
-	roleARN string,
+	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
+	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	token, err := oidc.GetToken(ctx, clientID, issuerURL)
+	ctx, span := beeline.StartSpan(ctx, "assumeAWSRole")
+	defer span.Send()
+
+	token, err := getOIDCToken(ctx, awsOIDCConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to obtain OIDC token")
+		return nil, err
 	}
-	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(ctx, token, roleARN)
-	return assumeRoleOutput, errors.Wrap(err, "unable to assume role")
+
+	return getter.GetAWSAssumeIdentity(
+		ctx,
+		token,
+		awsOIDCConfig.RoleARN,
+		sessionDuration,
+	)
+}
+
+func getOIDCToken(
+	ctx context.Context,
+	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
+) (*oidc_client.Token, error) {
+	ctx, span := beeline.StartSpan(ctx, "get_oidc_token")
+	defer span.Send()
+
+	return oidc.GetToken(
+		ctx,
+		awsOIDCConfig.ClientID,
+		awsOIDCConfig.IssuerURL)
 }

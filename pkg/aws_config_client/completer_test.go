@@ -172,6 +172,40 @@ func TestAWSProfileNameValidator(t *testing.T) {
 	}
 }
 
+func TestCalCulateDefaultProfileName(t *testing.T) {
+	type test struct {
+		input server.AWSAccount
+		output string
+	}
+
+	tests := []test{
+		{
+			input: server.AWSAccount{
+				Name: "test1",
+				ID:   "test_id_1",
+				Alias: "",
+			},
+			output: "test1",
+		},
+		{
+			input: server.AWSAccount{
+				Name: "test2",
+				ID:   "test_id_2",
+				Alias: "alias2",
+			},
+			output: "alias2",
+		},
+	}
+
+	r := require.New(t)
+
+	c := NewCompleter(nil, generateDummyData())
+	for _, test := range tests {
+		profleName := c.calculateDefaultProfileName(test.input)
+		r.Equal(test.output, profleName)
+	}
+}
+
 func generateDummyData() *server.AWSConfig {
 	return &server.AWSConfig{
 		Profiles: []server.AWSProfile{
@@ -180,6 +214,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "test1",
 					ID:   "test_id_1",
+					Alias: "test1",
 				},
 				RoleARN:   "test1RoleName",
 				IssuerURL: "issuer-url",
@@ -190,6 +225,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "test1",
 					ID:   "test_id_1",
+					Alias: "test1",
 				},
 				RoleARN:   "test2RoleName",
 				IssuerURL: "issuer-url",
@@ -200,6 +236,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "Account Name With Spaces",
 					ID:   "account id 2",
+					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
 				IssuerURL: "issuer-url",
@@ -210,6 +247,7 @@ func generateDummyData() *server.AWSConfig {
 				AWSAccount: server.AWSAccount{
 					Name: "Account Name With Spaces",
 					ID:   "account id 2",
+					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
 				IssuerURL: "issuer-url",

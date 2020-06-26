@@ -33,9 +33,9 @@ $ aws-oidc creds-process --issuer-url=<issuer url> --client-id=<client ID> --aws
 ```
 
 ### exec
-Executes a command with AWS credentials loaded in the environment
+Executes a command with AWS credentials loaded in the environment. Requires your `~/.aws/config` to be managed through `aws-oidc configure`.
 ``` bash
-$ aws-oidc exec --issuer-url=<issuer url> --client-id=<client ID> --aws-role-arn=<AWS role you want credentials for>   -- aws sts get-caller-identity
+$ aws-oidc exec --profile <your profile> -- aws sts get-caller-identity
 {
 	“UserId”: <...>
 	“Account”: <Account from that role-arn flag>
@@ -49,10 +49,10 @@ Deploys a service that displays an AWS Config file for any authorized visitor (s
 Will query your aws config service (serve-config command) to help populate your `~/.aws/config`. It will guide you through the process of setting this up.
 
 ### env
-Env is primarily here to assist when running docker locally. It requires your `~/.aws/config` to be properly configured. You can run the following to test it out:
+Env is primarily here to assist when running docker locally. It requires your `~/.aws/config` to be configured through `aws-oidc configure`. You can run the following to test it out:
 
 ```
-docker run -it --env-file <(go run main.go env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
+docker run -it --env-file <(aws-oidc env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
 ```
 
 ### version

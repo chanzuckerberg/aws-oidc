@@ -44,7 +44,7 @@ func TestMultipleActions(t *testing.T) {
 	r.Len(iamOutput, 1)
 
 	clientRoleMap := make(map[okta.ClientID][]ConfigProfile)
-	err = clientRoleMapFromProfile(ctx, "accountName", testRoles3, oidcProvider, clientRoleMap)
+	err = clientRoleMapFromProfile(ctx, "accountName", "accountAlias", testRoles3, oidcProvider, clientRoleMap)
 	r.NoError(err)                                                 // Nothing weird happened
 	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
 	r.Contains(clientRoleMap, okta.ClientID("clientIDValue3"))     // Only the valid ID is present

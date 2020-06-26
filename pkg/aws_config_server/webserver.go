@@ -11,6 +11,8 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
+	"github.com/honeycombio/beeline-go"
+	"github.com/honeycombio/beeline-go/wrappers/hnyhttprouter"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 )
@@ -75,7 +77,6 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 			http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
 			return
 		}
-
 		ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
 		ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
 		rWithValues := r.WithContext(ctxWithValues)
@@ -114,6 +115,7 @@ func Index(
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
+		beeline.AddField(ctx, "email", *email)
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
@@ -130,6 +132,7 @@ func Index(
 		}
 
 		logrus.Debugf("%s's clientIDs: %s", *email, clientIDs)
+
 		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
 		if err != nil {
 			logrus.Errorf("error: Unable to create mapping from clientID to roleARNs: %s", err)
@@ -138,6 +141,7 @@ func Index(
 		}
 
 		logrus.Debugf("%s's client mapping: %s", *email, clientMapping)
+
 		awsConfig, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
 		if err != nil {
 			logrus.Errorf("error: unable to get AWS Config File: %s", err)
@@ -175,11 +179,11 @@ func GetRouter(
 		),
 		config.Verifier,
 	)
-
+	handle = hnyhttprouter.Middleware(handle)
 	router.GET("/", handle)
 	router.GET("/health", Health)
 
-	loggingHandler := handlers.CombinedLoggingHandler(os.Stdout, router)
-	recoveryHandler := handlers.RecoveryHandler()(loggingHandler)
-	return recoveryHandler
+	handler := handlers.CombinedLoggingHandler(os.Stdout, router)
+	handler = handlers.RecoveryHandler()(handler)
+	return handler
 }
