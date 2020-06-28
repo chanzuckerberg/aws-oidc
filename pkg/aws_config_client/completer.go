@@ -250,7 +250,6 @@ func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini
 	// Ask user to confirm that this is the AWS config they want
 	newAWSProfiles.WriteTo(os.Stdout)
 	cnt, err := c.prompt.Confirm("Does this config file look right?", true)
-	// Print a string version of out (the ini file)
 	if !cnt {
 		logrus.Info("Discarding changes")
 		return ini.Empty(), nil
