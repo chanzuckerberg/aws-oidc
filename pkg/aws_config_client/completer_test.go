@@ -27,18 +27,18 @@ credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --cli
 region             = test-region
 
 `
-	prompt := &MockPrompt{
+	prompt := &MockPrompt{}
+	prompt.inputs = append(prompt.inputs,
+		"test-region", // Please input your default AWS region
+		1,             // How would you like to configure your AWS config? Configure one role at a time (advanced)
 
-		selectResponse: []int{
-			1,    // select the profile method of configuring
-			1, 0, // select the first role in the first account
-		},
-		inputResponse: []string{
-			"test-region", // aws region
-			"",            // aws profile names
-		},
-		confirmResponse: []bool{false, true},
-	}
+		1,     // Select the AWS account you would like to configure for this profile:
+		0,     // What role would you like to use with this profile?
+		"",    // what would you like to name this profile? (use default value)
+		false, // would you like to configure another account?
+
+		true, // Does this config file look right?
+	)
 
 	c := NewCompleter(prompt, generateDummyData())
 
@@ -71,20 +71,28 @@ region             = test-region
 
 	baseAWSConfig := ini.Empty()
 
-	prompt := &MockPrompt{
+	prompt := &MockPrompt{}
+	prompt.inputs = append(prompt.inputs,
+		"test-region", // Please input your default AWS region
+		1,             // How would you like to configure your AWS config? (Configure 1 role at a time)
 
-		selectResponse: []int{
-			1,    // select the profile method of configuring
-			1, 0, // select the first role in the test1 account
-			0, 0, // select the first role in the account-name-with-spaces account
-			1, 0, // select the first role in the test1 account so we can name it my-second-new-profile
-		},
-		inputResponse: []string{
-			"test-region",                   // aws region
-			"", "", "my-second-new-profile", // use default aws profile names
-		},
-		confirmResponse: []bool{true, true, false, true},
-	}
+		1,    // Select the AWS account you would like to configure for this profile:
+		0,    // What role would you like to use with this profile?
+		"",   // what would you like to name this profile? (use default value)
+		true, // would you like to configure another account?
+
+		0,    // Select the AWS account you would like to configure for this profile:
+		0,    // What role would you like to use with this profile?
+		"",   // what would you like to name this profile? (use default value)
+		true, // would you like to configure another account?
+
+		1,                       // Select the AWS account you would like to configure for this profile:
+		0,                       // What role would you like to use with this profile?
+		"my-second-new-profile", // what would you like to name this profile?
+		false,                   // would you like to configure another account?
+
+		true, // Does this config file look right?
+	)
 
 	c := NewCompleter(prompt, generateDummyData())
 
@@ -130,17 +138,13 @@ region             = test-region
 `
 	newAWSProfiles := ini.Empty()
 
-	prompt := &MockPrompt{
-
-		selectResponse: []int{
-			0, // select the role method of configuring
-			0, // select the first role
-		},
-		inputResponse: []string{
-			"test-region", // aws region
-		},
-		confirmResponse: []bool{true},
-	}
+	prompt := &MockPrompt{}
+	prompt.inputs = append(prompt.inputs,
+		"test-region", // Please input your default AWS region
+		0,             // How would you like to configure your AWS config? (Automatically configure the same role for each account)
+		0,             // Select the AWS role you would like to make default
+		true,          // Does this config file look right?
+	)
 
 	c := NewCompleter(prompt, generateDummyData())
 
@@ -155,11 +159,7 @@ func TestNoRoles(t *testing.T) {
 	expected := ``
 
 	newAWSProfiles := ini.Empty()
-	prompt := &MockPrompt{
-		selectResponse:  []int{},
-		inputResponse:   []string{},
-		confirmResponse: []bool{},
-	}
+	prompt := &MockPrompt{}
 
 	c := NewCompleter(prompt, generateEmptyData())
 

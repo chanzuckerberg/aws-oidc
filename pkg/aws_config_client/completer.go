@@ -253,21 +253,26 @@ func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini
 	// Print a string version of out (the ini file)
 	if !cnt {
 		logrus.Info("Discarding changes")
-		return nil, nil
+		return ini.Empty(), nil
 	}
+
 	baseBytes := bytes.NewBuffer(nil)
 	newAWSProfileBytes := bytes.NewBuffer(nil)
-	_, err = newAWSProfiles.WriteTo(newAWSProfileBytes)
+	writeCode, err := newAWSProfiles.WriteTo(newAWSProfileBytes)
 	if err != nil {
-		return nil, err
+		logrus.Errorf("Discarding changes. Unable to write AWS Profiles: %v, writecode: %d", err, writeCode)
+		return ini.Empty(), err
 	}
-	_, err = base.WriteTo(baseBytes)
+	writeCode, err = base.WriteTo(baseBytes)
 	if err != nil {
-		return nil, err
+		logrus.Errorf("Discarding changes. Unable to incorporate original AWS config file: %v, writecode: %d", err, writeCode)
+		return ini.Empty(), err
 	}
+
 	mergedConfig, err := ini.Load(baseBytes, newAWSProfileBytes)
 	if err != nil {
-		return nil, err
+		logrus.Errorf("Discarding changes. Unable to merge old and new config files: %v", err)
+		return ini.Empty(), err
 	}
 	return mergedConfig, nil
 }
