@@ -185,7 +185,7 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 	for {
 		currentProfile, err := c.SurveyProfile()
 		if err == terminal.InterruptErr {
-			logrus.Info("Process Interrupted. Exiting")
+			logrus.Info("Process Interrupted.")
 			break
 		}
 		if err != nil {
@@ -248,8 +248,15 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini.File, error) {
 
 	// Ask user to confirm that this is the AWS config they want
-	newAWSProfiles.WriteTo(os.Stdout)
+	_, err := newAWSProfiles.WriteTo(os.Stdout)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to write AWS Profiles to stdout")
+	}
+
 	cnt, err := c.prompt.Confirm("Does this config file look right?", true)
+	if err != nil {
+		return nil, err
+	}
 	if !cnt {
 		logrus.Info("Discarding changes")
 		return ini.Empty(), nil
@@ -257,26 +264,24 @@ func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini
 
 	baseBytes := bytes.NewBuffer(nil)
 	newAWSProfileBytes := bytes.NewBuffer(nil)
-	writeCode, err := newAWSProfiles.WriteTo(newAWSProfileBytes)
+	_, err = newAWSProfiles.WriteTo(newAWSProfileBytes)
 	if err != nil {
-		logrus.Errorf("Discarding changes. Unable to write AWS Profiles: %v, writecode: %d", err, writeCode)
-		return ini.Empty(), err
+		return nil, errors.Wrap(err, "Unable to write AWS Profiles")
 	}
-	writeCode, err = base.WriteTo(baseBytes)
+	_, err = base.WriteTo(baseBytes)
 	if err != nil {
-		logrus.Errorf("Discarding changes. Unable to incorporate original AWS config file: %v, writecode: %d", err, writeCode)
-		return ini.Empty(), err
+		return nil, errors.Wrap(err, "Unable to incorporate original AWS config file with new config changes")
 	}
 
 	mergedConfig, err := ini.Load(baseBytes, newAWSProfileBytes)
 	if err != nil {
 		logrus.Errorf("Discarding changes. Unable to merge old and new config files: %v", err)
-		return ini.Empty(), err
+		return nil, err
 	}
 	return mergedConfig, nil
 }
 
-func (c *completer) Complete(base *ini.File, w io.Writer) error {
+func (c *completer) Complete(base *ini.File, fileDestination io.Writer) error {
 	if len(c.awsConfig.Profiles) == 0 {
 		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
 		return nil
@@ -292,10 +297,6 @@ func (c *completer) Complete(base *ini.File, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if len(profiles) == 0 {
-		logrus.Info("No AWS profiles configured")
-		return nil
-	}
 
 	newAWSProfiles, err := c.assembleAWSConfig(region, profiles)
 	if err != nil {
@@ -303,6 +304,12 @@ func (c *completer) Complete(base *ini.File, w io.Writer) error {
 	}
 
 	mergedConfig, err := c.mergeConfigs(newAWSProfiles, base)
-	writeCode, err := mergedConfig.WriteTo(w)
-	return errors.Wrapf(err, "Could not write new aws config. WriteCode: %d", writeCode)
+	if err != nil {
+		return err
+	}
+	_, err = mergedConfig.WriteTo(fileDestination)
+	if err != nil {
+		return errors.Wrap(err, "Unable to merge old and new config files")
+	}
+	return errors.Wrapf(err, "Could not write new aws config.")
 }
