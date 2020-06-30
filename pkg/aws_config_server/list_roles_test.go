@@ -40,6 +40,22 @@ func TestListRoles(t *testing.T) {
 		},
 	)
 
+	mock.EXPECT().
+		ListRoleTagsWithContext(
+			gomock.Any(),
+			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
+		Return(&iam.ListRoleTagsOutput{
+			Tags: testRoles1[0].Tags,
+		}, nil)
+
+	mock.EXPECT().
+		ListRoleTagsWithContext(
+			gomock.Any(),
+			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
+		Return(&iam.ListRoleTagsOutput{
+			Tags: testRoles1[1].Tags,
+		}, nil)
+
 	iamOutput, err := listRoles(ctx, mock)
 	r.NoError(err)
 	r.Len(testRoles1, 2) // we skipped over a role
