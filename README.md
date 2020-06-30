@@ -12,8 +12,17 @@ AWS-OIDC is a command-line utility tool for generating temporary AWS STS credent
 
 We also included a config generation web service that displays an AWS-OIDC-based Configuration file for authorized clients. The authorization requires an Okta Identity Provider, an AWS master role, and AWS worker roles for the accounts needed in the Config file.
 
-# Install
+# Install (Linux, macOS)
+We recommend using [homebrew](https://brew.sh/):
 ```
+brew tap chanzuckerberg/tap
+brew install aws-oidc
+```
+
+## WSL
+We have tested on WSL Ubuntu-18. A couple extra steps are required:
+```
+sudo apt update && sudo apt install xdg-utils
 brew tap chanzuckerberg/tap
 brew install aws-oidc
 ```
