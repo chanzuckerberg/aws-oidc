@@ -49,9 +49,12 @@ type ConfigProfile struct {
 }
 
 // We can skip over roles with specific tags
-func filterRoles(in []*iam.Role) []*iam.Role {
-	out := []*iam.Role{}
+func filterRoles(
+	ctx context.Context,
+	svc iamiface.IAMAPI,
+	roles []*iam.Role) ([]*iam.Role, error) {
 
+	out := []*iam.Role{}
 	shouldSkipTags := func(tags []*iam.Tag) bool {
 		for _, tag := range tags {
 			if tag != nil && tag.Key != nil && *tag.Key == skipRolesTagKey {
@@ -61,14 +64,42 @@ func filterRoles(in []*iam.Role) []*iam.Role {
 		return false
 	}
 
-	for _, role := range in {
-		if role == nil || shouldSkipTags(role.Tags) {
+	for _, role := range roles {
+		if role == nil {
+			continue
+		}
+		tags, err := listRoleTags(ctx, svc, role.RoleName)
+		if err != nil {
+			return nil, err
+		}
+
+		if shouldSkipTags(tags) {
 			continue
 		}
 
 		out = append(out, role)
 	}
-	return out
+	return out, nil
+}
+
+func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([]*iam.Tag, error) {
+	if roleName == nil {
+		return nil, nil
+	}
+
+	input := &iam.ListRoleTagsInput{
+		RoleName: roleName,
+	}
+
+	output, err := svc.ListRoleTagsWithContext(ctx, input)
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
+			logrus.WithError(err).Errorf("AccessDenied when listing tags for %s", *roleName)
+			return nil, nil
+		}
+		return nil, errors.Wrapf(err, "could not list tags for role %s", *roleName)
+	}
+	return output.Tags, nil
 }
 
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
@@ -78,7 +109,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	err := svc.ListRolesPagesWithContext(ctx,
 		input,
 		func(page *iam.ListRolesOutput, lastPage bool) bool {
-			output = append(output, filterRoles(page.Roles)...)
+			output = append(output, page.Roles...)
 			return !lastPage
 		},
 	)
@@ -89,7 +120,8 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 		}
 		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
-	return output, nil
+
+	return filterRoles(ctx, svc, output)
 }
 
 type Action []string

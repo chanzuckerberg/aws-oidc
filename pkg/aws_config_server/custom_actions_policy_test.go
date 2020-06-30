@@ -39,6 +39,10 @@ func TestMultipleActions(t *testing.T) {
 		},
 	)
 
+	mock.EXPECT().
+		ListRoleTagsWithContext(gomock.Any(), gomock.Any()).
+		Return(&iam.ListRoleTagsOutput{}, nil)
+
 	iamOutput, err := listRoles(ctx, mock)
 	r.NoError(err)
 	r.Len(iamOutput, 1)
