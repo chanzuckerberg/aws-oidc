@@ -275,8 +275,7 @@ func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini
 
 	mergedConfig, err := ini.Load(baseBytes, newAWSProfileBytes)
 	if err != nil {
-		logrus.Errorf("Discarding changes. Unable to merge old and new config files: %v", err)
-		return nil, err
+		return nil, errors.Wrap(err, "Unable to merge old and new config files")
 	}
 	return mergedConfig, nil
 }
