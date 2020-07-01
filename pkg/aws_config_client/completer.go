@@ -280,7 +280,7 @@ func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini
 	return mergedConfig, nil
 }
 
-func (c *completer) Complete(base *ini.File, fileDestination io.Writer) error {
+func (c *completer) Complete(base *ini.File, awsConfigWriter io.Writer) error {
 	if len(c.awsConfig.Profiles) == 0 {
 		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
 		return nil
@@ -306,9 +306,6 @@ func (c *completer) Complete(base *ini.File, fileDestination io.Writer) error {
 	if err != nil {
 		return err
 	}
-	_, err = mergedConfig.WriteTo(fileDestination)
-	if err != nil {
-		return errors.Wrap(err, "Unable to merge old and new config files")
-	}
+	_, err = mergedConfig.WriteTo(awsConfigWriter)
 	return errors.Wrapf(err, "Could not write new aws config.")
 }
