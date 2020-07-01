@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
-	github.com/aws/aws-sdk-go v1.32.12
+	github.com/aws/aws-sdk-go v1.32.13
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
 	github.com/chanzuckerberg/go-misc v0.0.0-20200629193718-e3bb458e51a5
@@ -28,5 +28,4 @@ require (
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0
-	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

@@ -3,6 +3,7 @@ package aws_config_client
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"testing"
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
@@ -10,11 +11,53 @@ import (
 	"gopkg.in/ini.v1"
 )
 
+func TestRemoveOldProfile(t *testing.T) {
+	r := require.New(t)
+	baseAWSConfig := ini.Empty()
+	// we add a junk section and make sure it disappears in the output
+	junkSection, err := baseAWSConfig.NewSection("profile test1")
+	r.NoError(err)
+	junkSection.Key("output").SetValue("old_output")
+	junkSection.Key("credential_process").SetValue("old_cred_process")
+	junkSection.Key("region").SetValue("old_region")
+
+	expected := `[profile test1]
+output             = json
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+region             = test-region
+
+`
+	prompt := &MockPrompt{
+
+		selectResponse: []int{
+			1,    // select the profile method of configuring
+			1, 0, // select the first role in the first account
+		},
+		inputResponse: []string{
+			"test-region", // aws region
+			"",            // aws profile names
+		},
+		confirmResponse: []bool{false, true},
+	}
+
+	c := NewCompleter(prompt, generateDummyData())
+
+	testWriter := bytes.NewBuffer(nil)
+	err = c.Complete(baseAWSConfig, testWriter)
+	r.NoError(err)
+	r.Equal(expected, testWriter.String())
+}
+
 func TestSurveyProfiles(t *testing.T) {
 	r := require.New(t)
 
 	// note how: "Account Name With Spaces" => "account-name-with-spaces"
-	expected := `[profile account-name-with-spaces]
+	expected := `[profile test1]
+output             = json
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+region             = test-region
+
+[profile account-name-with-spaces]
 output             = json
 credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
 region             = test-region
@@ -24,44 +67,31 @@ output             = json
 credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
 region             = test-region
 
-[profile test1]
-output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName 2> /dev/tty'
-region             = test-region
-
 `
 
-	out := ini.Empty()
-
-	// we add a junk section and make sure it disappears in the output
-	junkSection, err := out.NewSection("profile test1")
-	r.NoError(err)
-	junkSection.Key("role_arn").SetValue("this should disappear")
+	baseAWSConfig := ini.Empty()
 
 	prompt := &MockPrompt{
 
 		selectResponse: []int{
 			1,    // select the profile method of configuring
-			0, 0, // select the first role in the first account
-			1, 0, // select the first role in the second account
-			1, 1, // select the second role in the second account
+			1, 0, // select the first role in the test1 account
+			0, 0, // select the first role in the account-name-with-spaces account
+			1, 0, // select the first role in the test1 account so we can name it my-second-new-profile
 		},
 		inputResponse: []string{
 			"test-region",                   // aws region
-			"", "my-second-new-profile", "", // aws profile names
+			"", "", "my-second-new-profile", // use default aws profile names
 		},
-		confirmResponse: []bool{true, true, false},
+		confirmResponse: []bool{true, true, false, true},
 	}
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err = c.Complete(out)
+	testWriter := bytes.NewBuffer(nil)
+	err := c.Complete(baseAWSConfig, testWriter)
 	r.NoError(err)
-
-	generatedConfig := bytes.NewBuffer(nil)
-	_, err = out.WriteTo(generatedConfig)
-	r.NoError(err)
-	r.Equal(expected, generatedConfig.String())
+	r.Equal(expected, testWriter.String())
 }
 
 func TestSurveyRoles(t *testing.T) {
@@ -75,6 +105,11 @@ region             = test-region
 [profile account-name-with-spaces]
 output             = json
 credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+region             = test-region
+
+[profile account-name-with-spaces-test2RoleName]
+output             = json
+credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test2RoleName 2> /dev/tty'
 region             = test-region
 
 [profile test1-test1RoleName]
@@ -93,7 +128,7 @@ credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --cli
 region             = test-region
 
 `
-	out := ini.Empty()
+	newAWSProfiles := ini.Empty()
 
 	prompt := &MockPrompt{
 
@@ -104,25 +139,22 @@ region             = test-region
 		inputResponse: []string{
 			"test-region", // aws region
 		},
-		confirmResponse: []bool{false},
+		confirmResponse: []bool{true},
 	}
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	err := c.Complete(out)
+	testWriter := bytes.NewBuffer(nil)
+	err := c.Complete(newAWSProfiles, testWriter)
 	r.NoError(err)
-
-	generatedConfig := bytes.NewBuffer(nil)
-	_, err = out.WriteTo(generatedConfig)
-	r.NoError(err)
-	r.Equal(expected, generatedConfig.String())
+	r.Equal(expected, testWriter.String())
 }
 
 func TestNoRoles(t *testing.T) {
 	r := require.New(t)
 	expected := ``
 
-	out := ini.Empty()
+	newAWSProfiles := ini.Empty()
 	prompt := &MockPrompt{
 		selectResponse:  []int{},
 		inputResponse:   []string{},
@@ -131,11 +163,14 @@ func TestNoRoles(t *testing.T) {
 
 	c := NewCompleter(prompt, generateEmptyData())
 
-	err := c.Complete(out)
+	testWriter, err := os.OpenFile("testfile", os.O_WRONLY|os.O_CREATE, 0600)
+	defer testWriter.Close()
+	r.NoError(err)
+	err = c.Complete(newAWSProfiles, testWriter)
 	r.NoError(err)
 
 	generatedConfig := bytes.NewBuffer(nil)
-	_, err = out.WriteTo(generatedConfig)
+	_, err = newAWSProfiles.WriteTo(generatedConfig)
 	r.NoError(err)
 	r.Equal(expected, generatedConfig.String())
 }
@@ -166,25 +201,25 @@ func TestAWSProfileNameValidator(t *testing.T) {
 	}
 }
 
-func TestCalCulateDefaultProfileName(t *testing.T) {
+func TestCalculateDefaultProfileName(t *testing.T) {
 	type test struct {
-		input server.AWSAccount
+		input  server.AWSAccount
 		output string
 	}
 
 	tests := []test{
 		{
 			input: server.AWSAccount{
-				Name: "test1",
-				ID:   "test_id_1",
+				Name:  "test1",
+				ID:    "test_id_1",
 				Alias: "",
 			},
 			output: "test1",
 		},
 		{
 			input: server.AWSAccount{
-				Name: "test2",
-				ID:   "test_id_2",
+				Name:  "test2",
+				ID:    "test_id_2",
 				Alias: "alias2",
 			},
 			output: "alias2",
@@ -206,8 +241,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "bar_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "test1",
-					ID:   "test_id_1",
+					Name:  "test1",
+					ID:    "test_id_1",
 					Alias: "test1",
 				},
 				RoleARN:   "test1RoleName",
@@ -217,8 +252,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "bar_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "test1",
-					ID:   "test_id_1",
+					Name:  "test1",
+					ID:    "test_id_1",
 					Alias: "test1",
 				},
 				RoleARN:   "test2RoleName",
@@ -228,8 +263,8 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "foo_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "Account Name With Spaces",
-					ID:   "account id 2",
+					Name:  "Account Name With Spaces",
+					ID:    "account id 2",
 					Alias: "Account Name With Spaces",
 				},
 				RoleARN:   "test1RoleName",
@@ -239,13 +274,13 @@ func generateDummyData() *server.AWSConfig {
 			{
 				ClientID: "foo_client_id",
 				AWSAccount: server.AWSAccount{
-					Name: "Account Name With Spaces",
-					ID:   "account id 2",
+					Name:  "Account Name With Spaces",
+					ID:    "account id 2",
 					Alias: "Account Name With Spaces",
 				},
-				RoleARN:   "test1RoleName",
+				RoleARN:   "test2RoleName",
 				IssuerURL: "issuer-url",
-				RoleName:  "test1RoleName",
+				RoleName:  "test2RoleName",
 			},
 		},
 	}

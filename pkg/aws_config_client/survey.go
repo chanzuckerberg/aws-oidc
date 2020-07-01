@@ -28,6 +28,7 @@ func (s *Survey) Select(prompt string, options []string, surveyOptions ...survey
 		&chosen,
 		surveyOptions...,
 	)
+
 	if err != nil {
 		return 0, errors.Wrap(err, "error asking user to select")
 	}
@@ -54,6 +55,7 @@ func (s *Survey) Input(prompt string, defaulted string, surveyOptions ...survey.
 		&input,
 		surveyOptions...,
 	)
+
 	if err != nil {
 		return "", errors.Wrap(err, "error asking user for input")
 	}
@@ -61,7 +63,7 @@ func (s *Survey) Input(prompt string, defaulted string, surveyOptions ...survey.
 	return input, nil
 }
 
-func (s *Survey) Confirm(prompt string, defaulted bool, surveryOptions ...survey.AskOpt) (bool, error) {
+func (s *Survey) Confirm(prompt string, defaulted bool, surveyOptions ...survey.AskOpt) (bool, error) {
 	var answer bool
 
 	err := survey.AskOne(
@@ -70,8 +72,9 @@ func (s *Survey) Confirm(prompt string, defaulted bool, surveryOptions ...survey
 			Default: defaulted,
 		},
 		&answer,
-		surveryOptions...,
+		surveyOptions...,
 	)
+
 	if err != nil {
 		return false, errors.Wrap(err, "error asking for confirmation")
 	}
