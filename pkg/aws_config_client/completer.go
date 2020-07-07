@@ -39,7 +39,7 @@ func (c *completer) getAccountOptions(accounts []server.AWSAccount) []string {
 	for _, account := range accounts {
 		accountOptions = append(
 			accountOptions,
-			fmt.Sprintf("%s (%s)", account.Name, account.ID))
+			fmt.Sprintf("%s (%s)", account.GetAliasOrName(), account.ID))
 	}
 	return accountOptions
 }
@@ -69,11 +69,7 @@ func (c *completer) awsProfileNameValidator(input interface{}) error {
 
 func (c *completer) calculateDefaultProfileName(account server.AWSAccount) string {
 	invalid := regexp.MustCompile("[^a-zA-Z0-9_-]")
-	accountName := account.Alias
-	if accountName == "" {
-		accountName = account.Name
-	}
-	replaced := invalid.ReplaceAllString(accountName, "-")
+	replaced := invalid.ReplaceAllString(account.GetAliasOrName(), "-")
 	return strings.ToLower(replaced)
 }
 
