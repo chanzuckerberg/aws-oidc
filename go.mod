@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
-	github.com/aws/aws-sdk-go v1.32.13
+	github.com/aws/aws-sdk-go v1.33.3
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
 	github.com/chanzuckerberg/go-misc v0.0.0-20200629193718-e3bb458e51a5
@@ -14,10 +14,12 @@ require (
 	github.com/go-errors/errors v1.1.1
 	github.com/golang/mock v1.4.3
 	github.com/gorilla/handlers v1.4.2
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/honeycombio/beeline-go v0.5.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/okta/okta-sdk-golang/v2 v2.0.0
 	github.com/peterhellberg/link v1.1.0
@@ -27,6 +29,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.5.1
+	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0
 )
