@@ -30,6 +30,7 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []s
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
 			CredentialsChainVerboseErrors: aws.Bool(true),
 		}
+
 		orgClient := a.awsClient.WithOrganizations(masterAWSConfig).Organizations.Svc
 		accountList, err := GetActiveAccountList(ctx, orgClient)
 		if err != nil {

@@ -218,7 +218,7 @@ func clientRoleMapFromProfile(
 				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
 				continue
 			}
-			logrus.Debug("About to append currentConfig to clientRoleMapping")
+			logrus.Debugf("Found oidc role %s", roleARN)
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
 	}

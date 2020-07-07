@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/mitchellh/go-homedir"
@@ -12,14 +10,25 @@ import (
 )
 
 var configURL string
+var printOnly bool
 
 func init() {
+	// required flags
 	configureCmd.Flags().StringVar(&clientID, "client-id", "", "CLIENT_ID generated from the OIDC application")
 	configureCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
 	configureCmd.Flags().StringVar(&configURL, "config-url", "", "The URL of the config generation site.")
 	configureCmd.MarkFlagRequired("client-id")  // nolint:errcheck
 	configureCmd.MarkFlagRequired("issuer-url") // nolint:errcheck
 	configureCmd.MarkFlagRequired("config-url") // nolint:errcheck
+
+	// optional flags
+	configureCmd.Flags().BoolVar(
+		&printOnly,
+		"print-only",
+		false,
+		`Set this flag if you don't want aws-oidc to modify your ~/.aws/config directly.
+		 You can then configure your ~/.aws/config with the output.`,
+	)
 
 	rootCmd.AddCommand(configureCmd)
 }
@@ -56,12 +65,19 @@ var configureCmd = &cobra.Command{
 			return errors.Wrap(err, "could not open aws config")
 		}
 
-		fileDestination, err := os.OpenFile(awsConfigPath, os.O_WRONLY|os.O_CREATE, 0600)
+		// We allow users to print aws config directly to stdout if they want
+		// instead of us directly trying to modify their aws config
+		if printOnly {
+			return completer.Complete(originalConfig, &aws_config_client.AWSConfigSTDOUT{})
+		}
+
+		awsConfigWriter := &aws_config_client.AWSConfigFile{}
+		err = awsConfigWriter.Open(awsConfigPath)
 		if err != nil {
 			return err
 		}
-		defer fileDestination.Close()
+		defer awsConfigWriter.Close()
 
-		return completer.Complete(originalConfig, fileDestination)
+		return completer.Complete(originalConfig, awsConfigWriter)
 	},
 }
