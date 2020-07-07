@@ -11,6 +11,7 @@ require (
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/getsentry/raven-go v0.2.0 // indirect
+	github.com/go-errors/errors v1.1.1
 	github.com/golang/mock v1.4.3
 	github.com/gorilla/handlers v1.4.2
 	github.com/honeycombio/beeline-go v0.5.1
