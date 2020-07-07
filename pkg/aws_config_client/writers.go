@@ -3,6 +3,8 @@ package aws_config_client
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"sync"
 
@@ -16,22 +18,52 @@ type AWSConfigWriter interface {
 }
 
 type AWSConfigFile struct {
-	f *os.File
+	awsConfigPath string
+	buffer        *bytes.Buffer
 }
 
-func (a *AWSConfigFile) Close() error {
-	return a.f.Close()
-}
-func (a *AWSConfigFile) Open(awsConfigPath string) error {
-	f, err := os.OpenFile(awsConfigPath, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return errors.Wrapf(err, "could not open %s", awsConfigPath)
+func NewAWSConfigFileWriter(awsConfigPath string) *AWSConfigFile {
+	return &AWSConfigFile{
+		buffer:        bytes.NewBuffer(nil),
+		awsConfigPath: awsConfigPath,
 	}
-	a.f = f
-	return nil
 }
+
+func (a *AWSConfigFile) Finalize() error {
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return errors.Wrap(err, "could not create temporary file for aws config")
+	}
+
+	defer func() {
+		// if we have an error, attempt cleanup best we can
+		if err != nil {
+			tmpfile.Close()
+			os.Remove(tmpfile.Name())
+		}
+	}()
+
+	_, err = io.Copy(tmpfile, a.buffer)
+	if err != nil {
+		return errors.Wrap(err, "could not write contents to temporary aws config")
+	}
+
+	err = tmpfile.Sync()
+	if err != nil {
+		return errors.Wrap(err, "could not Sync temporary aws credentials file")
+	}
+
+	err = tmpfile.Close()
+	if err != nil {
+		return errors.Wrap(err, "could not close temporary aws credentials file")
+	}
+
+	err = os.Rename(tmpfile.Name(), a.awsConfigPath)
+	return errors.Wrapf(err, "could not move aws config to %s", err)
+}
+
 func (a *AWSConfigFile) Write(p []byte) (int, error) {
-	return a.f.Write(p)
+	return a.buffer.Write(p)
 }
 
 // mergeConfig will merge the new config with the existing aws config
@@ -40,17 +72,17 @@ func (a *AWSConfigFile) MergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File
 	return mergeAWSConfigs(new, old)
 }
 
-type AWSConfigSTDOUT struct {
+type AWSConfigSTDOUTWriter struct {
 	preamble sync.Once
 }
 
 // stdout writer only returns the new config
 //        up to users to figure out how to merge
-func (a *AWSConfigSTDOUT) MergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
+func (a *AWSConfigSTDOUTWriter) MergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
 	return new, nil
 }
 
-func (a *AWSConfigSTDOUT) Write(p []byte) (int, error) {
+func (a *AWSConfigSTDOUTWriter) Write(p []byte) (int, error) {
 	w := os.Stdout
 	// we only write the preamble once
 	// a bit Hacky, but ok since just stdout

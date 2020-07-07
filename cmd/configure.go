@@ -68,16 +68,14 @@ var configureCmd = &cobra.Command{
 		// We allow users to print aws config directly to stdout if they want
 		// instead of us directly trying to modify their aws config
 		if printOnly {
-			return completer.Complete(originalConfig, &aws_config_client.AWSConfigSTDOUT{})
+			return completer.Complete(originalConfig, &aws_config_client.AWSConfigSTDOUTWriter{})
 		}
 
-		awsConfigWriter := &aws_config_client.AWSConfigFile{}
-		err = awsConfigWriter.Open(awsConfigPath)
+		awsConfigWriter := aws_config_client.NewAWSConfigFileWriter(awsConfigPath)
+		err = completer.Complete(originalConfig, awsConfigWriter)
 		if err != nil {
 			return err
 		}
-		defer awsConfigWriter.Close()
-
-		return completer.Complete(originalConfig, awsConfigWriter)
+		return awsConfigWriter.Finalize()
 	},
 }
