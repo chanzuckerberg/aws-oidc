@@ -92,11 +92,7 @@ func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([
 	}
 
 	output, err := svc.ListRoleTagsWithContext(ctx, input)
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
-			logrus.WithError(err).Errorf("AccessDenied when listing tags for %s", *roleName)
-			return nil, nil
-		}
+	if processAWSErr(err) != nil {
 		return nil, errors.Wrapf(err, "could not list tags for role %s", *roleName)
 	}
 	return output.Tags, nil
@@ -113,11 +109,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 			return !lastPage
 		},
 	)
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
-			logrus.WithError(err).Error("Unable to list roles for this account")
-			return output, nil
-		}
+	if processAWSErr(err) != nil {
 		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
 
@@ -241,7 +233,7 @@ func GetActiveAccountList(
 			return !lastPage
 		},
 	)
-	if err != nil {
+	if processAWSErr(err) != nil {
 		return nil, errors.Wrap(err, "Unable to List Accounts from organizations session")
 	}
 
@@ -258,12 +250,7 @@ func GetActiveAccountList(
 func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
 	input := &iam.ListAccountAliasesInput{}
 	output, err := svc.ListAccountAliases(input)
-
-	if err != nil {
-		if awsErr, ok := err.(awserr.Error); ok && (awsErr.Code() == ignoreAWSError) {
-			logrus.WithError(err).Error("Unable to get aliases for this account")
-			return "", nil
-		}
+	if processAWSErr(err) != nil {
 		return "", errors.Wrap(err, "Error getting account alias")
 	}
 
@@ -272,4 +259,22 @@ func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
 		return "", nil
 	}
 	return *output.AccountAliases[0], nil
+}
+
+// process an aws err to see if we should skip or not
+func processAWSErr(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+	if awsErr.Code() == errAWSAccessDenied {
+		logrus.WithError(err).Errorf("AWS error %s", errAWSAccessDenied)
+		return nil // we skip the access denied errors, but notify on them
+	}
+
+	return err
 }

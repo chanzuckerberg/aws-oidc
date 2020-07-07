@@ -5,5 +5,5 @@ const (
 	skipRolesTagKey = "aws-oidc/skip-role"
 
 	// helps distinguish AWS "AccessDenied" errors
-	ignoreAWSError = "AccessDenied"
+	errAWSAccessDenied = "AccessDenied"
 )
