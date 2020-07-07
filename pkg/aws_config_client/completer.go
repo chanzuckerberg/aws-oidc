@@ -1,10 +1,7 @@
 package aws_config_client
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"regexp"
 	"strings"
 
@@ -245,53 +242,19 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 	return out, nil
 }
 
-func (c *completer) mergeConfigs(newAWSProfiles *ini.File, base *ini.File) (*ini.File, error) {
-
-	// Ask user to confirm that this is the AWS config they want
-	_, err := newAWSProfiles.WriteTo(os.Stdout)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to write AWS Profiles to stdout")
-	}
-
-	cnt, err := c.prompt.Confirm("Does this config file look right?", true)
-	if err != nil {
-		return nil, err
-	}
-	if !cnt {
-		logrus.Info("Discarding changes")
-		return ini.Empty(), nil
-	}
-
-	baseBytes := bytes.NewBuffer(nil)
-	newAWSProfileBytes := bytes.NewBuffer(nil)
-	_, err = newAWSProfiles.WriteTo(newAWSProfileBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to write AWS Profiles")
-	}
-	_, err = base.WriteTo(baseBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to incorporate original AWS config file with new config changes")
-	}
-
-	mergedConfig, err := ini.Load(baseBytes, newAWSProfileBytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to merge old and new config files")
-	}
-	return mergedConfig, nil
-}
-
-func (c *completer) Complete(base *ini.File, awsConfigWriter io.Writer) error {
+func (c *completer) Complete(base *ini.File, awsConfigWriter AWSConfigWriter) error {
 	if len(c.awsConfig.Profiles) == 0 {
-		logrus.Info("You are not authorized for any roles. Please contact your AWS administrator if this is a mistake")
+		logrus.Info("You are not authorized for any AWS roles. Please contact your AWS administrator if this is a mistake")
 		return nil
 	}
 
-	// assume same region for all accounts configured in this run?
+	// ask for a region, assume all profiles configured with this region
 	region, err := c.SurveyRegion()
 	if err != nil {
 		return err
 	}
 
+	// figure out the profiles
 	profiles, err := c.Survey()
 	if err != nil {
 		return err
@@ -302,10 +265,11 @@ func (c *completer) Complete(base *ini.File, awsConfigWriter io.Writer) error {
 		return err
 	}
 
-	mergedConfig, err := c.mergeConfigs(newAWSProfiles, base)
+	mergedConfig, err := awsConfigWriter.MergeAWSConfigs(newAWSProfiles, base)
 	if err != nil {
 		return err
 	}
+
 	_, err = mergedConfig.WriteTo(awsConfigWriter)
 	return errors.Wrapf(err, "Could not write new aws config.")
 }

@@ -3,13 +3,20 @@ package aws_config_client
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"testing"
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
 )
+
+type testWriter struct {
+	bytes.Buffer
+}
+
+func (t *testWriter) MergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
+	return mergeAWSConfigs(new, old)
+}
 
 func TestRemoveOldProfile(t *testing.T) {
 	r := require.New(t)
@@ -42,7 +49,7 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	testWriter := bytes.NewBuffer(nil)
+	testWriter := &testWriter{}
 	err = c.Complete(baseAWSConfig, testWriter)
 	r.NoError(err)
 	r.Equal(expected, testWriter.String())
@@ -96,7 +103,7 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	testWriter := bytes.NewBuffer(nil)
+	testWriter := &testWriter{}
 	err := c.Complete(baseAWSConfig, testWriter)
 	r.NoError(err)
 	r.Equal(expected, testWriter.String())
@@ -148,7 +155,7 @@ region             = test-region
 
 	c := NewCompleter(prompt, generateDummyData())
 
-	testWriter := bytes.NewBuffer(nil)
+	testWriter := &testWriter{}
 	err := c.Complete(newAWSProfiles, testWriter)
 	r.NoError(err)
 	r.Equal(expected, testWriter.String())
@@ -159,18 +166,8 @@ func TestNoRoles(t *testing.T) {
 	expected := ``
 
 	newAWSProfiles := ini.Empty()
-	prompt := &MockPrompt{}
-
-	c := NewCompleter(prompt, generateEmptyData())
-
-	testWriter, err := os.OpenFile("testfile", os.O_WRONLY|os.O_CREATE, 0600)
-	defer testWriter.Close()
-	r.NoError(err)
-	err = c.Complete(newAWSProfiles, testWriter)
-	r.NoError(err)
-
 	generatedConfig := bytes.NewBuffer(nil)
-	_, err = newAWSProfiles.WriteTo(generatedConfig)
+	_, err := newAWSProfiles.WriteTo(generatedConfig)
 	r.NoError(err)
 	r.Equal(expected, generatedConfig.String())
 }
