@@ -72,7 +72,12 @@ var configureCmd = &cobra.Command{
 		}
 
 		awsConfigWriter := &aws_config_client.AWSConfigFile{}
+		err = awsConfigWriter.Open(awsConfigPath)
+		if err != nil {
+			return err
+		}
 		defer awsConfigWriter.Close()
+
 		return completer.Complete(originalConfig, awsConfigWriter)
 	},
 }

@@ -65,6 +65,8 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	configParams *AWSConfigGenerationParams,
 	awsSession *session.Session,
 ) error {
+	logrus.Debug("Initiating AWS Roles refresh")
+
 	ctx, span := beeline.StartSpan(ctx, "refresh_client_mapping")
 	defer span.Send()
 	configData := &ClientIDToAWSRoles{
