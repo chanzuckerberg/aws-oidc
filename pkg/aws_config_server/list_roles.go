@@ -271,8 +271,8 @@ func processAWSErr(err error) error {
 	if !ok {
 		return err
 	}
-	if awsErr.Code() == ignoreAWSError {
-		logrus.WithError(err).Errorf("AWS error %s", ignoreAWSError)
+	if awsErr.Code() == errAWSAccessDenied {
+		logrus.WithError(err).Errorf("AWS error %s", errAWSAccessDenied)
 		return nil // we skip the access denied errors, but notify on them
 	}
 
