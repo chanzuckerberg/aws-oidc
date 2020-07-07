@@ -79,3 +79,10 @@ type AWSAccount struct {
 	Name  string `json:"name,omitempty"`
 	Alias string `json:"alias,omitempty"`
 }
+
+func (a *AWSAccount) GetAliasOrName() string {
+	if a.Alias != "" {
+		return a.Alias
+	}
+	return a.Name
+}
