@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 type ClientIDToAWSRoles struct {
@@ -70,6 +71,7 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 	errs := make(chan error)
 
 	for accountName, roleARN := range a.roleARNs {
+		logrus.Debugf("accountName, roleARN: %v, %v", accountName, roleARN)
 		wg.Add(1)
 		// We add concurrency here to speed up the start of our webserver
 		go func(accountName string, roleARN arn.ARN) {
@@ -109,6 +111,7 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 	wg.Wait()
 	// close the errs chan and aggregate them all (if there are any)
 	close(errs)
+	logrus.Debug("got here2")
 	allErrs := &multierror.Error{}
 	for err := range errs {
 		allErrs = multierror.Append(allErrs, err)

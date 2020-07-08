@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -14,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/hashicorp/go-multierror"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -54,10 +56,18 @@ func filterRoles(
 	ctx context.Context,
 	svc iamiface.IAMAPI,
 	roles []*iam.Role) ([]*iam.Role, error) {
+
 	ctx, span := beeline.StartSpan(ctx, "filtering AWS roles")
 	defer span.Send()
 
-	out := []*iam.Role{}
+	// wg to track goroutines
+	wg := sync.WaitGroup{}
+	// mutex to lock access to the aggregator map
+	mu := sync.Mutex{}
+	// to aggregate errors
+	errs := make(chan error)
+
+	iamRoles := []*iam.Role{}
 	shouldSkipTags := func(tags []*iam.Tag) bool {
 		for _, tag := range tags {
 			if tag != nil && tag.Key != nil && *tag.Key == skipRolesTagKey {
@@ -71,18 +81,38 @@ func filterRoles(
 		if role == nil {
 			continue
 		}
-		tags, err := listRoleTags(ctx, svc, role.RoleName)
-		if err != nil {
-			return nil, err
-		}
+		beeline.AddField(ctx, "Role with Tags", role)
 
-		if shouldSkipTags(tags) {
-			continue
-		}
+		wg.Add(1)
+		go func(currentRole *iam.Role) {
+			defer wg.Done()
+			tags, err := listRoleTags(ctx, svc, currentRole.RoleName)
+			if err != nil {
+				errs <- errors.Wrapf(err, "error listing tags for %v", currentRole)
+				return
+			}
 
-		out = append(out, role)
+			if shouldSkipTags(tags) {
+				return
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			iamRoles = append(iamRoles, currentRole)
+		}(role)
 	}
-	return out, nil
+
+	// wait till all the work is done
+	wg.Wait()
+	// close the errs chan and aggregate them all (if there are any)
+	close(errs)
+	logrus.Debug("got here1")
+	allErrs := &multierror.Error{}
+	for err := range errs {
+		allErrs = multierror.Append(allErrs, err)
+	}
+	// return error if we have on
+	return iamRoles, allErrs.ErrorOrNil()
 }
 
 func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([]*iam.Tag, error) {
@@ -161,8 +191,9 @@ func clientRoleMapFromProfile(
 	}
 	oidcProviderHostname := identityProviderURL.Hostname()
 	logrus.Debugf("oidcProviderHostname: %s", oidcProviderHostname)
-
+	logrus.Debug(roles)
 	for _, role := range roles {
+		logrus.Debugf("roleARN for clientRoleMap: %s", *role.Arn)
 		if role.AssumeRolePolicyDocument == nil {
 			continue // role doesn't have an assume role policy document
 		}
@@ -222,6 +253,7 @@ func clientRoleMapFromProfile(
 			logrus.Debugf("Found oidc role %s", roleARN)
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
+		logrus.Debug(role)
 	}
 	return nil
 }
