@@ -76,7 +76,7 @@ func filterRoles(
 	wg := sync.WaitGroup{}
 
 	// how much concurrent work we're allowed to do
-	concurrencyLimit := 10
+	concurrencyLimit := 5
 	scheduledRoles := make(chan *iam.Role, concurrencyLimit)
 
 	// to aggregate errors, make it buffered so we don't block on errors
