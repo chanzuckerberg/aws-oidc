@@ -101,9 +101,12 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 			defer mu.Unlock()
 			err = clientRoleMapFromProfile(ctx, accountName, accountAlias, workerRoles, oidcProvider, a.clientRoleMapping)
 			if err != nil {
+				logrus.Warnf("got errors: %v", err)
 				errs <- errors.Wrap(err, "Unable to complete mapping between ClientIDs and ConfigProfiles")
 				return
 			}
+
+			logrus.Debug("got here!")
 		}(accountName, roleARN)
 	}
 
