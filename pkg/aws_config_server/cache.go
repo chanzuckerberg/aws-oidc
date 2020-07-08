@@ -91,6 +91,6 @@ func (c *CachedGetClientIDToProfiles) refresh(
 
 	c.clientIDToProfiles = configData.clientRoleMapping
 
-	logrus.Warnf("done %f", time.Since(start))
+	logrus.Warnf("done %f", time.Since(start).Seconds())
 	return nil
 }

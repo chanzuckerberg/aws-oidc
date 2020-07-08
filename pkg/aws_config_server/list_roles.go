@@ -74,8 +74,6 @@ func filterRoles(
 
 	// wg to track goroutines
 	wg := sync.WaitGroup{}
-	// mutex to lock access to the aggregator map
-	mu := sync.Mutex{}
 
 	// how much concurrent work we're allowed to do
 	concurrencyLimit := 10
@@ -84,8 +82,8 @@ func filterRoles(
 	// to aggregate errors, make it buffered so we don't block on errors
 	errs := make(chan error, len(roles))
 
-	// iamRoles to aggregate all our roles
-	iamRoles := []*iam.Role{}
+	// outputRoles to aggregate all our roles
+	outputRoles := make(chan *iam.Role, len(roles))
 
 	shouldSkipTags := func(tags []*iam.Tag) bool {
 		for _, tag := range tags {
@@ -97,7 +95,7 @@ func filterRoles(
 	}
 
 	// the goroutine that will process a role
-	processor := func(scheduledRoles <-chan *iam.Role) {
+	processor := func(scheduledRoles <-chan *iam.Role, outputRoles chan<- *iam.Role) {
 		defer wg.Done()
 
 		for role := range scheduledRoles {
@@ -116,16 +114,14 @@ func filterRoles(
 				return
 			}
 
-			mu.Lock()
-			iamRoles = append(iamRoles, role)
-			mu.Unlock()
+			outputRoles <- role
 		}
 	}
 
 	// start the role processors
 	for i := 0; i < concurrencyLimit; i++ {
 		wg.Add(1)
-		go processor(scheduledRoles)
+		go processor(scheduledRoles, outputRoles)
 	}
 
 	// schedule all the work
@@ -136,10 +132,16 @@ func filterRoles(
 
 	wg.Wait()   // wait for all processors to be done
 	close(errs) // no more errors at this point
+	close(outputRoles)
 	// aggregate errors
 	allErrs := &multierror.Error{}
 	for err := range errs {
 		allErrs = multierror.Append(allErrs, err)
+	}
+
+	iamRoles := []*iam.Role{}
+	for role := range outputRoles {
+		iamRoles = append(iamRoles, role)
 	}
 	// return error if we have one
 	return iamRoles, allErrs.ErrorOrNil()

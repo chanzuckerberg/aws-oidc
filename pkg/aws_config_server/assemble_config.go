@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
@@ -80,6 +82,13 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 			workerAWSConfig := &aws.Config{
 				Credentials:                   stscreds.NewCredentials(a.awsSession, roleARN.String()),
 				CredentialsChainVerboseErrors: aws.Bool(true),
+				Retryer: &client.DefaultRetryer{
+					NumMaxRetries:    10,
+					MinRetryDelay:    time.Millisecond,
+					MinThrottleDelay: time.Millisecond,
+					MaxThrottleDelay: time.Second,
+					MaxRetryDelay:    time.Second,
+				},
 			}
 			iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 			workerRoles, err := listRoles(ctx, iamClient)
