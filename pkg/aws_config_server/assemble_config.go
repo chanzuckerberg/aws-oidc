@@ -68,10 +68,10 @@ func (a *ClientIDToAWSRoles) fetchAssumableRoles(
 	// mutex to lock access to the aggregator map
 	mu := sync.Mutex{}
 	// to aggregate errors
-	errs := make(chan error)
+	errs := make(chan error, len(a.roleARNs))
 
 	for accountName, roleARN := range a.roleARNs {
-		logrus.Debugf("accountName, roleARN: %v, %v", accountName, roleARN)
+		logrus.Infof("accountName, roleARN: %v, %v", accountName, roleARN)
 		wg.Add(1)
 		// We add concurrency here to speed up the start of our webserver
 		go func(accountName string, roleARN arn.ARN) {

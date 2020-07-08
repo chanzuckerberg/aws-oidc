@@ -51,6 +51,18 @@ type ConfigProfile struct {
 	RoleName  string
 }
 
+func getRoleNames(roles []*iam.Role) string {
+	out := []string{}
+	for _, role := range roles {
+		if role == nil || role.Arn == nil {
+			continue
+		}
+		out = append(out, *role.Arn)
+	}
+
+	return strings.Join(out, ",")
+}
+
 // We can skip over roles with specific tags
 func filterRoles(
 	ctx context.Context,
@@ -64,10 +76,17 @@ func filterRoles(
 	wg := sync.WaitGroup{}
 	// mutex to lock access to the aggregator map
 	mu := sync.Mutex{}
-	// to aggregate errors
-	errs := make(chan error)
 
+	// how much concurrent work we're allowed to do
+	concurrencyLimit := 10
+	scheduledRoles := make(chan *iam.Role, concurrencyLimit)
+
+	// to aggregate errors, make it buffered so we don't block on errors
+	errs := make(chan error, len(roles))
+
+	// iamRoles to aggregate all our roles
 	iamRoles := []*iam.Role{}
+
 	shouldSkipTags := func(tags []*iam.Tag) bool {
 		for _, tag := range tags {
 			if tag != nil && tag.Key != nil && *tag.Key == skipRolesTagKey {
@@ -77,18 +96,19 @@ func filterRoles(
 		return false
 	}
 
-	for _, role := range roles {
-		if role == nil {
-			continue
-		}
-		beeline.AddField(ctx, "Role with Tags", role)
+	// the goroutine that will process a role
+	processor := func(scheduledRoles <-chan *iam.Role) {
+		defer wg.Done()
 
-		wg.Add(1)
-		go func(currentRole *iam.Role) {
-			defer wg.Done()
-			tags, err := listRoleTags(ctx, svc, currentRole.RoleName)
+		for role := range scheduledRoles {
+			if role == nil {
+				return
+			}
+
+			logrus.Warnf("processing %s", *role.Arn)
+			tags, err := listRoleTags(ctx, svc, role.RoleName)
 			if err != nil {
-				errs <- errors.Wrapf(err, "error listing tags for %v", currentRole)
+				errs <- errors.Wrapf(err, "error listing tags for %s", *role.RoleName)
 				return
 			}
 
@@ -97,21 +117,31 @@ func filterRoles(
 			}
 
 			mu.Lock()
-			defer mu.Unlock()
-			iamRoles = append(iamRoles, currentRole)
-		}(role)
+			iamRoles = append(iamRoles, role)
+			mu.Unlock()
+		}
 	}
 
-	// wait till all the work is done
-	wg.Wait()
-	// close the errs chan and aggregate them all (if there are any)
-	close(errs)
-	logrus.Debug("got here1")
+	// start the role processors
+	for i := 0; i < concurrencyLimit; i++ {
+		wg.Add(1)
+		go processor(scheduledRoles)
+	}
+
+	// schedule all the work
+	for _, role := range roles {
+		scheduledRoles <- role
+	}
+	close(scheduledRoles) // signal processors they can stop
+
+	wg.Wait()   // wait for all processors to be done
+	close(errs) // no more errors at this point
+	// aggregate errors
 	allErrs := &multierror.Error{}
 	for err := range errs {
 		allErrs = multierror.Append(allErrs, err)
 	}
-	// return error if we have on
+	// return error if we have one
 	return iamRoles, allErrs.ErrorOrNil()
 }
 
