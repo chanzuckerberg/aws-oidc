@@ -9,6 +9,7 @@ import (
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	CZIOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/coreos/go-oidc"
+	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -73,7 +74,8 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 }
 
 func serveConfigRun(cmd *cobra.Command, args []string) error {
-	ctx := cmd.Context()
+	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
+	defer span.Send()
 
 	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()

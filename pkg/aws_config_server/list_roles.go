@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -53,6 +54,8 @@ func filterRoles(
 	ctx context.Context,
 	svc iamiface.IAMAPI,
 	roles []*iam.Role) ([]*iam.Role, error) {
+	ctx, span := beeline.StartSpan(ctx, "filtering AWS roles")
+	defer span.Send()
 
 	out := []*iam.Role{}
 	shouldSkipTags := func(tags []*iam.Tag) bool {
@@ -83,6 +86,9 @@ func filterRoles(
 }
 
 func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([]*iam.Tag, error) {
+	ctx, span := beeline.StartSpan(ctx, "list AWS Role Tags")
+	defer span.Send()
+
 	if roleName == nil {
 		return nil, nil
 	}
@@ -99,6 +105,9 @@ func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([
 }
 
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
+	ctx, span := beeline.StartSpan(ctx, "list AWS Roles")
+	defer span.Send()
+
 	// Run the AWS list-roles command and save the output
 	input := &iam.ListRolesInput{}
 	output := []*iam.Role{}
@@ -272,7 +281,7 @@ func processAWSErr(err error) error {
 		return err
 	}
 	if awsErr.Code() == errAWSAccessDenied {
-		logrus.WithError(err).Errorf("AWS error %s", errAWSAccessDenied)
+		logrus.WithError(err).Errorf("AWS error %s", awsErr)
 		return nil // we skip the access denied errors, but notify on them
 	}
 

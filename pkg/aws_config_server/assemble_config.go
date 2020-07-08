@@ -28,6 +28,9 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []s
 	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
 	defer span.Send()
 	for _, role_arn := range masterRoles {
+
+		beeline.AddField(ctx, "Organization IAM Role ARN", role_arn)
+
 		masterAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
 			CredentialsChainVerboseErrors: aws.Bool(true),
