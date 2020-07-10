@@ -141,7 +141,6 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 			return !lastPage
 		},
 	)
-	logrus.Warnf("current error: %s", err)
 	if processAWSErr(err) != nil {
 		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
@@ -185,10 +184,12 @@ func getRoleMappings(ctx context.Context,
 		return nil, errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
 	}
 	oidcProviderHostname := identityProviderURL.Hostname()
-	logrus.Debugf("oidcProviderHostname: %s", oidcProviderHostname)
 
 	for _, role := range roles {
-		logrus.Debugf("role for clientRoleMap: %s", role)
+		if role == nil {
+			logrus.Warn("nil role")
+		}
+
 		if role.AssumeRolePolicyDocument == nil {
 			continue // role doesn't have an assume role policy document
 		}
@@ -245,7 +246,6 @@ func getRoleMappings(ctx context.Context,
 				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
 				continue
 			}
-			logrus.Debugf("Found oidc role %s", roleARN)
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
 	}

@@ -78,7 +78,7 @@ func (a *ClientIDToAWSRoles) populateMapping(
 	}
 
 	queue := flattenRoleARNs(a.roleARNs)
-	mappingsList, err := parallelizeAggregateMapping(ctx, 5, queue, aggregateMappings)
+	mappingsList, err := parallelizeAggregateMapping(ctx, 10, queue, aggregateMappings)
 	if err != nil {
 		return errors.Wrap(err, "Unable to parallelize mapping generation process")
 	}
@@ -165,7 +165,6 @@ func parallelizeFilterRoles(ctx context.Context,
 
 	// start the role processors
 	for i := 0; i < concurrencyLimit; i++ {
-		logrus.Debug("start role processors (for loop)")
 		wg.Add(1)
 		go processor(scheduledQueue, outputChannel)
 	}
@@ -238,7 +237,6 @@ func parallelizeAggregateMapping(ctx context.Context,
 
 	// start the role processors
 	for i := 0; i < concurrencyLimit; i++ {
-		logrus.Debug("start role processors (for loop)")
 		wg.Add(1)
 		go processor(scheduledQueue, outputChannel)
 	}

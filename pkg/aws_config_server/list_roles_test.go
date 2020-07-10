@@ -77,38 +77,27 @@ func TestClientRoleMapFromProfile(t *testing.T) {
 
 	testRoles1[0].AssumeRolePolicyDocument = &newPolicyStr
 
-	clientRoleMap := map[okta.ClientID][]ConfigProfile{}
-	err = clientRoleMapFromProfile(ctx, "accountName", "accountAlias", testRoles1, oidcProvider, clientRoleMap)
+	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles1, oidcProvider)
 	r.NoError(err)                                                 // Nothing weird happened
 	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
 	r.Contains(clientRoleMap, okta.ClientID("clientIDValue1"))     // Only the valid ID is present
 	r.Len(clientRoleMap, 1)                                        // No more got added
 	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
 
-	// See if we can:
-	// * append another ARN to the clientRoleMap variable
-	// * include a new clientID to the existing clientRoleMap
+	// See if we can handle different policy statements (2 allows)
 	newPolicyDocument.Statements = validPolicyStatements
 
 	newPolicyData, err = json.Marshal(newPolicyDocument)
 	r.NoError(err)
 	newPolicyStr = url.PathEscape(string(newPolicyData))
 	testRoles2[0].AssumeRolePolicyDocument = &newPolicyStr
-
-	err = clientRoleMapFromProfile(ctx, "accountName2", "accountAlias2", testRoles2, oidcProvider, clientRoleMap)
-
-	r.NoError(err)
-	r.Len(clientRoleMap[okta.ClientID("clientIDValue1")], 2) // original ClientID has another entry
-	r.Len(clientRoleMap, 2)                                  // new changes reflected in the updated map
-	r.Len(clientRoleMap[okta.ClientID("clientIDValue2")], 1) // new clientID from the new roles got added
 }
 
 func TestNoPolicyDocument(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
 
-	clientRoleMap := map[okta.ClientID][]ConfigProfile{}
-	err := clientRoleMapFromProfile(ctx, "accountName", "accountAlias", testRoles0, oidcProvider, clientRoleMap)
+	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles0, oidcProvider)
 	r.NoError(err)
 	r.Empty(clientRoleMap)
 }
