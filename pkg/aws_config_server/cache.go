@@ -65,7 +65,8 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	configParams *AWSConfigGenerationParams,
 	awsSession *session.Session,
 ) error {
-	logrus.Debug("Initiating AWS Roles refresh")
+	logrus.Warn("Initiating AWS Roles refresh")
+	start := time.Now()
 
 	ctx, span := beeline.StartSpan(ctx, "refresh_client_mapping")
 	defer span.Send()
@@ -80,14 +81,13 @@ func (c *CachedGetClientIDToProfiles) refresh(
 		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Master Roles")
 	}
 
-	err = configData.fetchAssumableRoles(ctx, configParams.OIDCProvider)
+	err = configData.populateMapping(ctx, configParams.OIDCProvider)
 	if err != nil {
 		return errors.Wrap(err, "Unable to create mapping needed for config generation")
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	c.clientIDToProfiles = configData.clientRoleMapping
+
+	logrus.Debugf("done refreshing aws roles %f", time.Since(start).Seconds())
 	return nil
 }

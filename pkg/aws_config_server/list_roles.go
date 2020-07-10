@@ -6,14 +6,19 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -48,41 +53,65 @@ type ConfigProfile struct {
 	RoleName  string
 }
 
-// We can skip over roles with specific tags
-func filterRoles(
-	ctx context.Context,
-	svc iamiface.IAMAPI,
-	roles []*iam.Role) ([]*iam.Role, error) {
+type roleARNMatch struct {
+	accountName string
+	accountARN  arn.ARN
+}
 
-	out := []*iam.Role{}
-	shouldSkipTags := func(tags []*iam.Tag) bool {
-		for _, tag := range tags {
-			if tag != nil && tag.Key != nil && *tag.Key == skipRolesTagKey {
-				return true
-			}
-		}
-		return false
-	}
+func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []string, workerRole string) error {
+	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
+	defer span.Send()
+	for _, role_arn := range masterRoles {
 
-	for _, role := range roles {
-		if role == nil {
-			continue
+		beeline.AddField(ctx, "Organization IAM Role ARN", role_arn)
+
+		masterAWSConfig := &aws.Config{
+			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+			Retryer: &client.DefaultRetryer{
+				NumMaxRetries:    10,
+				MinRetryDelay:    time.Millisecond,
+				MinThrottleDelay: time.Millisecond,
+				MaxThrottleDelay: time.Second,
+				MaxRetryDelay:    time.Second,
+			},
 		}
-		tags, err := listRoleTags(ctx, svc, role.RoleName)
+
+		orgClient := a.awsClient.WithOrganizations(masterAWSConfig).Organizations.Svc
+		accountList, err := GetActiveAccountList(ctx, orgClient)
 		if err != nil {
-			return nil, err
+			return errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
+		for _, acct := range accountList {
+			// create a new IAM session for each account
+			new_role_arn := arn.ARN{
+				Partition: "aws",
+				Service:   "iam",
+				AccountID: *acct.Id,
+				Resource:  fmt.Sprintf("role/%s", workerRole),
+			}
+			a.roleARNs[*acct.Name] = new_role_arn
+		}
+	}
+	return nil
+}
 
-		if shouldSkipTags(tags) {
+func getRoleNames(roles []*iam.Role) string {
+	out := []string{}
+	for _, role := range roles {
+		if role == nil || role.Arn == nil {
 			continue
 		}
-
-		out = append(out, role)
+		out = append(out, *role.Arn)
 	}
-	return out, nil
+
+	return strings.Join(out, ",")
 }
 
 func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([]*iam.Tag, error) {
+	ctx, span := beeline.StartSpan(ctx, "list AWS Role Tags")
+	defer span.Send()
+
 	if roleName == nil {
 		return nil, nil
 	}
@@ -99,6 +128,9 @@ func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([
 }
 
 func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
+	ctx, span := beeline.StartSpan(ctx, "list AWS Roles")
+	defer span.Send()
+
 	// Run the AWS list-roles command and save the output
 	input := &iam.ListRolesInput{}
 	output := []*iam.Role{}
@@ -139,33 +171,38 @@ func (s *Action) UnmarshalJSON(data []byte) error {
 	return errors.Wrap(err, "Unable to unmarshal Action")
 }
 
-func clientRoleMapFromProfile(
-	ctx context.Context,
+func getRoleMappings(ctx context.Context,
 	acctName string,
 	acctAlias string,
 	roles []*iam.Role,
-	oidcProvider string,
-	clientRoleMapping map[okta.ClientID][]ConfigProfile) error {
+	oidcProvider string) (map[okta.ClientID][]ConfigProfile, error) {
+
+	clientRoleMapping := make(map[okta.ClientID][]ConfigProfile)
+
 	identityProviderURL, err := url.Parse(oidcProvider)
 	if err != nil {
-		return errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
+		return nil, errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
 	}
 	oidcProviderHostname := identityProviderURL.Hostname()
-	logrus.Debugf("oidcProviderHostname: %s", oidcProviderHostname)
 
 	for _, role := range roles {
+		if role == nil {
+			logrus.Debug("nil role")
+			continue
+		}
+
 		if role.AssumeRolePolicyDocument == nil {
 			continue // role doesn't have an assume role policy document
 		}
 		// the IAM Role outputs a url-encoded policy document, so we need to escape characters
 		policyStr, err := url.PathUnescape(*role.AssumeRolePolicyDocument)
 		if err != nil {
-			return errors.Wrap(err, "Unable to escape URL encoding")
+			return nil, errors.Wrap(err, "Unable to escape URL encoding")
 		}
 		policyDoc := PolicyDocument{}
 		err = json.Unmarshal([]byte(policyStr), &policyDoc)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to unmarshal policy document to struct policy: %s", policyStr)
+			return nil, errors.Wrapf(err, "Unable to unmarshal policy document to struct policy: %s", policyStr)
 		}
 
 		for _, statement := range policyDoc.Statements {
@@ -196,7 +233,7 @@ func clientRoleMapFromProfile(
 
 			roleARN, err := arn.Parse(*role.Arn)
 			if err != nil {
-				return errors.Wrapf(err, "could not parse arn %s", *role.Arn)
+				return nil, errors.Wrapf(err, "could not parse arn %s", *role.Arn)
 			}
 
 			currentConfig := ConfigProfile{
@@ -210,11 +247,10 @@ func clientRoleMapFromProfile(
 				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
 				continue
 			}
-			logrus.Debugf("Found oidc role %s", roleARN)
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
 	}
-	return nil
+	return clientRoleMapping, nil
 }
 
 func GetActiveAccountList(
@@ -272,7 +308,7 @@ func processAWSErr(err error) error {
 		return err
 	}
 	if awsErr.Code() == errAWSAccessDenied {
-		logrus.WithError(err).Errorf("AWS error %s", errAWSAccessDenied)
+		logrus.WithError(err).Errorf("AWS error %s", awsErr)
 		return nil // we skip the access denied errors, but notify on them
 	}
 
