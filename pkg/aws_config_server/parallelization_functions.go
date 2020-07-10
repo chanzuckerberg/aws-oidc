@@ -176,8 +176,8 @@ func parallelizeFilterRoles(ctx context.Context,
 	}
 	close(scheduledQueue) // signal processors they can stop
 
-	wg.Wait()   // wait for all processors to be done
-	close(errs) // no more errors at this point
+	wg.Wait()            // wait for all processors to be done
+	close(errs)          // no more errors at this point
 	close(outputChannel) // no more outputs at this point
 
 	logrus.Debug("closed all the parallelizeFilterRoles channels")
@@ -250,8 +250,8 @@ func parallelizeAggregateMapping(ctx context.Context,
 	}
 	close(scheduledQueue) // signal processors they can stop
 
-	wg.Wait()   // wait for all processors to be done
-	close(errs) // no more errors at this point
+	wg.Wait()            // wait for all processors to be done
+	close(errs)          // no more errors at this point
 	close(outputChannel) // no more responses at this point
 
 	logrus.Debug("closed all the parallelizeAggregateMapping channels")

@@ -164,12 +164,25 @@ region             = test-region
 func TestNoRoles(t *testing.T) {
 	r := require.New(t)
 	expected := ``
+	baseAWSConfig := ini.Empty()
+	prompt := &MockPrompt{}
 
-	newAWSProfiles := ini.Empty()
-	generatedConfig := bytes.NewBuffer(nil)
-	_, err := newAWSProfiles.WriteTo(generatedConfig)
+	c := NewCompleter(prompt, generateEmptyData())
+	testWriter := &testWriter{}
+	err := c.Complete(baseAWSConfig, testWriter)
+	r.Error(err)
+	r.Equal(expected, testWriter.String())
+	r.Equal(baseAWSConfig, ini.Empty())
+
+	// go through the same process with data in baseAWSConfig
+	dummySection, err := baseAWSConfig.NewSection("profile acct1")
 	r.NoError(err)
-	r.Equal(expected, generatedConfig.String())
+	dummySection.NewKey("region", "dummy region")
+	err = c.Complete(baseAWSConfig, testWriter)
+	r.Error(err)
+	acct1Section, err := baseAWSConfig.GetSection("profile acct1")
+	r.NoError(err)
+	r.Equal(acct1Section, dummySection)
 }
 
 func TestAWSProfileNameValidator(t *testing.T) {
