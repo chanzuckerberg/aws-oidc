@@ -86,9 +86,6 @@ func (c *CachedGetClientIDToProfiles) refresh(
 		return errors.Wrap(err, "Unable to create mapping needed for config generation")
 	}
 
-	// c.mu.Lock()
-	// defer c.mu.Unlock()
-
 	c.clientIDToProfiles = configData.clientRoleMapping
 
 	logrus.Debugf("done refreshing aws roles %f", time.Since(start).Seconds())
