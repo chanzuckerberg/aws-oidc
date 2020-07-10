@@ -187,7 +187,8 @@ func getRoleMappings(ctx context.Context,
 
 	for _, role := range roles {
 		if role == nil {
-			logrus.Warn("nil role")
+			logrus.Debug("nil role")
+			continue
 		}
 
 		if role.AssumeRolePolicyDocument == nil {

@@ -84,7 +84,6 @@ func (a *ClientIDToAWSRoles) populateMapping(
 	}
 
 	for _, mapping := range mappingsList {
-
 		for clientID, configList := range mapping {
 			for _, config := range configList {
 				if _, ok := a.clientRoleMapping[clientID]; !ok {
@@ -137,10 +136,10 @@ func parallelizeFilterRoles(ctx context.Context,
 	// to aggregate errors, make it buffered so we don't block on errors
 	errs := make(chan error, len(queue))
 
-	// // how much concurrent work we're allowed to do
+	// how much concurrent work we're allowed to do
 	scheduledQueue := make(chan *iam.Role, concurrencyLimit)
 
-	// // outputRoles to aggregate all our roles
+	// outputRoles to aggregate all our roles
 	outputChannel := make(chan *iam.Role, len(queue))
 	logrus.Debug("made all the channels")
 
@@ -150,15 +149,17 @@ func parallelizeFilterRoles(ctx context.Context,
 
 		for element := range scheduledQueue {
 			if element == nil {
-				return
+				continue
 			}
 
 			output, err := action(ctx, element)
 			if err != nil {
 				errs <- err
+				continue
 			}
 			if output != nil {
 				outputList <- output
+				continue
 			}
 		}
 	}
@@ -177,7 +178,7 @@ func parallelizeFilterRoles(ctx context.Context,
 
 	wg.Wait()   // wait for all processors to be done
 	close(errs) // no more errors at this point
-	close(outputChannel)
+	close(outputChannel) // no more outputs at this point
 
 	logrus.Debug("closed all the parallelizeFilterRoles channels")
 	allErrs := &multierror.Error{}
@@ -209,10 +210,10 @@ func parallelizeAggregateMapping(ctx context.Context,
 	// to aggregate errors, make it buffered so we don't block on errors
 	errs := make(chan error, len(queue))
 
-	// // how much concurrent work we're allowed to do
+	// how much concurrent work we're allowed to do
 	scheduledQueue := make(chan *roleARNMatch, concurrencyLimit)
 
-	// // outputRoles to aggregate all our roles
+	// outputRoles to aggregate all our roles
 	outputChannel := make(chan map[okta.ClientID][]ConfigProfile, len(queue))
 	logrus.Debug("made all the channels")
 
@@ -222,15 +223,17 @@ func parallelizeAggregateMapping(ctx context.Context,
 
 		for element := range scheduledQueue {
 			if element == nil {
-				return
+				continue
 			}
 
 			output, err := action(ctx, element)
 			if err != nil {
 				errs <- err
+				continue
 			}
 			if output != nil {
 				outputList <- output
+				continue
 			}
 		}
 	}
@@ -241,7 +244,7 @@ func parallelizeAggregateMapping(ctx context.Context,
 		go processor(scheduledQueue, outputChannel)
 	}
 
-	// // schedule all the work
+	// schedule all the work
 	for _, element := range queue {
 		scheduledQueue <- element
 	}
@@ -249,7 +252,7 @@ func parallelizeAggregateMapping(ctx context.Context,
 
 	wg.Wait()   // wait for all processors to be done
 	close(errs) // no more errors at this point
-	close(outputChannel)
+	close(outputChannel) // no more responses at this point
 
 	logrus.Debug("closed all the parallelizeAggregateMapping channels")
 	allErrs := &multierror.Error{}
