@@ -81,13 +81,13 @@ func (c *CachedGetClientIDToProfiles) refresh(
 		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Master Roles")
 	}
 
-	err = configData.fetchAssumableRoles(ctx, configParams.OIDCProvider)
+	err = configData.populateMapping(ctx, configParams.OIDCProvider)
 	if err != nil {
 		return errors.Wrap(err, "Unable to create mapping needed for config generation")
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	// c.mu.Lock()
+	// defer c.mu.Unlock()
 
 	c.clientIDToProfiles = configData.clientRoleMapping
 

@@ -6,16 +6,18 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
+	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/client"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	"github.com/hashicorp/go-multierror"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -51,6 +53,49 @@ type ConfigProfile struct {
 	RoleName  string
 }
 
+type roleARNMatch struct {
+	accountName string
+	accountARN  arn.ARN
+}
+
+func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []string, workerRole string) error {
+	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
+	defer span.Send()
+	for _, role_arn := range masterRoles {
+
+		beeline.AddField(ctx, "Organization IAM Role ARN", role_arn)
+
+		masterAWSConfig := &aws.Config{
+			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+			Retryer: &client.DefaultRetryer{
+				NumMaxRetries:    10,
+				MinRetryDelay:    time.Millisecond,
+				MinThrottleDelay: time.Millisecond,
+				MaxThrottleDelay: time.Second,
+				MaxRetryDelay:    time.Second,
+			},
+		}
+
+		orgClient := a.awsClient.WithOrganizations(masterAWSConfig).Organizations.Svc
+		accountList, err := GetActiveAccountList(ctx, orgClient)
+		if err != nil {
+			return errors.Wrap(err, "Unable to get list of AWS Profiles")
+		}
+		for _, acct := range accountList {
+			// create a new IAM session for each account
+			new_role_arn := arn.ARN{
+				Partition: "aws",
+				Service:   "iam",
+				AccountID: *acct.Id,
+				Resource:  fmt.Sprintf("role/%s", workerRole),
+			}
+			a.roleARNs[*acct.Name] = new_role_arn
+		}
+	}
+	return nil
+}
+
 func getRoleNames(roles []*iam.Role) string {
 	out := []string{}
 	for _, role := range roles {
@@ -61,90 +106,6 @@ func getRoleNames(roles []*iam.Role) string {
 	}
 
 	return strings.Join(out, ",")
-}
-
-// We can skip over roles with specific tags
-func filterRoles(
-	ctx context.Context,
-	svc iamiface.IAMAPI,
-	roles []*iam.Role) ([]*iam.Role, error) {
-
-	ctx, span := beeline.StartSpan(ctx, "filtering AWS roles")
-	defer span.Send()
-
-	// wg to track goroutines
-	wg := sync.WaitGroup{}
-
-	// how much concurrent work we're allowed to do
-	concurrencyLimit := 5
-	scheduledRoles := make(chan *iam.Role, concurrencyLimit)
-
-	// to aggregate errors, make it buffered so we don't block on errors
-	errs := make(chan error, len(roles))
-
-	// outputRoles to aggregate all our roles
-	outputRoles := make(chan *iam.Role, len(roles))
-
-	shouldSkipTags := func(tags []*iam.Tag) bool {
-		for _, tag := range tags {
-			if tag != nil && tag.Key != nil && *tag.Key == skipRolesTagKey {
-				return true
-			}
-		}
-		return false
-	}
-
-	// the goroutine that will process a role
-	processor := func(scheduledRoles <-chan *iam.Role, outputRoles chan<- *iam.Role) {
-		defer wg.Done()
-
-		for role := range scheduledRoles {
-			if role == nil {
-				return
-			}
-
-			logrus.Warnf("processing %s", *role.Arn)
-			tags, err := listRoleTags(ctx, svc, role.RoleName)
-			if err != nil {
-				errs <- errors.Wrapf(err, "error listing tags for %s", *role.RoleName)
-				return
-			}
-
-			if shouldSkipTags(tags) {
-				return
-			}
-
-			outputRoles <- role
-		}
-	}
-
-	// start the role processors
-	for i := 0; i < concurrencyLimit; i++ {
-		wg.Add(1)
-		go processor(scheduledRoles, outputRoles)
-	}
-
-	// schedule all the work
-	for _, role := range roles {
-		scheduledRoles <- role
-	}
-	close(scheduledRoles) // signal processors they can stop
-
-	wg.Wait()   // wait for all processors to be done
-	close(errs) // no more errors at this point
-	close(outputRoles)
-	// aggregate errors
-	allErrs := &multierror.Error{}
-	for err := range errs {
-		allErrs = multierror.Append(allErrs, err)
-	}
-
-	iamRoles := []*iam.Role{}
-	for role := range outputRoles {
-		iamRoles = append(iamRoles, role)
-	}
-	// return error if we have one
-	return iamRoles, allErrs.ErrorOrNil()
 }
 
 func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([]*iam.Tag, error) {
@@ -180,6 +141,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 			return !lastPage
 		},
 	)
+	logrus.Warnf("current error: %s", err)
 	if processAWSErr(err) != nil {
 		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
@@ -210,34 +172,35 @@ func (s *Action) UnmarshalJSON(data []byte) error {
 	return errors.Wrap(err, "Unable to unmarshal Action")
 }
 
-func clientRoleMapFromProfile(
-	ctx context.Context,
+func getRoleMappings(ctx context.Context,
 	acctName string,
 	acctAlias string,
 	roles []*iam.Role,
-	oidcProvider string,
-	clientRoleMapping map[okta.ClientID][]ConfigProfile) error {
+	oidcProvider string) (map[okta.ClientID][]ConfigProfile, error) {
+
+	clientRoleMapping := make(map[okta.ClientID][]ConfigProfile)
+
 	identityProviderURL, err := url.Parse(oidcProvider)
 	if err != nil {
-		return errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
+		return nil, errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
 	}
 	oidcProviderHostname := identityProviderURL.Hostname()
 	logrus.Debugf("oidcProviderHostname: %s", oidcProviderHostname)
-	logrus.Debug(roles)
+
 	for _, role := range roles {
-		logrus.Debugf("roleARN for clientRoleMap: %s", *role.Arn)
+		logrus.Debugf("role for clientRoleMap: %s", role)
 		if role.AssumeRolePolicyDocument == nil {
 			continue // role doesn't have an assume role policy document
 		}
 		// the IAM Role outputs a url-encoded policy document, so we need to escape characters
 		policyStr, err := url.PathUnescape(*role.AssumeRolePolicyDocument)
 		if err != nil {
-			return errors.Wrap(err, "Unable to escape URL encoding")
+			return nil, errors.Wrap(err, "Unable to escape URL encoding")
 		}
 		policyDoc := PolicyDocument{}
 		err = json.Unmarshal([]byte(policyStr), &policyDoc)
 		if err != nil {
-			return errors.Wrapf(err, "Unable to unmarshal policy document to struct policy: %s", policyStr)
+			return nil, errors.Wrapf(err, "Unable to unmarshal policy document to struct policy: %s", policyStr)
 		}
 
 		for _, statement := range policyDoc.Statements {
@@ -268,7 +231,7 @@ func clientRoleMapFromProfile(
 
 			roleARN, err := arn.Parse(*role.Arn)
 			if err != nil {
-				return errors.Wrapf(err, "could not parse arn %s", *role.Arn)
+				return nil, errors.Wrapf(err, "could not parse arn %s", *role.Arn)
 			}
 
 			currentConfig := ConfigProfile{
@@ -285,9 +248,8 @@ func clientRoleMapFromProfile(
 			logrus.Debugf("Found oidc role %s", roleARN)
 			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
 		}
-		logrus.Debug(role)
 	}
-	return nil
+	return clientRoleMapping, nil
 }
 
 func GetActiveAccountList(
