@@ -240,8 +240,7 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 
 func (c *completer) Complete(base *ini.File, awsConfigWriter AWSConfigWriter) error {
 	if len(c.awsConfig.Profiles) == 0 {
-		logrus.Info("You are not authorized for any AWS roles. Please contact your AWS administrator if this is a mistake")
-		return nil
+		return errors.Errorf("You are not authorized for any AWS roles. Please contact your AWS administrator if this is a mistake")
 	}
 
 	// ask for a region, assume all profiles configured with this region
