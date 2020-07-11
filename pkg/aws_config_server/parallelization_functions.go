@@ -3,11 +3,9 @@ package aws_config_server
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
@@ -29,26 +27,21 @@ var shouldSkipTags = func(tags []*iam.Tag) bool {
 
 func (a *ClientIDToAWSRoles) populateMapping(
 	ctx context.Context,
-	oidcProvider string,
+	configParams *AWSConfigGenerationParams,
 ) error {
 	ctx, span := beeline.StartSpan(ctx, "server_fetch_assumable_roles")
 	defer span.Send()
+
+	oidcProvider := configParams.OIDCProvider
 
 	aggregateMappings := func(ctx context.Context, arnPair *roleARNMatch) (map[okta.ClientID][]ConfigProfile, error) {
 		accountName, roleARN := arnPair.accountName, arnPair.accountARN
 		workerAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, roleARN.String()),
 			CredentialsChainVerboseErrors: aws.Bool(true),
-			Retryer: &client.DefaultRetryer{
-				NumMaxRetries:    10,
-				MinRetryDelay:    time.Millisecond,
-				MinThrottleDelay: time.Millisecond,
-				MaxThrottleDelay: time.Second,
-				MaxRetryDelay:    time.Second,
-			},
 		}
 		iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
-		workerRoles, err := listRoles(ctx, iamClient)
+		workerRoles, err := listRoles(ctx, iamClient, configParams)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error listing roles for %s", accountName)
 		}
@@ -78,7 +71,7 @@ func (a *ClientIDToAWSRoles) populateMapping(
 	}
 
 	queue := flattenRoleARNs(a.roleARNs)
-	mappingsList, err := parallelizeAggregateMapping(ctx, 10, queue, aggregateMappings)
+	mappingsList, err := parallelizeAggregateMapping(ctx, configParams.MappingConcurrency, queue, aggregateMappings)
 	if err != nil {
 		return errors.Wrap(err, "Unable to parallelize mapping generation process")
 	}
@@ -102,7 +95,8 @@ func (a *ClientIDToAWSRoles) populateMapping(
 func filterRoles(
 	ctx context.Context,
 	svc iamiface.IAMAPI,
-	roles []*iam.Role) ([]*iam.Role, error) {
+	roles []*iam.Role,
+	configParams *AWSConfigGenerationParams) ([]*iam.Role, error) {
 
 	ctx, span := beeline.StartSpan(ctx, "filtering AWS roles")
 	defer span.Send()
@@ -121,7 +115,7 @@ func filterRoles(
 		return role, nil
 	}
 
-	return parallelizeFilterRoles(ctx, 5, roles, filterRolesFunc)
+	return parallelizeFilterRoles(ctx, configParams.RolesConcurrency, roles, filterRolesFunc)
 }
 
 func parallelizeFilterRoles(ctx context.Context,

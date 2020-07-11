@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
@@ -68,13 +66,6 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []s
 		masterAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
 			CredentialsChainVerboseErrors: aws.Bool(true),
-			Retryer: &client.DefaultRetryer{
-				NumMaxRetries:    10,
-				MinRetryDelay:    time.Millisecond,
-				MinThrottleDelay: time.Millisecond,
-				MaxThrottleDelay: time.Second,
-				MaxRetryDelay:    time.Second,
-			},
 		}
 
 		orgClient := a.awsClient.WithOrganizations(masterAWSConfig).Organizations.Svc
@@ -127,7 +118,7 @@ func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([
 	return output.Tags, nil
 }
 
-func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
+func listRoles(ctx context.Context, svc iamiface.IAMAPI, configParams *AWSConfigGenerationParams) ([]*iam.Role, error) {
 	ctx, span := beeline.StartSpan(ctx, "list AWS Roles")
 	defer span.Send()
 
@@ -145,7 +136,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
 
-	return filterRoles(ctx, svc, output)
+	return filterRoles(ctx, svc, output, configParams)
 }
 
 type Action []string
