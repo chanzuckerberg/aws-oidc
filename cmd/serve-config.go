@@ -41,7 +41,7 @@ func init() {
 	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "port to host the aws config website")
 	serveConfigCmd.Flags().IntVar(&mappingConcurrencyLimit, "mapping-concurrency-limit", 1, "Number of parallel processes for adding to the AWS Org's config mapping")
 	serveConfigCmd.Flags().IntVar(&rolesConcurrencyLimit, "aws-roles-concurrency-limit", 1, "Number of parallel AWS list-roles and list-tags processes")
-	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 1, "Number of times an AWS svc retries an operation")
+	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
 }
 
 var serveConfigCmd = &cobra.Command{
@@ -112,8 +112,8 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 					NumMaxRetries:    awsSessionRetries,
 					MinRetryDelay:    time.Millisecond,
 					MinThrottleDelay: time.Millisecond,
-					MaxThrottleDelay: time.Second,
-					MaxRetryDelay:    time.Second,
+					MaxThrottleDelay: 10 * time.Second,
+					MaxRetryDelay:   10*  time.Second,
 				},
 			},
 		},
