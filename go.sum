@@ -28,6 +28,8 @@ github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894/go.mod h1:sGbDF6
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/chanzuckerberg/go-misc v0.0.0-20200713221104-f65f91263305 h1:283x69ziAS398EFPePcoAWLHxmTITmKuXwk4byvNOTI=
 github.com/chanzuckerberg/go-misc v0.0.0-20200713221104-f65f91263305/go.mod h1:NDRJykhww4Ibrdf8gkOwE76Otkp52PGcbYOyqrk8cKA=
+github.com/chanzuckerberg/go-misc v0.0.0-20200713225445-d71fd9939a12 h1:XqzeQM97BvHHcFvF3fwRDsR3CJZ0iwtzhiy3mWuRVEQ=
+github.com/chanzuckerberg/go-misc v0.0.0-20200713225445-d71fd9939a12/go.mod h1:NDRJykhww4Ibrdf8gkOwE76Otkp52PGcbYOyqrk8cKA=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/cockroachdb/cockroach-go v0.0.0-20190925194419-606b3d062051/go.mod h1:XGLbWH/ujMcbPbhZq52Nv6UrCghb1yGn//133kEsvDk=
