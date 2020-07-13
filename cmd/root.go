@@ -17,7 +17,8 @@ var issuerURL string
 var roleARN string
 
 const (
-	flagVerbose = "verbose"
+	flagVerbose    = "verbose"
+	successMessage = "Signed in successfully! You can now return to CLI."
 )
 
 type SentryEnvironment struct {

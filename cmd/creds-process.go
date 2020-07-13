@@ -110,5 +110,7 @@ func getOIDCToken(
 	return oidc.GetToken(
 		ctx,
 		awsOIDCConfig.ClientID,
-		awsOIDCConfig.IssuerURL)
+		awsOIDCConfig.IssuerURL,
+		oidc_client.SetSuccessMessage(successMessage),
+	)
 }
