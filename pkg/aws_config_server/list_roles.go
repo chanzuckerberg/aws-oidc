@@ -66,6 +66,7 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []s
 		masterAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
 			CredentialsChainVerboseErrors: aws.Bool(true),
+			Retryer:                       a.awsSession.Config.Retryer,
 		}
 
 		orgClient := a.awsClient.WithOrganizations(masterAWSConfig).Organizations.Svc

@@ -39,6 +39,7 @@ func (a *ClientIDToAWSRoles) populateMapping(
 		workerAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, roleARN.String()),
 			CredentialsChainVerboseErrors: aws.Bool(true),
+			Retryer:                       a.awsSession.Config.Retryer,
 		}
 		iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 		workerRoles, err := listRoles(ctx, iamClient, configParams)
