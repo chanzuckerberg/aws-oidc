@@ -26,8 +26,8 @@ github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA
 github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 h1:JLaf/iINcLyjwbtTsCJjc6rtlASgHeIJPrB6QmwURnA=
 github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
-github.com/chanzuckerberg/go-misc v0.0.0-20200709200308-32234567c982 h1:Gs+YX58IE3dQSTt2pQJS0tnLXtSncQ0v/9EQcW28tks=
-github.com/chanzuckerberg/go-misc v0.0.0-20200709200308-32234567c982/go.mod h1:n+v8ZvhKDMEqIRmnpAunQI9+CgUfeJQIlRGkYBnYy00=
+github.com/chanzuckerberg/go-misc v0.0.0-20200713170416-c0eb71f6589f h1:CH7kdCJnWRbwCLQj3/vaG6AkDG72H5sIS9D3SrbYnbY=
+github.com/chanzuckerberg/go-misc v0.0.0-20200713170416-c0eb71f6589f/go.mod h1:ymZ7sg5TNum55aUrUSvUjxwq1h26OBn81QFthsUVROM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/cockroachdb/cockroach-go v0.0.0-20190925194419-606b3d062051/go.mod h1:XGLbWH/ujMcbPbhZq52Nv6UrCghb1yGn//133kEsvDk=
