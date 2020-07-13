@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.33.5
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
-	github.com/chanzuckerberg/go-misc v0.0.0-20200713225445-d71fd9939a12
+	github.com/chanzuckerberg/go-misc v0.0.0-20200713230500-6590ecc9d6e1
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/getsentry/raven-go v0.2.0 // indirect
