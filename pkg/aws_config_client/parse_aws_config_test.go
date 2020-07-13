@@ -56,3 +56,40 @@ func TestResolveProfile(t *testing.T) {
 	r.NoError(err)
 	r.Equal(expectedProfile, prof)
 }
+
+func TestExtractFromCredsProcess(t *testing.T) {
+	type testData struct {
+		in       string
+		expected string
+	}
+
+	r := require.New(t)
+
+	tests := []testData{
+		{
+			in:       "sh -c 'aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role'",
+			expected: "aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role",
+		},
+		{
+			in:       "sh -c 'aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role 2> /dev/tty'",
+			expected: "aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role",
+		},
+		{
+			in:       "sh -c \"aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role\"",
+			expected: "aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role",
+		},
+		{
+			in:       "sh -c \"aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role 2> /dev/tty\"",
+			expected: "aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role",
+		},
+		{
+			in:       "aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role",
+			expected: "aws-oidc creds-process --issuer-url=https://localhost --client-id=some-client-id --aws-role-arn=arn:aws:iam::12345678910:role/role",
+		},
+	}
+
+	for _, test := range tests {
+		out := cleanCredProcessCommand(test.in)
+		r.Equal(test.expected, out)
+	}
+}
