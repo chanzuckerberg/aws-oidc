@@ -43,7 +43,7 @@ func TestMultipleActions(t *testing.T) {
 		ListRoleTagsWithContext(gomock.Any(), gomock.Any()).
 		Return(&iam.ListRoleTagsOutput{}, nil)
 
-	iamOutput, err := listRoles(ctx, mock)
+	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
 	r.NoError(err)
 	r.Len(iamOutput, 1)
 

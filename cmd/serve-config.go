@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/client"
 	"github.com/aws/aws-sdk-go/aws/session"
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	CZIOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
@@ -29,9 +32,16 @@ type AWSRoleEnvironment struct {
 	MASTER_ROLE_ARNS []string
 }
 
+var mappingConcurrencyLimit int
+var rolesConcurrencyLimit int
+var awsSessionRetries int
+
 func init() {
 	rootCmd.AddCommand(serveConfigCmd)
 	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "port to host the aws config website")
+	serveConfigCmd.Flags().IntVar(&mappingConcurrencyLimit, "mapping-concurrency-limit", 1, "Number of parallel processes for adding to the AWS Org's config mapping")
+	serveConfigCmd.Flags().IntVar(&rolesConcurrencyLimit, "aws-roles-concurrency-limit", 1, "Number of parallel AWS list-roles and list-tags processes")
+	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
 }
 
 var serveConfigCmd = &cobra.Command{
@@ -97,6 +107,15 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	awsSession, err := session.NewSessionWithOptions(
 		session.Options{
 			SharedConfigState: session.SharedConfigEnable,
+			Config: aws.Config{
+				Retryer: &client.DefaultRetryer{
+					NumMaxRetries:    awsSessionRetries,
+					MinRetryDelay:    time.Millisecond,
+					MinThrottleDelay: time.Millisecond,
+					MaxThrottleDelay: 10 * time.Second,
+					MaxRetryDelay:   10*  time.Second,
+				},
+			},
 		},
 	)
 	if err != nil {
@@ -109,9 +128,11 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	}
 
 	configGenerationParams := webserver.AWSConfigGenerationParams{
-		OIDCProvider:   oktaEnv.ISSUER_URL,
-		AWSWorkerRole:  awsEnv.READER_ROLE_NAME,
-		AWSMasterRoles: awsEnv.MASTER_ROLE_ARNS,
+		OIDCProvider:       oktaEnv.ISSUER_URL,
+		AWSWorkerRole:      awsEnv.READER_ROLE_NAME,
+		AWSMasterRoles:     awsEnv.MASTER_ROLE_ARNS,
+		MappingConcurrency: mappingConcurrencyLimit,
+		RolesConcurrency:   rolesConcurrencyLimit,
 	}
 
 	getClientIDToProfiles, err := webserver.NewCachedGetClientIDToProfiles(

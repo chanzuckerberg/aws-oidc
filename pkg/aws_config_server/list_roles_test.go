@@ -56,7 +56,7 @@ func TestListRoles(t *testing.T) {
 			Tags: testRoles1[1].Tags,
 		}, nil)
 
-	iamOutput, err := listRoles(ctx, mock)
+	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
 	r.NoError(err)
 	r.Len(testRoles1, 2) // we skipped over a role
 	r.Len(iamOutput, 1)
