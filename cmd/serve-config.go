@@ -24,7 +24,7 @@ type OktaWebserverEnvironment struct {
 	ISSUER_URL        string
 }
 
-type AWSEnvironment struct {
+type AWSRoleEnvironment struct {
 	READER_ROLE_NAME string
 	MASTER_ROLE_ARNS []string
 }
@@ -51,8 +51,8 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	return env, nil
 }
 
-func loadAWSEnv() (*AWSEnvironment, error) {
-	env := &AWSEnvironment{}
+func loadAWSEnv() (*AWSRoleEnvironment, error) {
+	env := &AWSRoleEnvironment{}
 	err := envconfig.Process("AWS", env)
 	if err != nil {
 		return env, errors.Wrap(err, "Unable to load all the aws environment variables")
