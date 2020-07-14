@@ -8,6 +8,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -29,6 +30,8 @@ type AWSOIDCConfiguration struct {
 	ClientID  string
 	IssuerURL string
 	RoleARN   string
+	Region    string
+	Output    string
 }
 
 // HACK(el): This is not the best, but decided to do this to:
@@ -130,9 +133,25 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not extract --aws-role-arn from (%s)", credProcessCmd)
 	}
-	return &AWSOIDCConfiguration{
+
+	currentConfig := &AWSOIDCConfiguration{
 		ClientID:  clientID,
 		IssuerURL: issuerURL,
 		RoleARN:   roleARN,
-	}, nil
+	}
+	region, err := section.GetKey("region")
+	if err != nil {
+		logrus.WithError(err).Debug("Error getting region from aws config")
+	} else {
+		currentConfig.Region = region.String()
+	}
+
+	output, err := section.GetKey("output")
+	if err != nil {
+		logrus.WithError(err).Debug("Error getting output from aws config")
+	} else {
+		currentConfig.Output = output.String()
+	}
+
+	return currentConfig, nil
 }

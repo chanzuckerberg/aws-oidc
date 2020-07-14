@@ -1,17 +1,13 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -91,34 +87,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}
 
-	// our calculated awsEnvVars take precedence
-	envVars := append(
-		getAWSEnvVars(assumeRoleOutput),
-		os.Environ()...,
-	)
+	envVars := getAWSEnvVars(assumeRoleOutput, awsOIDCConfig)
 
 	return exec(ctx, command, commandArgs, envVars)
-}
-
-func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput) []string {
-
-	awsEnv, err := loadAWSDefaultEnv()
-	if err != nil {
-		logrus.Debug(err)
-	}
-
-	envVars := []string{
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", string(*assumeRoleOutput.Credentials.AccessKeyId)),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", string(*assumeRoleOutput.Credentials.SecretAccessKey)),
-		fmt.Sprintf("AWS_SESSION_TOKEN=%s", string(*assumeRoleOutput.Credentials.SessionToken)),
-	}
-
-	if awsEnv.DEFAULT_OUTPUT != "" {
-		envVars = append(envVars, fmt.Sprintf("AWS_DEFAULT_OUTPUT=%s", awsEnv.DEFAULT_OUTPUT))
-	}
-	if awsEnv.DEFAULT_REGION != "" {
-		envVars = append(envVars, fmt.Sprintf("AWS_DEFAULT_REGION=%s", awsEnv.DEFAULT_REGION))
-	}
-
-	return envVars
 }

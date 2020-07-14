@@ -58,7 +58,7 @@ func envRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// output in the appropriate format for docker
-	envVars := getAWSEnvVars(assumeRoleOutput)
+	envVars := getAWSEnvVars(assumeRoleOutput, awsOIDCConfig)
 	fmt.Fprintln(os.Stdout, strings.Join(envVars, "\n"))
 	return nil
 }
