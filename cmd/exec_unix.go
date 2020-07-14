@@ -30,7 +30,7 @@ func exec(ctx context.Context, command string, args []string, env []string) erro
 
 func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput, awsOIDCConfig *aws_config_client.AWSOIDCConfiguration) []string {
 
-	// Load config profile values (lowest precedence)
+	// Load config profile values if those environment variables don't exist (lowest precedence)
 	envVars := []string{}
 	_, present := os.LookupEnv("AWS_REGION")
 	if (awsOIDCConfig.Region != "") && !present {
