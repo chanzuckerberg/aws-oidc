@@ -26,12 +26,6 @@ github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA
 github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 h1:JLaf/iINcLyjwbtTsCJjc6rtlASgHeIJPrB6QmwURnA=
 github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
-github.com/chanzuckerberg/go-misc v0.0.0-20200713221104-f65f91263305 h1:283x69ziAS398EFPePcoAWLHxmTITmKuXwk4byvNOTI=
-github.com/chanzuckerberg/go-misc v0.0.0-20200713221104-f65f91263305/go.mod h1:NDRJykhww4Ibrdf8gkOwE76Otkp52PGcbYOyqrk8cKA=
-github.com/chanzuckerberg/go-misc v0.0.0-20200713225445-d71fd9939a12 h1:XqzeQM97BvHHcFvF3fwRDsR3CJZ0iwtzhiy3mWuRVEQ=
-github.com/chanzuckerberg/go-misc v0.0.0-20200713225445-d71fd9939a12/go.mod h1:NDRJykhww4Ibrdf8gkOwE76Otkp52PGcbYOyqrk8cKA=
-github.com/chanzuckerberg/go-misc v0.0.0-20200713230500-6590ecc9d6e1 h1:s0SFP/Mg9YhLlJvLkR1//fDe0C1cia4Nx4Kze1a8t30=
-github.com/chanzuckerberg/go-misc v0.0.0-20200713230500-6590ecc9d6e1/go.mod h1:NDRJykhww4Ibrdf8gkOwE76Otkp52PGcbYOyqrk8cKA=
 github.com/chanzuckerberg/go-misc v0.0.0-20200713230838-e7b6b43e564d h1:hPC8gLq/St4BUj0B6tSMxfu7k/PY8G6sQj24iavT5MU=
 github.com/chanzuckerberg/go-misc v0.0.0-20200713230838-e7b6b43e564d/go.mod h1:NDRJykhww4Ibrdf8gkOwE76Otkp52PGcbYOyqrk8cKA=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
