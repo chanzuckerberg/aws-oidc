@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.33.5
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
-	github.com/chanzuckerberg/go-misc v0.0.0-20200709200308-32234567c982
+	github.com/chanzuckerberg/go-misc v0.0.0-20200713170416-c0eb71f6589f
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/getsentry/raven-go v0.2.0 // indirect
@@ -27,8 +27,8 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cobra v1.0.0
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.5.1
+	github.com/zalando/go-keyring v0.1.0 // indirect
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899 // indirect
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0
