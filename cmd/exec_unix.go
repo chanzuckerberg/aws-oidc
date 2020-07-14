@@ -32,10 +32,12 @@ func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput, awsOID
 
 	// Load config profile values (lowest precedence)
 	envVars := []string{}
-	if awsOIDCConfig.Region != "" {
+	_, present := os.LookupEnv("AWS_REGION")
+	if (awsOIDCConfig.Region != "") && !present {
 		envVars = append(envVars, fmt.Sprintf("AWS_REGION=%s", awsOIDCConfig.Region))
 	}
-	if awsOIDCConfig.Output != "" {
+	_, present = os.LookupEnv("AWS_OUTPUT")
+	if awsOIDCConfig.Output != "" && !present {
 		envVars = append(envVars, fmt.Sprintf("AWS_OUTPUT=%s", awsOIDCConfig.Output))
 	}
 
