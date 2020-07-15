@@ -40,9 +40,11 @@ func (idtv *idTokenVerifier) Verify(ctx context.Context, idToken string) (*oidc.
 }
 
 var testAWSConfigGenerationParams = AWSConfigGenerationParams{
-	OIDCProvider:   "validProvider",
-	AWSWorkerRole:  "validWorker",
-	AWSMasterRoles: []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+	OIDCProvider:       "validProvider",
+	AWSWorkerRole:      "validWorker",
+	AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+	MappingConcurrency: 1,
+	RolesConcurrency:   1,
 }
 
 var samplePolicyDocument = &PolicyDocument{
