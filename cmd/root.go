@@ -7,7 +7,6 @@ import (
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -94,17 +93,17 @@ func configureLogrusHooks() error {
 	}
 	// if env var not set, ignore
 	if sentryEnv.DSN == "" {
-		logrus.Debug("Sentry DSN not set. Skipping Sentry Configuration")
+		log.Debug("Sentry DSN not set. Skipping Sentry Configuration")
 		return nil
 	}
 
-	sentryHook, err := logrus_sentry.NewSentryHook(sentryEnv.DSN, []logrus.Level{
-		logrus.PanicLevel,
-		logrus.FatalLevel,
-		logrus.ErrorLevel,
+	sentryHook, err := logrus_sentry.NewSentryHook(sentryEnv.DSN, []log.Level{
+		log.PanicLevel,
+		log.FatalLevel,
+		log.ErrorLevel,
 	})
 	if err != nil {
-		logrus.Errorf("Error configuring Sentry")
+		log.Errorf("Error configuring Sentry")
 		return nil
 	}
 	log.AddHook(sentryHook)
@@ -118,7 +117,7 @@ func configureHoneycombTelemetry() error {
 	}
 	// if env var not set, ignore
 	if honeycombEnv.SECRET_KEY == "" {
-		logrus.Debug("Honeycomb Secret Key not set. Skipping Honeycomb Configuration")
+		log.Debug("Honeycomb Secret Key not set. Skipping Honeycomb Configuration")
 		return nil
 	}
 	beeline.Init(beeline.Config{
