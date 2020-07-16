@@ -18,7 +18,13 @@ var roleARN string
 
 const (
 	flagVerbose    = "verbose"
-	successMessage = "Signed in successfully! You can now return to CLI."
+	successMessage = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
+	will allow you to run AWS commmands from the command line.</p><p> When running
+	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
+	<code>$ aws --profile &lt;profile-name&gt; &lt;command&gt;</code><br/>
+	<code>$ AWS_PROFILE=&lt;profile-name&gt; aws &lt;command&gt;</code><br/>
+	<p> Feel free to <a href="#" onclick="window.close();">close this window</a> whenever</p>
+	`
 )
 
 type SentryEnvironment struct {
