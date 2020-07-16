@@ -6,6 +6,7 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
+	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -73,7 +74,12 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	token, err := oidc.GetToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL)
+	token, err := oidc.GetToken(
+		ctx,
+		awsOIDCConfig.ClientID,
+		awsOIDCConfig.IssuerURL,
+		oidc_client.SetSuccessMessage(successMessage),
+	)
 	if err != nil {
 		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
 	}
