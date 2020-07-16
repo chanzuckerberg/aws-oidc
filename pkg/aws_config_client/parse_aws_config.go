@@ -30,8 +30,8 @@ type AWSOIDCConfiguration struct {
 	ClientID  string
 	IssuerURL string
 	RoleARN   string
-	Region    string
-	Output    string
+	Region    *string
+	Output    *string
 }
 
 // HACK(el): This is not the best, but decided to do this to:
