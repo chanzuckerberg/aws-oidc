@@ -78,6 +78,10 @@ var rootCmd = &cobra.Command{
 
 		return nil
 	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		beeline.Flush(cmd.Context())
+		return nil
+	},
 }
 
 func configureLogrusHooks() error {
