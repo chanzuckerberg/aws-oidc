@@ -36,8 +36,8 @@ func TestAWSEnvPrecedence(t *testing.T) {
 		ClientID:  "dummyClientID",
 		IssuerURL: "localhost",
 		RoleARN:   "dummyRoleARN",
-		Region:    prevRegionKey1.String(),
-		Output:    prevOutputKey1.String(),
+		Region:    aws.String(prevRegionKey1.String()),
+		Output:    aws.String(prevOutputKey1.String()),
 	}
 	dummyCredentials := &sts.Credentials{
 		AccessKeyId:     aws.String("dummyAccessKeyId"),

@@ -12,7 +12,6 @@ import (
 func TestResolveProfile(t *testing.T) {
 	r := require.New(t)
 
-	// https://golang.org/src/os/env_test.go
 	defer util.ResetEnv(os.Environ())
 	r.NoError(os.Unsetenv(envAWSProfile))
 

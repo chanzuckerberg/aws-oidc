@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -143,14 +144,14 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	if err != nil {
 		logrus.WithError(err).Debug("Error getting region from aws config")
 	} else {
-		currentConfig.Region = region.String()
+		currentConfig.Region = aws.String(region.String())
 	}
 
 	output, err := section.GetKey("output")
 	if err != nil {
 		logrus.WithError(err).Debug("Error getting output from aws config")
 	} else {
-		currentConfig.Output = output.String()
+		currentConfig.Output = aws.String(output.String())
 	}
 
 	return currentConfig, nil
