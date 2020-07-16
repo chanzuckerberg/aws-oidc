@@ -178,3 +178,78 @@ func TestGetAcctAliasNoAlias(t *testing.T) {
 	r.NoError(err)
 	r.Equal("", outputString)
 }
+
+func TestParallelization(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockIAM(ctrl)
+
+	policyData, _ := json.Marshal(samplePolicyDocument)
+	policyStr := url.PathEscape(string(policyData))
+
+	testRoles1[0].AssumeRolePolicyDocument = &policyStr
+
+	mock.EXPECT().
+		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			ctx context.Context,
+			input *iam.ListRolesInput,
+			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
+		) error {
+			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles1}, true)
+			return nil
+		},
+	).AnyTimes()
+
+	mock.EXPECT().
+		ListRoleTagsWithContext(
+			gomock.Any(),
+			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
+		Return(&iam.ListRoleTagsOutput{
+			Tags: testRoles1[0].Tags,
+		}, nil).AnyTimes()
+
+	mock.EXPECT().
+		ListRoleTagsWithContext(
+			gomock.Any(),
+			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
+		Return(&iam.ListRoleTagsOutput{
+			Tags: testRoles1[1].Tags,
+		}, nil).AnyTimes()
+
+	cfgGeneration0Concurrency := AWSConfigGenerationParams{
+		OIDCProvider:       "validProvider",
+		AWSWorkerRole:      "validWorker",
+		AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+		MappingConcurrency: 0,
+		RolesConcurrency:   0,
+	}
+	iamOutput, err := listRoles(ctx, mock, &cfgGeneration0Concurrency)
+	r.Error(err)
+	r.Empty(iamOutput)
+
+	cfgGeneration1Concurrency := AWSConfigGenerationParams{
+		OIDCProvider:       "validProvider",
+		AWSWorkerRole:      "validWorker",
+		AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+		MappingConcurrency: 1,
+		RolesConcurrency:   1,
+	}
+	iamOutput, err = listRoles(ctx, mock, &cfgGeneration1Concurrency)
+	r.NoError(err)
+	r.NotEmpty(iamOutput)
+
+	cfgGeneration3Concurrency := AWSConfigGenerationParams{
+		OIDCProvider:       "validProvider",
+		AWSWorkerRole:      "validWorker",
+		AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+		MappingConcurrency: 3,
+		RolesConcurrency:   3,
+	}
+	iamOutput, err = listRoles(ctx, mock, &cfgGeneration3Concurrency)
+	r.NoError(err)
+	r.NotEmpty(iamOutput)
+}
