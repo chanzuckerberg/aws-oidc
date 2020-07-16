@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -40,6 +41,22 @@ func extractCredProcess(command string, regex string) (string, error) {
 		return "", errors.Errorf("did not find match")
 	}
 	return submatches[1], nil
+}
+
+func cleanCredProcessCommand(command string) string {
+	// clean up until the first quote
+	before := regexp.MustCompile("^.*?['\"]")
+	// clean up after the last quote
+	after := regexp.MustCompile("['\"].*$")
+	// get rid of the tty if present
+	tty := regexp.MustCompile("2> /dev/tty")
+
+	command = string(before.ReplaceAll([]byte(command), []byte("")))
+	command = string(after.ReplaceAll([]byte(command), []byte("")))
+	command = string(tty.ReplaceAll([]byte(command), []byte("")))
+	command = strings.TrimSpace(command)
+
+	return command
 }
 
 func resolveProfile(cmd *cobra.Command) (string, error) {
@@ -100,6 +117,7 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	}
 
 	credProcessCmd := credProcess.String()
+	credProcessCmd = cleanCredProcessCommand(credProcessCmd)
 	clientID, err := extractCredProcess(credProcessCmd, clientIDRegex)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not extract --client-id from (%s)", credProcessCmd)

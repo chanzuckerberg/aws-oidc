@@ -12,7 +12,9 @@ builds:
     goarch:
       - amd64
     ldflags:
-      - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true"
+      - '-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true'
+    flags:
+      - 'trimpath'
 
 dockers:
   - dockerfile: Dockerfile
@@ -33,11 +35,11 @@ release:
   prerelease: false
 
 brews:
-  - description: "A command line utility tool to help generate AWS STS credentials from an OIDC application."
+  - description: 'A command line utility tool to help generate AWS STS credentials from an OIDC application.'
     github:
       owner: chanzuckerberg
       name: homebrew-tap
-    homepage: "https://github.com/chanzuckerberg/aws-oidc"
+    homepage: 'https://github.com/chanzuckerberg/aws-oidc'
     test: system "#{bin}/aws-oidc version"
 
 env_files:

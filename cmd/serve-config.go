@@ -87,6 +87,12 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
 	defer span.Send()
 
+	if mappingConcurrencyLimit == 0 || rolesConcurrencyLimit == 0 {
+		return errors.Errorf(
+			"Concurrency Limits cannot be 0. MappingConcurrency: %d, RolesConcurrency: %d",
+			mappingConcurrencyLimit, rolesConcurrencyLimit)
+	}
+
 	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()
 	if err != nil {
@@ -113,7 +119,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 					MinRetryDelay:    time.Millisecond,
 					MinThrottleDelay: time.Millisecond,
 					MaxThrottleDelay: 10 * time.Second,
-					MaxRetryDelay:   10*  time.Second,
+					MaxRetryDelay:    10 * time.Second,
 				},
 			},
 		},
