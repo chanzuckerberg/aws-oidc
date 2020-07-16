@@ -32,6 +32,10 @@ func (a *ClientIDToAWSRoles) populateMapping(
 	ctx, span := beeline.StartSpan(ctx, "server_fetch_assumable_roles")
 	defer span.Send()
 
+	if configParams.MappingConcurrency == 0 {
+		return errors.Errorf("Set configParams.MappingConcurrency to a value > 0")
+	}
+
 	oidcProvider := configParams.OIDCProvider
 
 	aggregateMappings := func(ctx context.Context, arnPair *roleARNMatch) (map[okta.ClientID][]ConfigProfile, error) {
@@ -101,6 +105,10 @@ func filterRoles(
 
 	ctx, span := beeline.StartSpan(ctx, "filtering AWS roles")
 	defer span.Send()
+
+	if configParams.RolesConcurrency == 0 {
+		return nil, errors.Errorf("Set configParams.RolesConcurrency to a value > 0")
+	}
 
 	filterRolesFunc := func(ctx context.Context, role *iam.Role) (*iam.Role, error) {
 		tags, err := listRoleTags(ctx, svc, role.RoleName)
