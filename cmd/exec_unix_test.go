@@ -8,12 +8,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
+	"github.com/chanzuckerberg/aws-oidc/pkg/util"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
 )
 
 func TestAWSEnvPrecedence(t *testing.T) {
 	r := require.New(t)
+	defer util.ResetEnv(os.Environ())
 
 	config := ini.Empty()
 	acct1Section, err := config.NewSection("profile Account1")
