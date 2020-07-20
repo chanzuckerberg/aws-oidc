@@ -49,9 +49,5 @@ func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput, awsOID
 	)
 
 	// our environment variables take precedence
-	envVars = append(envVars,
-		os.Environ()...,
-	)
-
-	return envVars
+		return envVars
 }

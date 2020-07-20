@@ -93,7 +93,10 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}
 
-	envVars := getAWSEnvVars(assumeRoleOutput, awsOIDCConfig)
+	envVars := append(
+	      getAWSEnvVars(assumeRoleOutput, awsOIDCConfig),
+	      os.Environ()...,
+	 )
 
 	return exec(ctx, command, commandArgs, envVars)
 }
