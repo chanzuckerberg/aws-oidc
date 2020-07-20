@@ -29,7 +29,7 @@ type OktaWebserverEnvironment struct {
 
 type AWSRoleEnvironment struct {
 	READER_ROLE_NAME string
-	MASTER_ROLE_ARNS []string
+	ORG_ROLE_ARNS    []string
 }
 
 var mappingConcurrencyLimit int
@@ -136,7 +136,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	configGenerationParams := webserver.AWSConfigGenerationParams{
 		OIDCProvider:       oktaEnv.ISSUER_URL,
 		AWSWorkerRole:      awsEnv.READER_ROLE_NAME,
-		AWSMasterRoles:     awsEnv.MASTER_ROLE_ARNS,
+		AWSOrgRoles:        awsEnv.ORG_ROLE_ARNS,
 		MappingConcurrency: mappingConcurrencyLimit,
 		RolesConcurrency:   rolesConcurrencyLimit,
 	}

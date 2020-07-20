@@ -56,20 +56,20 @@ type roleARNMatch struct {
 	accountARN  arn.ARN
 }
 
-func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, masterRoles []string, workerRole string) error {
+func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, orgRoles []string, workerRole string) error {
 	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
 	defer span.Send()
-	for _, role_arn := range masterRoles {
+	for _, role_arn := range orgRoles {
 
 		beeline.AddField(ctx, "Organization IAM Role ARN", role_arn)
 
-		masterAWSConfig := &aws.Config{
+		orgAWSConfig := &aws.Config{
 			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
 			CredentialsChainVerboseErrors: aws.Bool(true),
 			Retryer:                       a.awsSession.Config.Retryer,
 		}
 
-		orgClient := a.awsClient.WithOrganizations(masterAWSConfig).Organizations.Svc
+		orgClient := a.awsClient.WithOrganizations(orgAWSConfig).Organizations.Svc
 		accountList, err := GetActiveAccountList(ctx, orgClient)
 		if err != nil {
 			return errors.Wrap(err, "Unable to get list of AWS Profiles")

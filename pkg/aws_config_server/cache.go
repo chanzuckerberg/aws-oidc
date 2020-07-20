@@ -77,9 +77,9 @@ func (c *CachedGetClientIDToProfiles) refresh(
 		awsClient:         cziAWS.New(awsSession),
 	}
 
-	err := configData.getWorkerRoles(ctx, configParams.AWSMasterRoles, configParams.AWSWorkerRole)
+	err := configData.getWorkerRoles(ctx, configParams.AWSOrgRoles, configParams.AWSWorkerRole)
 	if err != nil {
-		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Master Roles")
+		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Organization Roles")
 	}
 
 	err = configData.populateMapping(ctx, configParams)

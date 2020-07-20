@@ -1,6 +1,6 @@
 # Deployment Requirements
 Deploying the web service requires a few things:
-A master role with permission to run [List Accounts](https://docs.aws.amazon.com/cli/latest/reference/organizations/list-accounts.html) in the AWS Organization
+An AWS organizations-based role with permission to run [List Accounts](https://docs.aws.amazon.com/cli/latest/reference/organizations/list-accounts.html) in the AWS Organization
 A reader role in each account with permission to run [List Roles](https://docs.aws.amazon.com/cli/latest/reference/iam/list-roles.html) in the accounts
 An Okta Identity Provider with a private key, client ID, and issuer URL.
 
@@ -26,7 +26,7 @@ You can create create those values using [this tutorial](https://developer.okta.
 ###  AWS Config Generation:
 AWS_READER_ROLE_NAME: role name that can run AWS List Roles in within each account in your AWS Organization
 
-AWS_MASTER_ROLE_ARNS: a list of role ARNs that can list accounts in your AWS Organizatio
+AWS_ORG_ROLE_ARNS: a list of role ARNs that can list accounts in your AWS Organizatio
 
 ### Skipping roles
 You can tag AWS Roles with `aws-oidc/skip-role` if you want `serve-config` to skip this role.

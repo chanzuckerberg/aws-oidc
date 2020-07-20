@@ -10,7 +10,7 @@ AWS-OIDC is a command-line utility tool for generating temporary AWS STS credent
 - Redeeming an id_token with the appropriate scopes
 - Exchanging that token for temporary STS credentials
 
-We also included a config generation web service that displays an AWS-OIDC-based Configuration file for authorized clients. The authorization requires an Okta Identity Provider, an AWS master role, and AWS worker roles for the accounts needed in the Config file.
+We also included a config generation web service that displays an AWS-OIDC-based Configuration file for authorized clients. The authorization requires an Okta Identity Provider, an AWS organizations role, and AWS worker roles for the accounts needed in the Config file.
 
 # Install (Linux, macOS)
 We recommend using [homebrew](https://brew.sh/):
