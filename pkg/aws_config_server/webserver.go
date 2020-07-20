@@ -34,7 +34,7 @@ type claims struct {
 type AWSConfigGenerationParams struct {
 	OIDCProvider       string
 	AWSWorkerRole      string
-	AWSMasterRoles     []string
+	AWSOrgRoles        []string
 	MappingConcurrency int
 	RolesConcurrency   int
 }

@@ -223,7 +223,7 @@ func TestParallelization(t *testing.T) {
 	cfgGeneration0Concurrency := AWSConfigGenerationParams{
 		OIDCProvider:       "validProvider",
 		AWSWorkerRole:      "validWorker",
-		AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
 		MappingConcurrency: 0,
 		RolesConcurrency:   0,
 	}
@@ -234,7 +234,7 @@ func TestParallelization(t *testing.T) {
 	cfgGeneration1Concurrency := AWSConfigGenerationParams{
 		OIDCProvider:       "validProvider",
 		AWSWorkerRole:      "validWorker",
-		AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
 		MappingConcurrency: 1,
 		RolesConcurrency:   1,
 	}
@@ -245,7 +245,7 @@ func TestParallelization(t *testing.T) {
 	cfgGeneration3Concurrency := AWSConfigGenerationParams{
 		OIDCProvider:       "validProvider",
 		AWSWorkerRole:      "validWorker",
-		AWSMasterRoles:     []string{"arn:aws:iam::AccountNumber1:role/MasterRole1"},
+		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
 		MappingConcurrency: 3,
 		RolesConcurrency:   3,
 	}
