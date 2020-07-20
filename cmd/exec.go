@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"time"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
@@ -94,9 +95,9 @@ func execRun(cmd *cobra.Command, args []string) error {
 	}
 
 	envVars := append(
-	      getAWSEnvVars(assumeRoleOutput, awsOIDCConfig),
-	      os.Environ()...,
-	 )
+		getAWSEnvVars(assumeRoleOutput, awsOIDCConfig),
+		os.Environ()...,
+	)
 
 	return exec(ctx, command, commandArgs, envVars)
 }
