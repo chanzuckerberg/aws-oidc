@@ -1,18 +1,31 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
+
+type AWSDefaultEnvironment struct {
+	DEFAULT_OUTPUT string
+	DEFAULT_REGION string
+}
+
+func loadAWSDefaultEnv() (*AWSDefaultEnvironment, error) {
+	env := &AWSDefaultEnvironment{}
+	err := envconfig.Process("AWS", env)
+	if err != nil {
+		return env, errors.Wrap(err, "Unable to load all the aws environment variables")
+	}
+	return env, nil
+}
 
 func init() {
 	execCmd.Flags().StringVar(
@@ -81,19 +94,10 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
 	}
 
-	// our calculated awsEnvVars take precedence
 	envVars := append(
-		getAWSEnvVars(assumeRoleOutput),
+		getAWSEnvVars(assumeRoleOutput, awsOIDCConfig),
 		os.Environ()...,
 	)
 
 	return exec(ctx, command, commandArgs, envVars)
-}
-
-func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput) []string {
-	return []string{
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", string(*assumeRoleOutput.Credentials.AccessKeyId)),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", string(*assumeRoleOutput.Credentials.SecretAccessKey)),
-		fmt.Sprintf("AWS_SESSION_TOKEN=%s", string(*assumeRoleOutput.Credentials.SessionToken)),
-	}
 }
