@@ -219,7 +219,7 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 		profileSection := fmt.Sprintf("profile %s", profile.Name)
 
 		credsProcessValue := fmt.Sprintf(
-			"sh -c 'aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s 2> /dev/tty'",
+			"aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s",
 			profile.AWSProfile.IssuerURL,
 			profile.AWSProfile.ClientID,
 			profile.AWSProfile.RoleARN,

@@ -30,7 +30,7 @@ func TestRemoveOldProfile(t *testing.T) {
 
 	expected := `[profile test1]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 `
@@ -61,17 +61,17 @@ func TestSurveyProfiles(t *testing.T) {
 	// note how: "Account Name With Spaces" => "account-name-with-spaces"
 	expected := `[profile test1]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 [profile account-name-with-spaces]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 [profile my-second-new-profile]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 `
@@ -114,32 +114,32 @@ func TestSurveyRoles(t *testing.T) {
 
 	expected := `[profile account-name-with-spaces-test1RoleName]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 [profile account-name-with-spaces]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 [profile account-name-with-spaces-test2RoleName]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test2RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test2RoleName
 region             = test-region
 
 [profile test1-test1RoleName]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 [profile test1]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
 
 [profile test1-test2RoleName]
 output             = json
-credential_process = sh -c 'aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName 2> /dev/tty'
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName
 region             = test-region
 
 `
