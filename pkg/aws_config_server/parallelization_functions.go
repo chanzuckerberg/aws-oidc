@@ -46,7 +46,7 @@ func (a *ClientIDToAWSRoles) populateMapping(
 		}
 		iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 		workerRoles, err := listRoles(ctx, iamClient, configParams)
-		if err != nil {
+		if processAWSErr(err) != nil {
 			return nil, errors.Wrapf(err, "error listing roles for %s", accountName)
 		}
 		// account aliases will be used to determine profile names
@@ -124,7 +124,7 @@ func (a *ClientIDToAWSRoles) awsTagFilter(
 		svc := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 
 		tags, err := listRoleTags(ctx, svc, &config.RoleName)
-		if err != nil {
+		if processAWSErr(err) != nil {
 			return nil, errors.Wrapf(err, "error listing tags for %s", config.RoleName)
 		}
 
@@ -282,6 +282,6 @@ func parallelizeAggregateMapping(ctx context.Context,
 	for element := range outputChannel {
 		outputList = append(outputList, element)
 	}
-	logrus.Debug("end of parallelize function")
+	logrus.Debugf("end of parallelize function. Errors: %v", allErrs.ErrorOrNil())
 	return outputList, allErrs.ErrorOrNil()
 }
