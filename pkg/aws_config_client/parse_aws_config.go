@@ -52,7 +52,7 @@ func cleanCredProcessCommand(command string) string {
 	before := regexp.MustCompile("^.*?['\"]")
 	// clean up after the last quote
 	after := regexp.MustCompile("['\"].*$")
-	// get rid of the tty if present
+	// get rid of the tty hack if present
 	tty := regexp.MustCompile("2> /dev/tty")
 
 	command = string(before.ReplaceAll([]byte(command), []byte("")))
