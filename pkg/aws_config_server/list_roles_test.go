@@ -59,7 +59,6 @@ func TestListRoles(t *testing.T) {
 	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
 	r.NoError(err)
 	r.Len(testRoles1, 2) // we skipped over a role
-	r.Len(iamOutput, 1)
 	r.Equal(*iamOutput[0].RoleName, *testRoles1[0].RoleName)
 }
 
@@ -227,9 +226,6 @@ func TestParallelization(t *testing.T) {
 		MappingConcurrency: 0,
 		RolesConcurrency:   0,
 	}
-	iamOutput, err := listRoles(ctx, mock, &cfgGeneration0Concurrency)
-	r.Error(err)
-	r.Empty(iamOutput)
 
 	cfgGeneration1Concurrency := AWSConfigGenerationParams{
 		OIDCProvider:       "validProvider",
@@ -238,9 +234,6 @@ func TestParallelization(t *testing.T) {
 		MappingConcurrency: 1,
 		RolesConcurrency:   1,
 	}
-	iamOutput, err = listRoles(ctx, mock, &cfgGeneration1Concurrency)
-	r.NoError(err)
-	r.NotEmpty(iamOutput)
 
 	cfgGeneration3Concurrency := AWSConfigGenerationParams{
 		OIDCProvider:       "validProvider",
@@ -249,7 +242,5 @@ func TestParallelization(t *testing.T) {
 		MappingConcurrency: 3,
 		RolesConcurrency:   3,
 	}
-	iamOutput, err = listRoles(ctx, mock, &cfgGeneration3Concurrency)
-	r.NoError(err)
-	r.NotEmpty(iamOutput)
+	// TODO(aku): test concurrency without ListRoles because it doesn't use parallelization anymore
 }
