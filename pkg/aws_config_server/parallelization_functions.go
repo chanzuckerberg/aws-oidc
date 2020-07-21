@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/hashicorp/go-multierror"
 	"github.com/honeycombio/beeline-go"
@@ -81,14 +80,20 @@ func (a *ClientIDToAWSRoles) populateMapping(
 		return errors.Wrap(err, "Unable to parallelize mapping generation process")
 	}
 
+	// For each of those roles in the mappingsList, filter them out using filterRoles
 	for _, mapping := range mappingsList {
 		for clientID, configList := range mapping {
-			for _, config := range configList {
+			filteredConfigs, err := a.awsTagFilter(ctx, configList, configParams.RolesConcurrency)
+			if err != nil {
+				return errors.Wrapf(err, "Unable to filter these configs: %v", filteredConfigs)
+			}
+
+			for _, config := range filteredConfigs {
 				if _, ok := a.clientRoleMapping[clientID]; !ok {
-					a.clientRoleMapping[clientID] = []ConfigProfile{config}
+					a.clientRoleMapping[clientID] = []ConfigProfile{*config}
 					continue
 				}
-				a.clientRoleMapping[clientID] = append(a.clientRoleMapping[clientID], config)
+				a.clientRoleMapping[clientID] = append(a.clientRoleMapping[clientID], *config)
 			}
 		}
 	}
@@ -97,23 +102,30 @@ func (a *ClientIDToAWSRoles) populateMapping(
 }
 
 // We can skip over roles with specific tags
-func filterRoles(
+func (a *ClientIDToAWSRoles) awsTagFilter(
 	ctx context.Context,
-	svc iamiface.IAMAPI,
-	roles []*iam.Role,
-	configParams *AWSConfigGenerationParams) ([]*iam.Role, error) {
+	configList []ConfigProfile,
+	rolesConcurrency int) ([]*ConfigProfile, error) {
 
-	ctx, span := beeline.StartSpan(ctx, "filtering AWS roles")
+	ctx, span := beeline.StartSpan(ctx, "filtering AWS Configs")
 	defer span.Send()
 
-	if configParams.RolesConcurrency == 0 {
-		return nil, errors.Errorf("Set configParams.RolesConcurrency to a value > 0")
+	// Despite filtering AWS Config objects, we implemented concurrency for _role-based_actions_
+	if rolesConcurrency == 0 {
+		return nil, errors.Errorf("Set rolesConcurrency to a value > 0")
 	}
 
-	filterRolesFunc := func(ctx context.Context, role *iam.Role) (*iam.Role, error) {
-		tags, err := listRoleTags(ctx, svc, role.RoleName)
+	filterConfigsFunc := func(ctx context.Context, config ConfigProfile) (*ConfigProfile, error) {
+		workerAWSConfig := &aws.Config{
+			Credentials:                   stscreds.NewCredentials(a.awsSession, config.RoleARN.String()),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+			Retryer:                       a.awsSession.Config.Retryer,
+		}
+		svc := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
+
+		tags, err := listRoleTags(ctx, svc, &config.RoleName)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error listing tags for %s", *role.RoleName)
+			return nil, errors.Wrapf(err, "error listing tags for %s", config.RoleName)
 		}
 
 		if shouldSkipTags(tags) {
@@ -121,18 +133,17 @@ func filterRoles(
 		}
 
 		// After all of this... return the role if it fulfills all requirements
-		return role, nil
+		return &config, nil
 	}
 
-	return parallelizeFilterRoles(ctx, configParams.RolesConcurrency, roles, filterRolesFunc)
+	return parallelizeFilterConfigs(ctx, rolesConcurrency, configList, filterConfigsFunc)
 }
 
-func parallelizeFilterRoles(ctx context.Context,
+func parallelizeFilterConfigs(ctx context.Context,
 	concurrencyLimit int,
-	queue []*iam.Role,
-	action func(context.Context, *iam.Role) (*iam.Role, error),
-) ([]*iam.Role, error) {
-	logrus.Debug("in parallelize function")
+	queue []ConfigProfile,
+	action func(context.Context, ConfigProfile) (*ConfigProfile, error)) ([]*ConfigProfile, error) {
+	logrus.Debug("start of parallelize function")
 
 	// wg to track goroutines
 	wg := sync.WaitGroup{}
@@ -140,14 +151,14 @@ func parallelizeFilterRoles(ctx context.Context,
 	errs := make(chan error, len(queue))
 
 	// how much concurrent work we're allowed to do
-	scheduledQueue := make(chan *iam.Role, concurrencyLimit)
+	scheduledQueue := make(chan *ConfigProfile, concurrencyLimit)
 
 	// outputRoles to aggregate all our roles
-	outputChannel := make(chan *iam.Role, len(queue))
+	outputChannel := make(chan *ConfigProfile, len(queue))
 	logrus.Debug("made all the channels")
 
 	// the goroutine that will process one element at a time
-	processor := func(scheduledQueue <-chan *iam.Role, outputList chan<- *iam.Role) {
+	processor := func(scheduledQueue <-chan *ConfigProfile, outputList chan<- *ConfigProfile) {
 		defer wg.Done()
 
 		for element := range scheduledQueue {
@@ -155,7 +166,7 @@ func parallelizeFilterRoles(ctx context.Context,
 				continue
 			}
 
-			output, err := action(ctx, element)
+			output, err := action(ctx, *element)
 			if err != nil {
 				errs <- err
 				continue
@@ -175,7 +186,7 @@ func parallelizeFilterRoles(ctx context.Context,
 
 	// // schedule all the work
 	for _, element := range queue {
-		scheduledQueue <- element
+		scheduledQueue <- &element
 	}
 	close(scheduledQueue) // signal processors they can stop
 
@@ -193,7 +204,7 @@ func parallelizeFilterRoles(ctx context.Context,
 	// small lesson: don't set a length for the outputList!
 	// Or else we'll get nil pointers in the output,
 	// 	which will cause segmentation violations
-	outputList := []*iam.Role{}
+	outputList := []*ConfigProfile{}
 	for element := range outputChannel {
 		outputList = append(outputList, element)
 	}
