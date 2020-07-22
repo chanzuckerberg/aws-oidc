@@ -47,7 +47,7 @@ func (a *ClientIDToAWSRoles) populateMapping(
 		}
 		iamClient := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 		workerRoles, err := listRoles(ctx, iamClient, configParams)
-		if processAWSErr(err) != nil {
+		if err != nil {
 			return nil, errors.Wrapf(err, "error listing roles for %s", accountName)
 		}
 		// account aliases will be used to determine profile names
@@ -126,7 +126,7 @@ func (a *ClientIDToAWSRoles) awsTagFilter(
 		svc := a.awsClient.WithIAM(workerAWSConfig).IAM.Svc
 
 		tags, err := listRoleTags(ctx, svc, &config.RoleName)
-		if processAWSErr(err) != nil {
+		if err != nil {
 			return nil, errors.Wrapf(err, "error listing tags for %s", config.RoleName)
 		}
 

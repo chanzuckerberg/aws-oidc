@@ -141,7 +141,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI, configParams *AWSConfig
 		return output, errors.Wrap(err, "Error listing IAM roles")
 	}
 
-	return output, err
+	return output, nil
 }
 
 type Action []string

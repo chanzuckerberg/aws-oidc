@@ -3,6 +3,7 @@ package aws_config_server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"testing"
 
@@ -231,19 +232,43 @@ func TestGetWorkerRoles(t *testing.T) {
 
 func TestPopulateMapping(t *testing.T) {
 	// Includes parallelization
-	// _ = context.Background()
-	// _ = require.New(t)
-	// _ = gomock.NewController(t)
+	ctx := context.Background()
+	r := require.New(t)
+	// ctrl := gomock.NewController(t)
 
 	// client := &cziAWS.Client{}
 	// _, iamMock := client.WithMockIAM(ctrl)
 	// _, orgMock := client.WithMockOrganizations(ctrl)
 
-	// mockSess, mockServer := cziAWS.NewMockSession()
-	// defer mockServer.Close()
+	policyData, _ := json.Marshal(samplePolicyDocument)
+	policyStr := url.PathEscape(string(policyData))
+
+	testRoles1[0].AssumeRolePolicyDocument = &policyStr
+
+	mockSess, mockServer := cziAWS.NewMockSession()
+	defer mockServer.Close()
+
+	a := ClientIDToAWSRoles{
+		awsSession:        mockSess,
+		roleARNs:          map[string]arn.ARN{},
+		clientRoleMapping: map[okta.ClientID][]ConfigProfile{},
+		awsClient:         cziAWS.New(mockSess),
+	}
+	a.roleARNs["acct1"] = arn.ARN{
+		Partition: "aws",
+		Service:   "iam",
+		Resource:  fmt.Sprintf("role/%s", *testRoles1[0].RoleName),
+	}
+	a.roleARNs["acct2"] = arn.ARN{
+		Partition: "aws",
+		Service:   "iam",
+		Resource:  fmt.Sprintf("role/%s", *testRoles1[1].RoleName),
+	}
 
 	testAWSConfigGenerationParams.MappingConcurrency = 0
 	testAWSConfigGenerationParams.RolesConcurrency = 0
+	err := a.populateMapping(ctx, &testAWSConfigGenerationParams)
+	r.Error(err)
 
 	testAWSConfigGenerationParams.MappingConcurrency = 1
 	testAWSConfigGenerationParams.RolesConcurrency = 1
