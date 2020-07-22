@@ -2,6 +2,7 @@ package aws_config_server
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -75,6 +76,7 @@ func (a *ClientIDToAWSRoles) populateMapping(
 	}
 
 	queue := flattenRoleARNs(a.roleARNs)
+	fmt.Println("queue: ", queue)
 	mappingsList, err := parallelizeAggregateMapping(ctx, configParams.MappingConcurrency, queue, aggregateMappings)
 	if err != nil {
 		return errors.Wrap(err, "Unable to parallelize mapping generation process")

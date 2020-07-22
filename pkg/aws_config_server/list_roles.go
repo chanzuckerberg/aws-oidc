@@ -74,6 +74,10 @@ func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, orgRoles []stri
 		if err != nil {
 			return errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
+		if accountList == nil {
+			return errors.Errorf("No accounts found")
+		}
+
 		for _, acct := range accountList {
 			// create a new IAM session for each account
 			new_role_arn := arn.ARN{

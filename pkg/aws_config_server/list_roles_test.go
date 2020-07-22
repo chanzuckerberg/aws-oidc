@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
@@ -58,7 +59,6 @@ func TestListRoles(t *testing.T) {
 
 	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
 	r.NoError(err)
-	r.Len(testRoles1, 2) // we skipped over a role
 	r.Equal(*iamOutput[0].RoleName, *testRoles1[0].RoleName)
 }
 
@@ -178,69 +178,76 @@ func TestGetAcctAliasNoAlias(t *testing.T) {
 	r.Equal("", outputString)
 }
 
-func TestParallelization(t *testing.T) {
+func TestGetWorkerRoles(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
 	ctrl := gomock.NewController(t)
 
 	client := &cziAWS.Client{}
-	_, mock := client.WithMockIAM(ctrl)
+	// _, iamMock := client.WithMockIAM(ctrl)
+	_, orgMock := client.WithMockOrganizations(ctrl)
 
 	policyData, _ := json.Marshal(samplePolicyDocument)
 	policyStr := url.PathEscape(string(policyData))
 
 	testRoles1[0].AssumeRolePolicyDocument = &policyStr
 
-	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	orgMock.EXPECT().
+		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			ctx context.Context,
-			input *iam.ListRolesInput,
-			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
+			input *organizations.ListAccountsInput,
+			accumulatorFunc func(*organizations.ListAccountsOutput, bool) bool,
 		) error {
-			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles1}, true)
+			accumulatorFunc(&organizations.ListAccountsOutput{
+				Accounts: []*organizations.Account{
+					{
+						Name:   aws.String("Account1"),
+						Status: aws.String("ACTIVE"),
+					},
+					{
+						Name:   aws.String("Account2"),
+						Status: aws.String("INACTIVE"),
+					},
+				},
+			}, true)
 			return nil
 		},
 	).AnyTimes()
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(
-			gomock.Any(),
-			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
-		Return(&iam.ListRoleTagsOutput{
-			Tags: testRoles1[0].Tags,
-		}, nil).AnyTimes()
+	mockSess, mockServer := cziAWS.NewMockSession()
+	defer mockServer.Close()
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(
-			gomock.Any(),
-			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
-		Return(&iam.ListRoleTagsOutput{
-			Tags: testRoles1[1].Tags,
-		}, nil).AnyTimes()
-
-	cfgGeneration0Concurrency := AWSConfigGenerationParams{
-		OIDCProvider:       "validProvider",
-		AWSWorkerRole:      "validWorker",
-		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-		MappingConcurrency: 0,
-		RolesConcurrency:   0,
+	a := ClientIDToAWSRoles{
+		awsSession:        mockSess,
+		roleARNs:          map[string]arn.ARN{},
+		clientRoleMapping: map[okta.ClientID][]ConfigProfile{},
+		awsClient:         cziAWS.New(mockSess),
 	}
+	err := a.getWorkerRoles(ctx, testAWSConfigGenerationParams.AWSOrgRoles, testAWSConfigGenerationParams.AWSWorkerRole)
+	r.NoError(err)
+	r.NotEmpty(a.roleARNs)
+}
 
-	cfgGeneration1Concurrency := AWSConfigGenerationParams{
-		OIDCProvider:       "validProvider",
-		AWSWorkerRole:      "validWorker",
-		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-		MappingConcurrency: 1,
-		RolesConcurrency:   1,
-	}
+func TestPopulateMapping(t *testing.T) {
+	// Includes parallelization
+	// _ = context.Background()
+	// _ = require.New(t)
+	// _ = gomock.NewController(t)
 
-	cfgGeneration3Concurrency := AWSConfigGenerationParams{
-		OIDCProvider:       "validProvider",
-		AWSWorkerRole:      "validWorker",
-		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-		MappingConcurrency: 3,
-		RolesConcurrency:   3,
-	}
-	// TODO(aku): test concurrency without ListRoles because it doesn't use parallelization anymore
+	// client := &cziAWS.Client{}
+	// _, iamMock := client.WithMockIAM(ctrl)
+	// _, orgMock := client.WithMockOrganizations(ctrl)
+
+	// mockSess, mockServer := cziAWS.NewMockSession()
+	// defer mockServer.Close()
+
+	testAWSConfigGenerationParams.MappingConcurrency = 0
+	testAWSConfigGenerationParams.RolesConcurrency = 0
+
+	testAWSConfigGenerationParams.MappingConcurrency = 1
+	testAWSConfigGenerationParams.RolesConcurrency = 1
+
+	testAWSConfigGenerationParams.MappingConcurrency = 3
+	testAWSConfigGenerationParams.RolesConcurrency = 3
 }
