@@ -179,57 +179,6 @@ func TestGetAcctAliasNoAlias(t *testing.T) {
 	r.Equal("", outputString)
 }
 
-func TestGetWorkerRoles(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
-
-	client := &cziAWS.Client{}
-	// _, iamMock := client.WithMockIAM(ctrl)
-	_, orgMock := client.WithMockOrganizations(ctrl)
-
-	policyData, _ := json.Marshal(samplePolicyDocument)
-	policyStr := url.PathEscape(string(policyData))
-
-	testRoles1[0].AssumeRolePolicyDocument = &policyStr
-
-	orgMock.EXPECT().
-		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(
-			ctx context.Context,
-			input *organizations.ListAccountsInput,
-			accumulatorFunc func(*organizations.ListAccountsOutput, bool) bool,
-		) error {
-			accumulatorFunc(&organizations.ListAccountsOutput{
-				Accounts: []*organizations.Account{
-					{
-						Name:   aws.String("Account1"),
-						Status: aws.String("ACTIVE"),
-					},
-					{
-						Name:   aws.String("Account2"),
-						Status: aws.String("INACTIVE"),
-					},
-				},
-			}, true)
-			return nil
-		},
-	).AnyTimes()
-
-	mockSess, mockServer := cziAWS.NewMockSession()
-	defer mockServer.Close()
-
-	a := ClientIDToAWSRoles{
-		awsSession:        mockSess,
-		roleARNs:          map[string]arn.ARN{},
-		clientRoleMapping: map[okta.ClientID][]ConfigProfile{},
-		awsClient:         cziAWS.New(mockSess),
-	}
-	err := a.getWorkerRoles(ctx, testAWSConfigGenerationParams.AWSOrgRoles, testAWSConfigGenerationParams.AWSWorkerRole)
-	r.NoError(err)
-	r.NotEmpty(a.roleARNs)
-}
-
 func TestPopulateMapping(t *testing.T) {
 	// Includes parallelization
 	ctx := context.Background()
@@ -269,9 +218,13 @@ func TestPopulateMapping(t *testing.T) {
 	testAWSConfigGenerationParams.RolesConcurrency = 0
 	err := a.populateMapping(ctx, &testAWSConfigGenerationParams)
 	r.Error(err)
+	r.Empty(a.clientRoleMapping)
 
 	testAWSConfigGenerationParams.MappingConcurrency = 1
 	testAWSConfigGenerationParams.RolesConcurrency = 1
+	err = a.populateMapping(ctx, &testAWSConfigGenerationParams)
+	r.NoError(err)
+	r.NotEmpty(a.clientRoleMapping)
 
 	testAWSConfigGenerationParams.MappingConcurrency = 3
 	testAWSConfigGenerationParams.RolesConcurrency = 3
