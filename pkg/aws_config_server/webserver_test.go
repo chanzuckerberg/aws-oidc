@@ -1,115 +1,157 @@
 package aws_config_server
 
-// func TestNoEmail(t *testing.T) {
-// 	ctx := context.Background()
-// 	r := require.New(t)
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 
-// 	idTokenVerifier := &idTokenVerifier{
-// 		expectedIDToken: "this is an id token I want",
-// 	}
+	oidc "github.com/coreos/go-oidc"
+	"github.com/okta/okta-sdk-golang/v2/okta"
+	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/stretchr/testify/require"
+)
 
-// 	routerConfig := &RouterConfig{
-// 		Verifier:            idTokenVerifier,
-// 		AwsGenerationParams: &testAWSConfigGenerationParams,
-// 		OktaAppClient:       &emptyOktaApplications{},
-// 	}
+type idTokenVerifier struct {
+	expectedIDToken string
+}
 
-// 	router := GetRouter(ctx, routerConfig)
-// 	server := httptest.NewServer(router)
-// 	defer server.Close()
-// 	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
-// 	r.NoError(err)
-// 	req.Header.Set("Authorization", fmt.Sprintf("BEARER %s", idTokenVerifier.expectedIDToken))
-// 	client := &http.Client{}
+func (idtv *idTokenVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
+	if idtv.expectedIDToken != idToken {
+		return nil, fmt.Errorf("id tokens do not match!")
+	}
+	return &oidc.IDToken{}, nil
+}
 
-// 	resp, err := client.Do(req)
-// 	r.NoError(err)
-// 	r.Nil(getEmailFromCtx(req.Context()))
-// 	r.Equal(400, resp.StatusCode)
-// }
+var testAWSConfigGenerationParams = AWSConfigGenerationParams{
+	OIDCProvider:  "validProvider",
+	AWSWorkerRole: "validWorker",
+	AWSOrgRoles:   []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
+	Concurrency:   1,
+}
 
-// func TestGetEmailFromCtx(t *testing.T) {
-// 	r := require.New(t)
+type emptyOktaApplications struct{}
 
-// 	ctxWithEmail := context.WithValue(context.Background(), contextKeyEmail, "foobar")
-// 	email := getEmailFromCtx(ctxWithEmail)
-// 	r.Equal(*email, "foobar")
+func (oktaApp *emptyOktaApplications) ListApplications(ctx context.Context, qp *query.Params) ([]okta.App, *okta.Response, error) {
+	return nil, nil, nil
+}
 
-// 	emptyCtx := context.Background()
-// 	email = getEmailFromCtx(emptyCtx)
-// 	r.Nil(email)
+func TestNoEmail(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
 
-// 	newKeyValue := contextKeyEmail + 1
-// 	ctxWithOtherKey := context.WithValue(context.Background(), newKeyValue, "barfoo")
-// 	email = getEmailFromCtx(ctxWithOtherKey)
-// 	r.Nil(email)
-// }
+	idTokenVerifier := &idTokenVerifier{
+		expectedIDToken: "this is an id token I want",
+	}
 
-// func TestMalformedBearerPrefix(t *testing.T) {
-// 	ctx := context.Background()
-// 	r := require.New(t)
+	routerConfig := &RouterConfig{
+		Verifier:            idTokenVerifier,
+		AwsGenerationParams: &testAWSConfigGenerationParams,
+		OktaAppClient:       &emptyOktaApplications{},
+	}
 
-// 	idTokenVerifier := &idTokenVerifier{
-// 		expectedIDToken: "this is an id token I want",
-// 	}
+	router := GetRouter(ctx, routerConfig)
+	server := httptest.NewServer(router)
+	defer server.Close()
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	r.NoError(err)
+	req.Header.Set("Authorization", fmt.Sprintf("BEARER %s", idTokenVerifier.expectedIDToken))
+	client := &http.Client{}
 
-// 	routerConfig := &RouterConfig{
-// 		Verifier:            idTokenVerifier,
-// 		AwsGenerationParams: &testAWSConfigGenerationParams,
-// 		OktaAppClient:       &emptyOktaApplications{},
-// 	}
+	resp, err := client.Do(req)
+	r.NoError(err)
+	r.Nil(getEmailFromCtx(req.Context()))
+	r.Equal(400, resp.StatusCode)
+}
 
-// 	router := GetRouter(ctx, routerConfig)
-// 	server := httptest.NewServer(router)
-// 	defer server.Close()
-// 	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
-// 	r.NoError(err)
-// 	// Given that we have an auth header and malformed prefix, we should get an error
-// 	req.Header.Set("Authorization", fmt.Sprintf("BEARE %s", idTokenVerifier.expectedIDToken))
-// 	client := &http.Client{}
+func TestGetEmailFromCtx(t *testing.T) {
+	r := require.New(t)
 
-// 	resp, err := client.Do(req)
-// 	r.NoError(err)
-// 	r.Nil(getEmailFromCtx(req.Context()))
-// 	r.Equal(401, resp.StatusCode)
-// }
+	ctxWithEmail := context.WithValue(context.Background(), contextKeyEmail, "foobar")
+	email := getEmailFromCtx(ctxWithEmail)
+	r.Equal(*email, "foobar")
 
-// func TestMissingAuthHeader(t *testing.T) {
-// 	ctx := context.Background()
-// 	r := require.New(t)
+	emptyCtx := context.Background()
+	email = getEmailFromCtx(emptyCtx)
+	r.Nil(email)
 
-// 	routerConfig := &RouterConfig{
-// 		Verifier:            &failingVerifier{},
-// 		AwsGenerationParams: &testAWSConfigGenerationParams,
-// 		OktaAppClient:       &emptyOktaApplications{},
-// 	}
+	newKeyValue := contextKeyEmail + 1
+	ctxWithOtherKey := context.WithValue(context.Background(), newKeyValue, "barfoo")
+	email = getEmailFromCtx(ctxWithOtherKey)
+	r.Nil(email)
+}
 
-// 	router := GetRouter(ctx, routerConfig)
-// 	server := httptest.NewServer(router)
-// 	defer server.Close()
+func TestMalformedBearerPrefix(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
 
-// 	resp, err := http.Get(server.URL)
-// 	r.NoError(err)
-// 	r.Nil(getEmailFromCtx(resp.Request.Context()))
-// 	r.Equal(407, resp.StatusCode)
-// }
+	idTokenVerifier := &idTokenVerifier{
+		expectedIDToken: "this is an id token I want",
+	}
 
-// func TestHealthEndpoint(t *testing.T) {
-// 	ctx := context.Background()
-// 	r := require.New(t)
+	routerConfig := &RouterConfig{
+		Verifier:            idTokenVerifier,
+		AwsGenerationParams: &testAWSConfigGenerationParams,
+		OktaAppClient:       &emptyOktaApplications{},
+	}
 
-// 	routerConfig := &RouterConfig{
-// 		Verifier:            &failingVerifier{},
-// 		AwsGenerationParams: &testAWSConfigGenerationParams,
-// 		OktaAppClient:       &emptyOktaApplications{},
-// 	}
+	router := GetRouter(ctx, routerConfig)
+	server := httptest.NewServer(router)
+	defer server.Close()
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	r.NoError(err)
+	// Given that we have an auth header and malformed prefix, we should get an error
+	req.Header.Set("Authorization", fmt.Sprintf("BEARE %s", idTokenVerifier.expectedIDToken))
+	client := &http.Client{}
 
-// 	router := GetRouter(ctx, routerConfig)
-// 	server := httptest.NewServer(router)
-// 	defer server.Close()
+	resp, err := client.Do(req)
+	r.NoError(err)
+	r.Nil(getEmailFromCtx(req.Context()))
+	r.Equal(401, resp.StatusCode)
+}
 
-// 	healthURL := fmt.Sprintf("%s/health", server.URL)
-// 	resp, err := http.Get(healthURL)
-// 	r.NoError(err)
-// 	r.Equal(200, resp.StatusCode)
-// }
+func TestMissingAuthHeader(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+
+	routerConfig := &RouterConfig{
+		Verifier:            &failingVerifier{},
+		AwsGenerationParams: &testAWSConfigGenerationParams,
+		OktaAppClient:       &emptyOktaApplications{},
+	}
+
+	router := GetRouter(ctx, routerConfig)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	resp, err := http.Get(server.URL)
+	r.NoError(err)
+	r.Nil(getEmailFromCtx(resp.Request.Context()))
+	r.Equal(407, resp.StatusCode)
+}
+
+type failingVerifier struct{}
+
+func (fv *failingVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
+	return nil, fmt.Errorf("Failing verifier")
+}
+func TestHealthEndpoint(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+
+	routerConfig := &RouterConfig{
+		Verifier:            &failingVerifier{},
+		AwsGenerationParams: &testAWSConfigGenerationParams,
+		OktaAppClient:       &emptyOktaApplications{},
+	}
+
+	router := GetRouter(ctx, routerConfig)
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	healthURL := fmt.Sprintf("%s/health", server.URL)
+	resp, err := http.Get(healthURL)
+	r.NoError(err)
+	r.Equal(200, resp.StatusCode)
+}
