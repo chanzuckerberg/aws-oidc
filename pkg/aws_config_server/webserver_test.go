@@ -7,8 +7,35 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	oidc "github.com/coreos/go-oidc"
+	"github.com/okta/okta-sdk-golang/v2/okta"
+	"github.com/okta/okta-sdk-golang/v2/okta/query"
 	"github.com/stretchr/testify/require"
 )
+
+type idTokenVerifier struct {
+	expectedIDToken string
+}
+
+func (idtv *idTokenVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
+	if idtv.expectedIDToken != idToken {
+		return nil, fmt.Errorf("id tokens do not match!")
+	}
+	return &oidc.IDToken{}, nil
+}
+
+var testAWSConfigGenerationParams = AWSConfigGenerationParams{
+	OIDCProvider:  "validProvider",
+	AWSWorkerRole: "validWorker",
+	AWSOrgRoles:   []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
+	Concurrency:   1,
+}
+
+type emptyOktaApplications struct{}
+
+func (oktaApp *emptyOktaApplications) ListApplications(ctx context.Context, qp *query.Params) ([]okta.App, *okta.Response, error) {
+	return nil, nil, nil
+}
 
 func TestNoEmail(t *testing.T) {
 	ctx := context.Background()
@@ -104,6 +131,11 @@ func TestMissingAuthHeader(t *testing.T) {
 	r.Equal(407, resp.StatusCode)
 }
 
+type failingVerifier struct{}
+
+func (fv *failingVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
+	return nil, fmt.Errorf("Failing verifier")
+}
 func TestHealthEndpoint(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)

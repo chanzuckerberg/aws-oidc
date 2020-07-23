@@ -10,7 +10,7 @@ import (
 )
 
 type ClientIDToAWSRoles struct {
-	clientRoleMapping map[okta.ClientID][]ConfigProfile
+	clientRoleMapping *oidcFederatedRoles
 	roleARNs          map[string]arn.ARN
 
 	awsSession *session.Session
@@ -21,8 +21,8 @@ type ClientIDToAWSRoles struct {
 // using the configure command
 func createAWSConfig(
 	ctx context.Context,
-	configParams *AWSConfigGenerationParams,
-	clientMapping map[okta.ClientID][]ConfigProfile,
+	oidcProvider string,
+	clientMapping *oidcFederatedRoles,
 	userClientIDs []okta.ClientID) (*AWSConfig, error) {
 
 	awsConfig := &AWSConfig{
@@ -30,18 +30,18 @@ func createAWSConfig(
 	}
 
 	for _, clientID := range userClientIDs {
-		configList := clientMapping[clientID]
+		configList := clientMapping.roles[clientID]
 		for _, config := range configList {
 			profile := AWSProfile{
 				ClientID: clientID,
 				RoleARN:  config.RoleARN.String(),
 				AWSAccount: AWSAccount{
-					Name:  config.AcctName,
-					Alias: config.AcctAlias,
+					Name:  config.AccountName,
+					Alias: *config.AccountAlias,
 					ID:    config.RoleARN.AccountID,
 				},
-				IssuerURL: configParams.OIDCProvider,
-				RoleName:  config.RoleName,
+				IssuerURL: oidcProvider,
+				RoleName:  *config.Role.RoleName,
 			}
 
 			awsConfig.Profiles = append(awsConfig.Profiles, profile)
