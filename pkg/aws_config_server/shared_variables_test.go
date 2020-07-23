@@ -1,5 +1,9 @@
 package aws_config_server
 
+import (
+	"github.com/aws/aws-sdk-go/aws/arn"
+)
+
 // import (
 // 	"context"
 // 	"fmt"
@@ -90,7 +94,7 @@ package aws_config_server
 // 			},
 // 			Condition: Condition{
 // 				StringEquals: StringEqualsCondition(
-// 					map[string][]string{"SAML:aud": []string{"invalidClientID"}},
+// 					map[string][]string{"SAML:aud": {"invalidClientID"}},
 // 				),
 // 			},
 // 		},
@@ -101,7 +105,9 @@ package aws_config_server
 // 			Sid:       "",
 // 			Principal: Principal{}, // where we check for Federation
 // 			Condition: Condition{
-// 				StringEquals: map[string]string{"SAML:aud": "invalidClientID"},
+// 				StringEquals: StringEqualsCondition(
+// 					map[string][]string{"SAML:aud": {"invalidClientID"}},
+// 				),
 // 			},
 // 		},
 // 		// wrong provider
@@ -113,7 +119,9 @@ package aws_config_server
 // 				Federated: "ARN/anotherprovider", // where we check for provider
 // 			},
 // 			Condition: Condition{
-// 				StringEquals: map[string]string{"anotherprovider:aud": "invalidClientID"},
+// 				StringEquals: StringEqualsCondition(
+// 					map[string][]string{"anotherprovider:aud": {"invalidClientID"}},
+// 				),
 // 			},
 // 		},
 // 		// invalid Structure for obtaining ClientKey
@@ -128,6 +136,7 @@ package aws_config_server
 // 		},
 // 	},
 // }
+
 // var validPolicyStatements = []StatementEntry{
 // 	// All conditions met with same clientID
 // 	{
@@ -184,35 +193,6 @@ package aws_config_server
 // 	},
 // }
 
-// // Custom structs needed for scenario with single actions encoded as a single string
-// type AlternateStatementEntry struct {
-// 	Effect    string    `json:"Effect"`
-// 	Action    string    `json:"Action"`
-// 	Sid       string    `json:"Sid"`
-// 	Principal Principal `json:"Principal"`
-// 	Condition Condition `json:"Condition"`
-// }
-// type AlternatePolicyDocument struct {
-// 	Version    string                    `json:"Version"`
-// 	Statements []AlternateStatementEntry `json:"Statement"`
-// }
-
-// var alternatePolicyDocument = &AlternatePolicyDocument{
-// 	Statements: []AlternateStatementEntry{
-// 		{
-// 			Effect: "Allow",
-// 			Action: "sts:AssumeRoleWithWebIdentity",
-// 			Sid:    "",
-// 			Principal: Principal{
-// 				Federated: "ARN/localhost",
-// 			},
-// 			Condition: Condition{
-// 				StringEquals: map[string]string{"localhost:aud": "clientIDValue4"},
-// 			},
-// 		},
-// 	},
-// }
-
 // var testRoles0 = []*iam.Role{
 // 	{
 // 		Arn:      aws.String(BareRoleARN("roleARN").String()),
@@ -239,20 +219,13 @@ package aws_config_server
 // 	},
 // }
 
-// var testRoles3 = []*iam.Role{
-// 	{
-// 		Arn:      aws.String(BareRoleARN("roleARN0").String()),
-// 		RoleName: aws.String("testRoles3"),
-// 	},
-// }
+func BareRoleARN(roleName string) *arn.ARN {
+	a := &arn.ARN{
+		Resource: roleName,
+	}
 
-// func BareRoleARN(roleName string) *arn.ARN {
-// 	a := &arn.ARN{
-// 		Resource: roleName,
-// 	}
-
-// 	return a
-// }
+	return a
+}
 
 // func MustParseARN(a arn.ARN, err error) arn.ARN {
 // 	if err != nil {

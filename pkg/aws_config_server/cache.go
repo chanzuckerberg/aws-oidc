@@ -73,13 +73,17 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	defer span.Send()
 
 	awsClient := cziAWS.New(awsSession)
+	orgAssumer := func(config *aws.Config) organizationsiface.OrganizationsAPI {
+		return awsClient.WithOrganizations(config).Organizations.Svc
+	}
+	iamAssumer := func(config *aws.Config) iamiface.IAMAPI {
+		return awsClient.WithIAM(config).IAM.Svc
+	}
 
 	workerRoles, err := getWorkerRoles(
 		ctx,
 		awsSession,
-		func(config *aws.Config) organizationsiface.OrganizationsAPI {
-			return awsClient.WithOrganizations(config).Organizations.Svc
-		},
+		orgAssumer,
 		configParams.AWSOrgRoles,
 		configParams.AWSWorkerRole,
 	)
@@ -90,9 +94,7 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	allRoles, err := listRolesForAccounts(
 		ctx,
 		awsSession,
-		func(config *aws.Config) iamiface.IAMAPI {
-			return awsClient.WithIAM(config).IAM.Svc
-		},
+		iamAssumer,
 		workerRoles,
 		configParams.OIDCProvider,
 		configParams.Concurrency,
