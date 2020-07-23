@@ -57,7 +57,7 @@ var revisedPolicyDocument = &PolicyDocument{
 func policyDocumentToString(policyDoc *PolicyDocument) *string {
 	jsonPolicyData, err := json.Marshal(policyDoc)
 	if err != nil {
-		return nil
+		panic(err)
 	}
 	return aws.String(url.PathEscape(string(jsonPolicyData)))
 }
