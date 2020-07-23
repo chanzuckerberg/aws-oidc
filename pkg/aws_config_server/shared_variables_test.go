@@ -26,30 +26,6 @@ import (
 // 	return nil, fmt.Errorf("Failing verifier")
 // }
 
-// type emptyOktaApplications struct{}
-
-// func (oktaApp *emptyOktaApplications) ListApplications(ctx context.Context, qp *query.Params) ([]okta.App, *okta.Response, error) {
-// 	return nil, nil, nil
-// }
-
-// type idTokenVerifier struct {
-// 	expectedIDToken string
-// }
-
-// func (idtv *idTokenVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
-// 	if idtv.expectedIDToken != idToken {
-// 		return nil, fmt.Errorf("id tokens do not match!")
-// 	}
-// 	return &oidc.IDToken{}, nil
-// }
-
-// var testAWSConfigGenerationParams = AWSConfigGenerationParams{
-// 	OIDCProvider:  "validProvider",
-// 	AWSWorkerRole: "validWorker",
-// 	AWSOrgRoles:   []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-// 	Concurrency:   1,
-// }
-
 // var samplePolicyDocument = &PolicyDocument{
 // 	Statements: []StatementEntry{
 // 		// All conditions met
