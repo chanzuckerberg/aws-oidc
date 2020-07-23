@@ -11,6 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func BareRoleARN(roleName string) *arn.ARN {
+	a := &arn.ARN{
+		Resource: roleName,
+	}
+	return a
+}
+
 var testClientMapping = &oidcFederatedRoles{
 	roles: map[okta.ClientID][]accountAndRole{
 		"testClientID1": {

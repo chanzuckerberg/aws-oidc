@@ -1,9 +1,5 @@
 package aws_config_server
 
-import (
-	"github.com/aws/aws-sdk-go/aws/arn"
-)
-
 // import (
 // 	"context"
 // 	"fmt"
@@ -194,14 +190,6 @@ import (
 // 		RoleName: aws.String("testRoles2"),
 // 	},
 // }
-
-func BareRoleARN(roleName string) *arn.ARN {
-	a := &arn.ARN{
-		Resource: roleName,
-	}
-
-	return a
-}
 
 // func MustParseARN(a arn.ARN, err error) arn.ARN {
 // 	if err != nil {
