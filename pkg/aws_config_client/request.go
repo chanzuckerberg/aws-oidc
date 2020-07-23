@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
+	"github.com/chanzuckerberg/aws-oidc/pkg/util"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/propagation"
@@ -24,6 +25,11 @@ func RequestConfig(
 	ctx, span := beeline.StartSpan(ctx, "get_aws_config")
 	defer span.Send()
 
+	ver, err := util.VersionString()
+	if err != nil {
+		return nil, err
+	}
+
 	req, err := http.NewRequest(http.MethodGet, configServiceURI, nil)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not create request for %s", configServiceURI)
@@ -32,6 +38,10 @@ func RequestConfig(
 	req.Header.Add(
 		"Authorization",
 		fmt.Sprintf("BEARER %s", token.IDToken),
+	)
+	req.Header.Set(
+		"User-Agent",
+		fmt.Sprintf("aws-oidc/%s", ver),
 	)
 
 	span.SerializeHeaders()
