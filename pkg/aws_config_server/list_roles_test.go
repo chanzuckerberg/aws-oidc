@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -274,13 +275,25 @@ func TestListRolesForAccountsRolesFound(t *testing.T) {
 			},
 		},
 	}
-	oidcProvider := "foo-provider"
+	oidcProvider := "https://localhost"
 
 	roles := []*iam.Role{
+		// want to show up at the end
 		{
-			RoleName: aws.String("foo"),
-			Arn:      aws.String("arn:aws:iam:::role/roo"),
-			AssumeRolePolicyDocument: ,
+			RoleName:                 aws.String("foo"),
+			Arn:                      aws.String("arn:aws:iam:::role/foo"),
+			AssumeRolePolicyDocument: policyDocumentToString(revisedPolicyDocument),
+		},
+		// skip tags, skip
+		{
+			RoleName:                 aws.String("bar"),
+			Arn:                      aws.String("arn:aws:iam:::role/bar"),
+			AssumeRolePolicyDocument: policyDocumentToString(revisedPolicyDocument),
+		},
+		// no assume role policy, skip
+		{
+			RoleName: aws.String("baz"),
+			Arn:      aws.String("arn:aws:iam:::role/baz"),
 		},
 	}
 
@@ -300,9 +313,51 @@ func TestListRolesForAccountsRolesFound(t *testing.T) {
 				return nil
 			},
 		)
+
+		// skip the bar role
+	mock.EXPECT().
+		ListRoleTagsWithContext(
+			gomock.Any(),
+			gomock.Eq(&iam.ListRoleTagsInput{RoleName: aws.String("bar")})).
+		Return(&iam.ListRoleTagsOutput{
+			Tags: []*iam.Tag{
+				{
+					Key:   aws.String(skipRolesTagKey),
+					Value: aws.String("does not matter"),
+				},
+			},
+		}, nil)
+
+		// keep the foo role (no tags)
+	mock.EXPECT().
+		ListRoleTagsWithContext(
+			gomock.Any(),
+			gomock.Eq(&iam.ListRoleTagsInput{RoleName: aws.String("foo")})).
+		Return(&iam.ListRoleTagsOutput{
+			Tags: []*iam.Tag{},
+		}, nil)
+
 	federatedRoles, err := listRolesForAccounts(ctx, sess, roleAssumer, workerRoles, oidcProvider, 10)
 	r.NoError(err)
-	r.NotEmpty(federatedRoles)
+
+	r.Equal(&oidcFederatedRoles{
+		roles: map[okta.ClientID][]accountAndRole{
+			"clientIDValue3": {
+				{
+					AccountName:  "",
+					AccountAlias: nil,
+					RoleARN: &arn.ARN{
+						Partition: "aws",
+						Service:   "iam",
+						Region:    "",
+						AccountID: "",
+						Resource:  "role/foo",
+					},
+					Role: roles[0],
+				},
+			},
+		},
+	}, federatedRoles)
 }
 
 // func TestListRoles(t *testing.T) {
