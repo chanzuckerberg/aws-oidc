@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/golang/mock/gomock"
@@ -182,6 +183,108 @@ func TestListRoles(t *testing.T) {
 	r.NoError(err)
 	r.NotEmpty(actual)
 	r.Len(actual, 3)
+}
+
+func TestListRolesForAccountsNoWorkerRoles(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockIAM(ctrl)
+
+	roleAssumer := func(config *aws.Config) iamiface.IAMAPI {
+		return mock
+	}
+
+	sess, server := cziAWS.NewMockSession()
+	defer server.Close()
+
+	workerRoles := []workerRole{}
+	oidcProvider := "foo-provider"
+
+	// no worker roles
+	federatedRoles, err := listRolesForAccounts(ctx, sess, roleAssumer, workerRoles, oidcProvider, 10)
+	r.NoError(err)
+	r.Empty(federatedRoles)
+}
+
+func TestListRolesForAccountsNoRolesFound(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockIAM(ctrl)
+
+	roleAssumer := func(config *aws.Config) iamiface.IAMAPI {
+		return mock
+	}
+
+	sess, server := cziAWS.NewMockSession()
+	defer server.Close()
+
+	workerRoles := []workerRole{}
+	oidcProvider := "foo-provider"
+
+	mock.EXPECT().ListAccountAliasesWithContext(gomock.Any(), gomock.Any()).Return(nil, nil) // no alias
+
+	mock.EXPECT().
+		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(
+			func(
+				ctx context.Context,
+				input *iam.ListRolesInput,
+				accumulator func(*iam.ListRolesOutput, bool) bool,
+			) error {
+				accumulator(&iam.ListRolesOutput{
+					Roles: []*iam.Role{},
+				}, true)
+				return nil
+			},
+		)
+	federatedRoles, err := listRolesForAccounts(ctx, sess, roleAssumer, workerRoles, oidcProvider, 10)
+	r.NoError(err)
+	r.Empty(federatedRoles)
+}
+
+func TestListRolesForAccountsRolesFound(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockIAM(ctrl)
+
+	roleAssumer := func(config *aws.Config) iamiface.IAMAPI {
+		return mock
+	}
+
+	sess, server := cziAWS.NewMockSession()
+	defer server.Close()
+
+	workerRoles := []workerRole{}
+	oidcProvider := "foo-provider"
+
+	mock.EXPECT().ListAccountAliasesWithContext(gomock.Any(), gomock.Any()).Return(nil, nil) // no alias
+
+	mock.EXPECT().
+		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(
+			func(
+				ctx context.Context,
+				input *iam.ListRolesInput,
+				accumulator func(*iam.ListRolesOutput, bool) bool,
+			) error {
+				accumulator(&iam.ListRolesOutput{
+					Roles: []*iam.Role{},
+				}, true)
+				return nil
+			},
+		)
+	federatedRoles, err := listRolesForAccounts(ctx, sess, roleAssumer, workerRoles, oidcProvider, 10)
+	r.NoError(err)
+	r.Empty(federatedRoles)
 }
 
 // func TestListRoles(t *testing.T) {
