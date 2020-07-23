@@ -55,7 +55,7 @@ func getWorkerRoles(
 		}
 
 		orgClient := awsOrgRoleAssumer(orgAWSConfig)
-		accountList, err := GetActiveAccountList(ctx, orgClient)
+		accountList, err := getActiveAccountList(ctx, orgClient)
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
@@ -215,7 +215,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	return output, errors.Wrap(processAWSErr(err), "could not list IAM roles")
 }
 
-func GetActiveAccountList(
+func getActiveAccountList(
 	ctx context.Context,
 	svc organizationsiface.OrganizationsAPI,
 ) ([]*organizations.Account, error) {
@@ -247,9 +247,9 @@ func GetActiveAccountList(
 
 func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (*string, error) {
 	input := &iam.ListAccountAliasesInput{}
-	output, err := svc.ListAccountAliases(input)
+	output, err := svc.ListAccountAliasesWithContext(ctx, input)
 	if processAWSErr(err) != nil {
-		return nil, errors.Wrap(err, "Error getting account alias")
+		return nil, errors.Wrap(err, "coudl not get account alias")
 	}
 
 	// no alias
