@@ -32,15 +32,13 @@ type AWSRoleEnvironment struct {
 	ORG_ROLE_ARNS    []string
 }
 
-var mappingConcurrencyLimit int
-var rolesConcurrencyLimit int
+var concurrency int
 var awsSessionRetries int
 
 func init() {
 	rootCmd.AddCommand(serveConfigCmd)
 	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "port to host the aws config website")
-	serveConfigCmd.Flags().IntVar(&mappingConcurrencyLimit, "mapping-concurrency-limit", 1, "Number of parallel processes for adding to the AWS Org's config mapping")
-	serveConfigCmd.Flags().IntVar(&rolesConcurrencyLimit, "aws-roles-concurrency-limit", 1, "Number of parallel AWS list-roles and list-tags processes")
+	serveConfigCmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of parallel goroutines for account processing")
 	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
 }
 
@@ -87,10 +85,8 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
 	defer span.Send()
 
-	if mappingConcurrencyLimit == 0 || rolesConcurrencyLimit == 0 {
-		return errors.Errorf(
-			"Concurrency Limits cannot be 0. MappingConcurrency: %d, RolesConcurrency: %d",
-			mappingConcurrencyLimit, rolesConcurrencyLimit)
+	if concurrency == 0 {
+		return errors.New("concurrency Limit cannot be 0")
 	}
 
 	// Initialize everything else
@@ -134,11 +130,10 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	}
 
 	configGenerationParams := webserver.AWSConfigGenerationParams{
-		OIDCProvider:       oktaEnv.ISSUER_URL,
-		AWSWorkerRole:      awsEnv.READER_ROLE_NAME,
-		AWSOrgRoles:        awsEnv.ORG_ROLE_ARNS,
-		MappingConcurrency: mappingConcurrencyLimit,
-		RolesConcurrency:   rolesConcurrencyLimit,
+		OIDCProvider:  oktaEnv.ISSUER_URL,
+		AWSWorkerRole: awsEnv.READER_ROLE_NAME,
+		AWSOrgRoles:   awsEnv.ORG_ROLE_ARNS,
+		Concurrency:   concurrency,
 	}
 
 	getClientIDToProfiles, err := webserver.NewCachedGetClientIDToProfiles(

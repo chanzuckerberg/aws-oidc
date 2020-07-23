@@ -32,11 +32,10 @@ type claims struct {
 }
 
 type AWSConfigGenerationParams struct {
-	OIDCProvider       string
-	AWSWorkerRole      string
-	AWSOrgRoles        []string
-	MappingConcurrency int
-	RolesConcurrency   int
+	OIDCProvider  string
+	AWSWorkerRole string
+	AWSOrgRoles   []string
+	Concurrency   int
 }
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -144,7 +143,7 @@ func Index(
 
 		logrus.Debugf("%s's client mapping: %s", *email, clientMapping)
 
-		awsConfig, err := createAWSConfig(ctx, awsGenerationParams, clientMapping, clientIDs)
+		awsConfig, err := createAWSConfig(ctx, awsGenerationParams.OIDCProvider, clientMapping, clientIDs)
 		if err != nil {
 			logrus.Errorf("error: unable to get AWS Config File: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)

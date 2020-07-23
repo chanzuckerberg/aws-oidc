@@ -5,9 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
@@ -17,7 +18,7 @@ import (
 type CachedGetClientIDToProfiles struct {
 	mu sync.RWMutex
 
-	clientIDToProfiles map[okta.ClientID][]ConfigProfile
+	clientIDToProfiles *oidcFederatedRoles
 }
 
 func NewCachedGetClientIDToProfiles(
@@ -49,7 +50,7 @@ func NewCachedGetClientIDToProfiles(
 }
 
 // Get returns the cached values
-func (c *CachedGetClientIDToProfiles) Get(ctx context.Context) (map[okta.ClientID][]ConfigProfile, error) {
+func (c *CachedGetClientIDToProfiles) Get(ctx context.Context) (*oidcFederatedRoles, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -70,24 +71,36 @@ func (c *CachedGetClientIDToProfiles) refresh(
 
 	ctx, span := beeline.StartSpan(ctx, "refresh_client_mapping")
 	defer span.Send()
-	configData := &ClientIDToAWSRoles{
-		awsSession:        awsSession,
-		clientRoleMapping: map[okta.ClientID][]ConfigProfile{},
-		roleARNs:          map[string]arn.ARN{},
-		awsClient:         cziAWS.New(awsSession),
-	}
 
-	err := configData.getWorkerRoles(ctx, configParams.AWSOrgRoles, configParams.AWSWorkerRole)
+	awsClient := cziAWS.New(awsSession)
+
+	workerRoles, err := getWorkerRoles(
+		ctx,
+		awsSession,
+		func(config *aws.Config) organizationsiface.OrganizationsAPI {
+			return awsClient.WithOrganizations(config).Organizations.Svc
+		},
+		configParams.AWSOrgRoles,
+		configParams.AWSWorkerRole,
+	)
 	if err != nil {
-		return errors.Wrap(err, "Unable to get list of RoleARNs accessible by the Organization Roles")
+		return err
 	}
 
-	err = configData.populateMapping(ctx, configParams)
+	allRoles, err := listRolesForAccounts(
+		ctx,
+		awsSession,
+		func(config *aws.Config) iamiface.IAMAPI {
+			return awsClient.WithIAM(config).IAM.Svc
+		},
+		workerRoles,
+		configParams.OIDCProvider,
+		configParams.Concurrency,
+	)
 	if err != nil {
-		return errors.Wrap(err, "Unable to create mapping needed for config generation")
+		return err
 	}
-
-	c.clientIDToProfiles = configData.clientRoleMapping
+	c.clientIDToProfiles = allRoles
 
 	logrus.Debugf("done refreshing aws roles %f", time.Since(start).Seconds())
 	return nil

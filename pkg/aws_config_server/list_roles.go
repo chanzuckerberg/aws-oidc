@@ -2,104 +2,182 @@ package aws_config_server
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/url"
-	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/hashicorp/go-multierror"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
-type PolicyDocument struct {
-	Version    string           `json:"Version"`
-	Statements []StatementEntry `json:"Statement"`
+type accountAndRole struct {
+	AccountName  string
+	AccountAlias *string
+
+	RoleARN *arn.ARN
+	Role    *iam.Role
 }
 
-type StatementEntry struct {
-	Effect    string    `json:"Effect"`
-	Action    Action    `json:"Action"`
-	Sid       string    `json:"Sid"`
-	Principal Principal `json:"Principal"`
-	Condition Condition `json:"Condition"`
-}
-
-// We only care about the "StringEquals" field in Condition
-type Condition struct {
-	StringEquals map[string]string `json:"StringEquals"`
-}
-
-// We only care about the "Federated" field in Principal
-type Principal struct {
-	Federated string `json:"Federated"`
-}
-
-type ConfigProfile struct {
-	AcctName  string
-	AcctAlias string
-	RoleARN   arn.ARN
-	RoleName  string
-}
-
-type roleARNMatch struct {
+type workerRole struct {
+	role        *arn.ARN
 	accountName string
-	accountARN  arn.ARN
 }
 
-func (a *ClientIDToAWSRoles) getWorkerRoles(ctx context.Context, orgRoles []string, workerRole string) error {
+type awsOrgRoleAssumer func(*aws.Config) organizationsiface.OrganizationsAPI
+type awsIAMRoleAssumer func(*aws.Config) iamiface.IAMAPI
+
+// getWorkerRoles gets the roles for each active account in the organizations provided
+func getWorkerRoles(
+	ctx context.Context,
+	session *session.Session,
+	awsOrgRoleAssumer awsOrgRoleAssumer,
+	orgRoles []string,
+	workerRoleName string) ([]workerRole, error) {
 	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
 	defer span.Send()
+
+	workerRoles := []workerRole{}
 	for _, role_arn := range orgRoles {
-
-		beeline.AddField(ctx, "Organization IAM Role ARN", role_arn)
-
 		orgAWSConfig := &aws.Config{
-			Credentials:                   stscreds.NewCredentials(a.awsSession, role_arn),
+			Credentials:                   stscreds.NewCredentials(session, role_arn),
 			CredentialsChainVerboseErrors: aws.Bool(true),
-			Retryer:                       a.awsSession.Config.Retryer,
+			Retryer:                       session.Config.Retryer,
 		}
 
-		orgClient := a.awsClient.WithOrganizations(orgAWSConfig).Organizations.Svc
+		orgClient := awsOrgRoleAssumer(orgAWSConfig)
 		accountList, err := GetActiveAccountList(ctx, orgClient)
 		if err != nil {
-			return errors.Wrap(err, "Unable to get list of AWS Profiles")
+			return nil, errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
 		for _, acct := range accountList {
 			// create a new IAM session for each account
-			new_role_arn := arn.ARN{
+			roleARN := &arn.ARN{
 				Partition: "aws",
 				Service:   "iam",
 				AccountID: *acct.Id,
-				Resource:  fmt.Sprintf("role/%s", workerRole),
+				Resource:  fmt.Sprintf("role/%s", workerRoleName),
 			}
-			a.roleARNs[*acct.Name] = new_role_arn
+			workerRoles = append(workerRoles, workerRole{
+				accountName: *acct.Name,
+				role:        roleARN,
+			})
 		}
 	}
-	return nil
+	return workerRoles, nil
 }
 
-func getRoleNames(roles []*iam.Role) string {
-	out := []string{}
+func processAccountRoles(
+	ctx context.Context,
+	iamClient iamiface.IAMAPI,
+	oidcProvider string,
+	accountName string,
+) (*oidcFederatedRoles, error) {
+	alias, err := getAcctAlias(ctx, iamClient)
+	if err != nil {
+		return nil, err
+	}
+	roles, err := listRoles(ctx, iamClient)
+	if err != nil {
+		return nil, err
+	}
+
+	accountAndRoles := []accountAndRole{}
 	for _, role := range roles {
-		if role == nil || role.Arn == nil {
-			continue
+		roleARN, err := arn.Parse(*role.Arn)
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not parse arn %s", *role.Arn)
 		}
-		out = append(out, *role.Arn)
+		accountAndRoles = append(accountAndRoles, accountAndRole{
+			AccountName:  accountName,
+			AccountAlias: alias,
+
+			Role:    role,
+			RoleARN: &roleARN,
+		})
 	}
 
-	return strings.Join(out, ",")
+	federatedRoles, err := getOIDCFederatedRoles(ctx, oidcProvider, accountAndRoles)
+	if err != nil {
+		return nil, err
+	}
+
+	return filterOIDCFederatedRoles(ctx, iamClient, federatedRoles)
 }
 
+// listRolesForAccounts will get all roles for all accounts
+func listRolesForAccounts(
+	ctx context.Context,
+	session *session.Session,
+	awsIAMRoleAssumer awsIAMRoleAssumer,
+	workerRoles []workerRole,
+	oidcProvider string,
+	concurrency int,
+) (*oidcFederatedRoles, error) {
+	wg := sync.WaitGroup{}
+	errs := make(chan error, len(workerRoles))
+	queue := make(chan workerRole, len(workerRoles))
+	output := make(chan *oidcFederatedRoles, len(workerRoles))
+
+	processor := func() {
+		defer wg.Done()
+		for element := range queue {
+			awsConfig := &aws.Config{
+				Credentials:                   stscreds.NewCredentials(session, element.role.String()),
+				CredentialsChainVerboseErrors: aws.Bool(true),
+				Retryer:                       session.Config.Retryer,
+			}
+			iamClient := awsIAMRoleAssumer(awsConfig)
+
+			federatedRoles, err := processAccountRoles(ctx, iamClient, oidcProvider, element.accountName)
+			if err != nil {
+				errs <- err
+				continue
+			}
+			output <- federatedRoles
+		}
+	}
+
+	for _, workerRole := range workerRoles {
+		queue <- workerRole
+	}
+	close(queue)
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go processor()
+	}
+	wg.Wait()
+	close(errs)
+	close(output)
+
+	allErrs := &multierror.Error{}
+	for err := range errs {
+		allErrs = multierror.Append(allErrs, err)
+	}
+	logrus.Debug("added errors to error channel")
+
+	// small lesson: don't set a length for the outputList!
+	// Or else we'll get nil pointers in the output,
+	// 	which will cause segmentation violations
+	allOIDCRoles := &oidcFederatedRoles{}
+	for federatedRoles := range output {
+		allOIDCRoles.Merge(*federatedRoles)
+	}
+
+	return allOIDCRoles, allErrs.ErrorOrNil()
+}
+
+// listRoleTags lists the tags for a role
 func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([]*iam.Tag, error) {
 	ctx, span := beeline.StartSpan(ctx, "list AWS Role Tags")
 	defer span.Send()
@@ -119,7 +197,8 @@ func listRoleTags(ctx context.Context, svc iamiface.IAMAPI, roleName *string) ([
 	return output.Tags, nil
 }
 
-func listRoles(ctx context.Context, svc iamiface.IAMAPI, configParams *AWSConfigGenerationParams) ([]*iam.Role, error) {
+// listRoles will list all roles in an account
+func listRoles(ctx context.Context, svc iamiface.IAMAPI) ([]*iam.Role, error) {
 	ctx, span := beeline.StartSpan(ctx, "list AWS Roles")
 	defer span.Send()
 
@@ -133,116 +212,7 @@ func listRoles(ctx context.Context, svc iamiface.IAMAPI, configParams *AWSConfig
 			return !lastPage
 		},
 	)
-	if processAWSErr(err) != nil {
-		return output, errors.Wrap(err, "Error listing IAM roles")
-	}
-
-	return filterRoles(ctx, svc, output, configParams)
-}
-
-type Action []string
-
-func (s *Action) UnmarshalJSON(data []byte) error {
-	var str string
-	err := json.Unmarshal(data, &str)
-	if err == nil {
-		*s = []string{str}
-		return nil
-	}
-	// If the error is not an unmarshal type error, then we return the error
-	if _, ok := err.(*json.UnmarshalTypeError); err != nil && !ok {
-		return errors.Wrap(err, "Unexpected error type from unmarshaling")
-	}
-
-	var strSlice []string
-	err = json.Unmarshal(data, &strSlice)
-	if err == nil {
-		*s = strSlice
-		return nil
-	}
-	return errors.Wrap(err, "Unable to unmarshal Action")
-}
-
-func getRoleMappings(ctx context.Context,
-	acctName string,
-	acctAlias string,
-	roles []*iam.Role,
-	oidcProvider string) (map[okta.ClientID][]ConfigProfile, error) {
-
-	clientRoleMapping := make(map[okta.ClientID][]ConfigProfile)
-
-	identityProviderURL, err := url.Parse(oidcProvider)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to parse OIDC Provider input as an URL")
-	}
-	oidcProviderHostname := identityProviderURL.Hostname()
-
-	for _, role := range roles {
-		if role == nil {
-			logrus.Debug("nil role")
-			continue
-		}
-
-		if role.AssumeRolePolicyDocument == nil {
-			continue // role doesn't have an assume role policy document
-		}
-		// the IAM Role outputs a url-encoded policy document, so we need to escape characters
-		policyStr, err := url.PathUnescape(*role.AssumeRolePolicyDocument)
-		if err != nil {
-			return nil, errors.Wrap(err, "Unable to escape URL encoding")
-		}
-		policyDoc := PolicyDocument{}
-		err = json.Unmarshal([]byte(policyStr), &policyDoc)
-		if err != nil {
-			return nil, errors.Wrapf(err, "Unable to unmarshal policy document to struct policy: %s", policyStr)
-		}
-
-		for _, statement := range policyDoc.Statements {
-			federatedARN := statement.Principal.Federated
-			if !strings.Contains(federatedARN, oidcProviderHostname) {
-				continue
-			}
-
-			clientKey := fmt.Sprintf("%s:aud", oidcProviderHostname)
-			clientIDStr, ok := statement.Condition.StringEquals[clientKey]
-			if !ok || (clientIDStr == "") {
-				continue
-			}
-
-			clientID := okta.ClientID(clientIDStr)
-
-			// Searching through the Actions list
-			isWebIdentityAction := false
-			for _, action := range statement.Action {
-				if action == "sts:AssumeRoleWithWebIdentity" {
-					isWebIdentityAction = true
-					break
-				}
-			}
-			if !isWebIdentityAction {
-				continue
-			}
-
-			roleARN, err := arn.Parse(*role.Arn)
-			if err != nil {
-				return nil, errors.Wrapf(err, "could not parse arn %s", *role.Arn)
-			}
-
-			currentConfig := ConfigProfile{
-				AcctName:  acctName,
-				AcctAlias: acctAlias,
-				RoleARN:   roleARN,
-				RoleName:  *role.RoleName,
-			}
-
-			if _, ok := clientRoleMapping[clientID]; !ok {
-				clientRoleMapping[clientID] = []ConfigProfile{currentConfig}
-				continue
-			}
-			clientRoleMapping[clientID] = append(clientRoleMapping[clientID], currentConfig)
-		}
-	}
-	return clientRoleMapping, nil
+	return output, errors.Wrap(processAWSErr(err), "could not list IAM roles")
 }
 
 func GetActiveAccountList(
@@ -275,18 +245,19 @@ func GetActiveAccountList(
 	return activeAccounts, nil
 }
 
-func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (string, error) {
+func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (*string, error) {
 	input := &iam.ListAccountAliasesInput{}
 	output, err := svc.ListAccountAliases(input)
 	if processAWSErr(err) != nil {
-		return "", errors.Wrap(err, "Error getting account alias")
+		return nil, errors.Wrap(err, "Error getting account alias")
 	}
 
 	// no alias
 	if output == nil || len(output.AccountAliases) == 0 {
-		return "", nil
+		return nil, nil
 	}
-	return *output.AccountAliases[0], nil
+	// NOTE: according to AWS docs can only be one alias on an account
+	return output.AccountAliases[0], nil
 }
 
 // process an aws err to see if we should skip or not
