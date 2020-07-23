@@ -33,15 +33,15 @@ func createAWSConfig(
 		configList := clientMapping.roles[clientID]
 		for _, config := range configList {
 			profile := AWSProfile{
-				ClientID:   clientID,
-				RoleARN:    config.RoleARN.String(),
+				ClientID: clientID,
+				RoleARN:  config.RoleARN.String(),
 				AWSAccount: AWSAccount{
-					// Name:  config.AccountName,
-					// Alias: *config.AccountAlias,
-					// ID:    config.RoleARN.AccountID,
+					Name:  config.AccountName,
+					Alias: *config.AccountAlias,
+					ID:    config.RoleARN.AccountID,
 				},
 				IssuerURL: oidcProvider,
-				// RoleName:  config.RoleName,
+				RoleName:  *config.Role.RoleName,
 			}
 
 			awsConfig.Profiles = append(awsConfig.Profiles, profile)

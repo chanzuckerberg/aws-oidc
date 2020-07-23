@@ -66,7 +66,7 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	configParams *AWSConfigGenerationParams,
 	awsSession *session.Session,
 ) error {
-	logrus.Warn("Initiating AWS Roles refresh")
+	logrus.Info("Initiating AWS Roles refresh")
 	start := time.Now()
 
 	ctx, span := beeline.StartSpan(ctx, "refresh_client_mapping")
@@ -100,8 +100,9 @@ func (c *CachedGetClientIDToProfiles) refresh(
 	if err != nil {
 		return err
 	}
+
 	c.clientIDToProfiles = allRoles
 
-	logrus.Debugf("done refreshing aws roles %f", time.Since(start).Seconds())
+	logrus.Infof("done refreshing aws roles %f", time.Since(start).Seconds())
 	return nil
 }
