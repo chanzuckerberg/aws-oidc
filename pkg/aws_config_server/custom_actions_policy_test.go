@@ -1,72 +1,59 @@
 package aws_config_server
 
-import (
-	"context"
-	"encoding/json"
-	"net/url"
-	"testing"
+// func TestMultipleActions(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
+// 	ctrl := gomock.NewController(t)
 
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	cziAWS "github.com/chanzuckerberg/go-misc/aws"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-)
+// 	client := &cziAWS.Client{}
+// 	_, mock := client.WithMockIAM(ctrl)
 
-func TestMultipleActions(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
+// 	policyData, err := json.Marshal(revisedPolicyDocument)
+// 	r.NoError(err)
+// 	policyStr := url.PathEscape(string(policyData))
 
-	client := &cziAWS.Client{}
-	_, mock := client.WithMockIAM(ctrl)
+// 	testRoles3[0].AssumeRolePolicyDocument = &policyStr
 
-	policyData, err := json.Marshal(revisedPolicyDocument)
-	r.NoError(err)
-	policyStr := url.PathEscape(string(policyData))
+// 	mock.EXPECT().
+// 		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+// 		func(
+// 			ctx context.Context,
+// 			input *iam.ListRolesInput,
+// 			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
+// 		) error {
+// 			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles3}, true)
+// 			return nil
+// 		},
+// 	)
 
-	testRoles3[0].AssumeRolePolicyDocument = &policyStr
+// 	mock.EXPECT().
+// 		ListRoleTagsWithContext(gomock.Any(), gomock.Any()).
+// 		Return(&iam.ListRoleTagsOutput{}, nil)
 
-	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(
-			ctx context.Context,
-			input *iam.ListRolesInput,
-			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
-		) error {
-			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles3}, true)
-			return nil
-		},
-	)
+// 	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
+// 	r.NoError(err)
+// 	r.Len(iamOutput, 1)
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(gomock.Any(), gomock.Any()).
-		Return(&iam.ListRoleTagsOutput{}, nil)
+// 	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles3, oidcProvider)
+// 	r.NoError(err)                                                 // Nothing weird happened
+// 	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
+// 	r.Contains(clientRoleMap, okta.ClientID("clientIDValue3"))     // Only the valid ID is present
+// 	r.Len(clientRoleMap, 1)                                        // No more got added
+// 	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
+// }
 
-	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
-	r.NoError(err)
-	r.Len(iamOutput, 1)
+// func TestSingleStringAction(t *testing.T) {
+// 	r := require.New(t)
 
-	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles3, oidcProvider)
-	r.NoError(err)                                                 // Nothing weird happened
-	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
-	r.Contains(clientRoleMap, okta.ClientID("clientIDValue3"))     // Only the valid ID is present
-	r.Len(clientRoleMap, 1)                                        // No more got added
-	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
-}
+// 	policyData, err := json.Marshal(alternatePolicyDocument)
+// 	r.NoError(err)
 
-func TestSingleStringAction(t *testing.T) {
-	r := require.New(t)
+// 	policyDoc := PolicyDocument{}
+// 	err = json.Unmarshal(policyData, &policyDoc)
+// 	r.NoError(err)
 
-	policyData, err := json.Marshal(alternatePolicyDocument)
-	r.NoError(err)
-
-	policyDoc := PolicyDocument{}
-	err = json.Unmarshal(policyData, &policyDoc)
-	r.NoError(err)
-
-	r.NotEmpty(policyDoc)
-	r.Len(policyDoc.Statements, 1)
-	r.Len(policyDoc.Statements[0].Action, 1)
-	r.Equal(policyDoc.Statements[0].Action[0], "sts:AssumeRoleWithWebIdentity")
-}
+// 	r.NotEmpty(policyDoc)
+// 	r.Len(policyDoc.Statements, 1)
+// 	r.Len(policyDoc.Statements[0].Action, 1)
+// 	r.Equal(policyDoc.Statements[0].Action[0], "sts:AssumeRoleWithWebIdentity")
+// }

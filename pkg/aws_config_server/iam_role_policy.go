@@ -84,13 +84,13 @@ func (sec *StringEqualsCondition) UnmarshalJSON(data []byte) error {
 
 		slice, ok := val.([]interface{})
 		if !ok {
-			return errors.Errorf("unrecognized type #v", val)
+			return errors.Errorf("unrecognized type %v", val)
 		}
 
 		for _, maybeStr := range slice {
 			str, ok := maybeStr.(string)
 			if !ok {
-				return errors.Errorf("unrecognized type #v", val)
+				return errors.Errorf("unrecognized type %v", val)
 			}
 
 			strSlice = append(strSlice, str)

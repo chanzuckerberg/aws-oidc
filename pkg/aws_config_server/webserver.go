@@ -141,7 +141,7 @@ func Index(
 			return
 		}
 
-		logrus.Debugf("%s's client mapping: %s", *email, clientMapping)
+		logrus.Debugf("%s's client mapping: %#v", *email, clientMapping)
 
 		awsConfig, err := createAWSConfig(ctx, awsGenerationParams.OIDCProvider, clientMapping, clientIDs)
 		if err != nil {

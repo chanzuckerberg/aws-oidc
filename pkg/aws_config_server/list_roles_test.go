@@ -1,255 +1,240 @@
 package aws_config_server
 
-import (
-	"context"
-	"encoding/json"
-	"net/url"
-	"testing"
+// func TestListRoles(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
+// 	ctrl := gomock.NewController(t)
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/organizations"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	cziAWS "github.com/chanzuckerberg/go-misc/aws"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
-)
+// 	client := &cziAWS.Client{}
+// 	_, mock := client.WithMockIAM(ctrl)
 
-func TestListRoles(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
+// 	policyData, _ := json.Marshal(samplePolicyDocument)
+// 	policyStr := url.PathEscape(string(policyData))
 
-	client := &cziAWS.Client{}
-	_, mock := client.WithMockIAM(ctrl)
+// 	testRoles1[0].AssumeRolePolicyDocument = &policyStr
 
-	policyData, _ := json.Marshal(samplePolicyDocument)
-	policyStr := url.PathEscape(string(policyData))
+// 	mock.EXPECT().
+// 		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+// 		func(
+// 			ctx context.Context,
+// 			input *iam.ListRolesInput,
+// 			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
+// 		) error {
+// 			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles1}, true)
+// 			return nil
+// 		},
+// 	)
 
-	testRoles1[0].AssumeRolePolicyDocument = &policyStr
+// 	mock.EXPECT().
+// 		ListRoleTagsWithContext(
+// 			gomock.Any(),
+// 			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
+// 		Return(&iam.ListRoleTagsOutput{
+// 			Tags: testRoles1[0].Tags,
+// 		}, nil)
 
-	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(
-			ctx context.Context,
-			input *iam.ListRolesInput,
-			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
-		) error {
-			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles1}, true)
-			return nil
-		},
-	)
+// 	mock.EXPECT().
+// 		ListRoleTagsWithContext(
+// 			gomock.Any(),
+// 			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
+// 		Return(&iam.ListRoleTagsOutput{
+// 			Tags: testRoles1[1].Tags,
+// 		}, nil)
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(
-			gomock.Any(),
-			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
-		Return(&iam.ListRoleTagsOutput{
-			Tags: testRoles1[0].Tags,
-		}, nil)
+// 	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
+// 	r.NoError(err)
+// 	r.Len(testRoles1, 2) // we skipped over a role
+// 	r.Len(iamOutput, 1)
+// 	r.Equal(*iamOutput[0].RoleName, *testRoles1[0].RoleName)
+// }
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(
-			gomock.Any(),
-			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
-		Return(&iam.ListRoleTagsOutput{
-			Tags: testRoles1[1].Tags,
-		}, nil)
+// func TestClientRoleMapFromProfile(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
 
-	iamOutput, err := listRoles(ctx, mock, &testAWSConfigGenerationParams)
-	r.NoError(err)
-	r.Len(testRoles1, 2) // we skipped over a role
-	r.Len(iamOutput, 1)
-	r.Equal(*iamOutput[0].RoleName, *testRoles1[0].RoleName)
-}
+// 	newPolicyDocument := &PolicyDocument{}
+// 	newPolicyDocument.Statements = append(samplePolicyDocument.Statements, invalidPolicyStatements.Statements...)
 
-func TestClientRoleMapFromProfile(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
+// 	newPolicyData, err := json.Marshal(newPolicyDocument)
+// 	r.NoError(err)
 
-	newPolicyDocument := &PolicyDocument{}
-	newPolicyDocument.Statements = append(samplePolicyDocument.Statements, invalidPolicyStatements.Statements...)
+// 	newPolicyStr := url.PathEscape(string(newPolicyData))
 
-	newPolicyData, err := json.Marshal(newPolicyDocument)
-	r.NoError(err)
+// 	testRoles1[0].AssumeRolePolicyDocument = &newPolicyStr
 
-	newPolicyStr := url.PathEscape(string(newPolicyData))
+// 	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles1, oidcProvider)
+// 	r.NoError(err)                                                 // Nothing weird happened
+// 	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
+// 	r.Contains(clientRoleMap, okta.ClientID("clientIDValue1"))     // Only the valid ID is present
+// 	r.Len(clientRoleMap, 1)                                        // No more got added
+// 	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
 
-	testRoles1[0].AssumeRolePolicyDocument = &newPolicyStr
+// 	// See if we can handle different policy statements (2 allows)
+// 	newPolicyDocument.Statements = validPolicyStatements
 
-	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles1, oidcProvider)
-	r.NoError(err)                                                 // Nothing weird happened
-	r.NotEmpty(clientRoleMap)                                      // There are valid clientIDs
-	r.Contains(clientRoleMap, okta.ClientID("clientIDValue1"))     // Only the valid ID is present
-	r.Len(clientRoleMap, 1)                                        // No more got added
-	r.NotContains(clientRoleMap, okta.ClientID("invalidClientID")) // none of the invalid policies (where clientID = invalidClientID) got added
+// 	newPolicyData, err = json.Marshal(newPolicyDocument)
+// 	r.NoError(err)
+// 	newPolicyStr = url.PathEscape(string(newPolicyData))
+// 	testRoles2[0].AssumeRolePolicyDocument = &newPolicyStr
+// }
 
-	// See if we can handle different policy statements (2 allows)
-	newPolicyDocument.Statements = validPolicyStatements
+// func TestNoPolicyDocument(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
 
-	newPolicyData, err = json.Marshal(newPolicyDocument)
-	r.NoError(err)
-	newPolicyStr = url.PathEscape(string(newPolicyData))
-	testRoles2[0].AssumeRolePolicyDocument = &newPolicyStr
-}
+// 	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles0, oidcProvider)
+// 	r.NoError(err)
+// 	r.Empty(clientRoleMap)
+// }
 
-func TestNoPolicyDocument(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
+// func TestGetActiveAccountList(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
+// 	ctrl := gomock.NewController(t)
 
-	clientRoleMap, err := getRoleMappings(ctx, "accountName", "accountAlias", testRoles0, oidcProvider)
-	r.NoError(err)
-	r.Empty(clientRoleMap)
-}
+// 	client := &cziAWS.Client{}
 
-func TestGetActiveAccountList(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
+// 	_, mock := client.WithMockOrganizations(ctrl)
 
-	client := &cziAWS.Client{}
+// 	mock.EXPECT().
+// 		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+// 		func(
+// 			ctx context.Context,
+// 			input *organizations.ListAccountsInput,
+// 			accumulatorFunc func(*organizations.ListAccountsOutput, bool) bool,
+// 		) error {
+// 			accumulatorFunc(&organizations.ListAccountsOutput{
+// 				Accounts: []*organizations.Account{
+// 					{
+// 						Name:   aws.String("Account1"),
+// 						Status: aws.String("ACTIVE"),
+// 					},
+// 					{
+// 						Name:   aws.String("Account2"),
+// 						Status: aws.String("INACTIVE"),
+// 					},
+// 				},
+// 			}, true)
+// 			return nil
+// 		},
+// 	)
 
-	_, mock := client.WithMockOrganizations(ctrl)
+// 	acctList, err := GetActiveAccountList(ctx, mock)
+// 	r.NoError(err)
+// 	r.NotEmpty(acctList)
+// 	r.Len(acctList, 1)
+// 	r.Equal(*acctList[0].Name, "Account1") // the active account
+// }
 
-	mock.EXPECT().
-		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(
-			ctx context.Context,
-			input *organizations.ListAccountsInput,
-			accumulatorFunc func(*organizations.ListAccountsOutput, bool) bool,
-		) error {
-			accumulatorFunc(&organizations.ListAccountsOutput{
-				Accounts: []*organizations.Account{
-					{
-						Name:   aws.String("Account1"),
-						Status: aws.String("ACTIVE"),
-					},
-					{
-						Name:   aws.String("Account2"),
-						Status: aws.String("INACTIVE"),
-					},
-				},
-			}, true)
-			return nil
-		},
-	)
+// func TestGetAcctAlias(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
+// 	ctrl := gomock.NewController(t)
 
-	acctList, err := GetActiveAccountList(ctx, mock)
-	r.NoError(err)
-	r.NotEmpty(acctList)
-	r.Len(acctList, 1)
-	r.Equal(*acctList[0].Name, "Account1") // the active account
-}
+// 	client := &cziAWS.Client{}
+// 	_, mock := client.WithMockIAM(ctrl)
 
-func TestGetAcctAlias(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
+// 	testAlias := "account_alias_1"
 
-	client := &cziAWS.Client{}
-	_, mock := client.WithMockIAM(ctrl)
+// 	mock.EXPECT().
+// 		ListAccountAliases(gomock.Any()).Return(
+// 		&iam.ListAccountAliasesOutput{AccountAliases: []*string{&testAlias}}, nil,
+// 	)
 
-	testAlias := "account_alias_1"
+// 	outputString, err := getAcctAlias(ctx, mock)
+// 	r.NoError(err)
+// 	r.Equal(testAlias, outputString)
+// }
 
-	mock.EXPECT().
-		ListAccountAliases(gomock.Any()).Return(
-		&iam.ListAccountAliasesOutput{AccountAliases: []*string{&testAlias}}, nil,
-	)
+// func TestGetAcctAliasNoAlias(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
+// 	ctrl := gomock.NewController(t)
 
-	outputString, err := getAcctAlias(ctx, mock)
-	r.NoError(err)
-	r.Equal(testAlias, outputString)
-}
+// 	client := &cziAWS.Client{}
+// 	_, mock := client.WithMockIAM(ctrl)
 
-func TestGetAcctAliasNoAlias(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
+// 	mock.EXPECT().
+// 		ListAccountAliases(gomock.Any()).Return(
+// 		&iam.ListAccountAliasesOutput{AccountAliases: []*string{}}, nil,
+// 	)
 
-	client := &cziAWS.Client{}
-	_, mock := client.WithMockIAM(ctrl)
+// 	outputString, err := getAcctAlias(ctx, mock)
+// 	r.NoError(err)
+// 	r.Equal("", outputString)
+// }
 
-	mock.EXPECT().
-		ListAccountAliases(gomock.Any()).Return(
-		&iam.ListAccountAliasesOutput{AccountAliases: []*string{}}, nil,
-	)
+// func TestParallelization(t *testing.T) {
+// 	ctx := context.Background()
+// 	r := require.New(t)
+// 	ctrl := gomock.NewController(t)
 
-	outputString, err := getAcctAlias(ctx, mock)
-	r.NoError(err)
-	r.Equal("", outputString)
-}
+// 	client := &cziAWS.Client{}
+// 	_, mock := client.WithMockIAM(ctrl)
 
-func TestParallelization(t *testing.T) {
-	ctx := context.Background()
-	r := require.New(t)
-	ctrl := gomock.NewController(t)
+// 	policyData, _ := json.Marshal(samplePolicyDocument)
+// 	policyStr := url.PathEscape(string(policyData))
 
-	client := &cziAWS.Client{}
-	_, mock := client.WithMockIAM(ctrl)
+// 	testRoles1[0].AssumeRolePolicyDocument = &policyStr
 
-	policyData, _ := json.Marshal(samplePolicyDocument)
-	policyStr := url.PathEscape(string(policyData))
+// 	mock.EXPECT().
+// 		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+// 		func(
+// 			ctx context.Context,
+// 			input *iam.ListRolesInput,
+// 			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
+// 		) error {
+// 			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles1}, true)
+// 			return nil
+// 		},
+// 	).AnyTimes()
 
-	testRoles1[0].AssumeRolePolicyDocument = &policyStr
+// 	mock.EXPECT().
+// 		ListRoleTagsWithContext(
+// 			gomock.Any(),
+// 			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
+// 		Return(&iam.ListRoleTagsOutput{
+// 			Tags: testRoles1[0].Tags,
+// 		}, nil).AnyTimes()
 
-	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(
-			ctx context.Context,
-			input *iam.ListRolesInput,
-			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
-		) error {
-			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles1}, true)
-			return nil
-		},
-	).AnyTimes()
+// 	mock.EXPECT().
+// 		ListRoleTagsWithContext(
+// 			gomock.Any(),
+// 			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
+// 		Return(&iam.ListRoleTagsOutput{
+// 			Tags: testRoles1[1].Tags,
+// 		}, nil).AnyTimes()
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(
-			gomock.Any(),
-			&iam.ListRoleTagsInput{RoleName: testRoles1[0].RoleName}).
-		Return(&iam.ListRoleTagsOutput{
-			Tags: testRoles1[0].Tags,
-		}, nil).AnyTimes()
+// 	cfgGeneration0Concurrency := AWSConfigGenerationParams{
+// 		OIDCProvider:       "validProvider",
+// 		AWSWorkerRole:      "validWorker",
+// 		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
+// 		MappingConcurrency: 0,
+// 		RolesConcurrency:   0,
+// 	}
+// 	iamOutput, err := listRoles(ctx, mock, &cfgGeneration0Concurrency)
+// 	r.Error(err)
+// 	r.Empty(iamOutput)
 
-	mock.EXPECT().
-		ListRoleTagsWithContext(
-			gomock.Any(),
-			&iam.ListRoleTagsInput{RoleName: testRoles1[1].RoleName}).
-		Return(&iam.ListRoleTagsOutput{
-			Tags: testRoles1[1].Tags,
-		}, nil).AnyTimes()
+// 	cfgGeneration1Concurrency := AWSConfigGenerationParams{
+// 		OIDCProvider:       "validProvider",
+// 		AWSWorkerRole:      "validWorker",
+// 		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
+// 		MappingConcurrency: 1,
+// 		RolesConcurrency:   1,
+// 	}
+// 	iamOutput, err = listRoles(ctx, mock, &cfgGeneration1Concurrency)
+// 	r.NoError(err)
+// 	r.NotEmpty(iamOutput)
 
-	cfgGeneration0Concurrency := AWSConfigGenerationParams{
-		OIDCProvider:       "validProvider",
-		AWSWorkerRole:      "validWorker",
-		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-		MappingConcurrency: 0,
-		RolesConcurrency:   0,
-	}
-	iamOutput, err := listRoles(ctx, mock, &cfgGeneration0Concurrency)
-	r.Error(err)
-	r.Empty(iamOutput)
-
-	cfgGeneration1Concurrency := AWSConfigGenerationParams{
-		OIDCProvider:       "validProvider",
-		AWSWorkerRole:      "validWorker",
-		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-		MappingConcurrency: 1,
-		RolesConcurrency:   1,
-	}
-	iamOutput, err = listRoles(ctx, mock, &cfgGeneration1Concurrency)
-	r.NoError(err)
-	r.NotEmpty(iamOutput)
-
-	cfgGeneration3Concurrency := AWSConfigGenerationParams{
-		OIDCProvider:       "validProvider",
-		AWSWorkerRole:      "validWorker",
-		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-		MappingConcurrency: 3,
-		RolesConcurrency:   3,
-	}
-	iamOutput, err = listRoles(ctx, mock, &cfgGeneration3Concurrency)
-	r.NoError(err)
-	r.NotEmpty(iamOutput)
-}
+// 	cfgGeneration3Concurrency := AWSConfigGenerationParams{
+// 		OIDCProvider:       "validProvider",
+// 		AWSWorkerRole:      "validWorker",
+// 		AWSOrgRoles:        []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
+// 		MappingConcurrency: 3,
+// 		RolesConcurrency:   3,
+// 	}
+// 	iamOutput, err = listRoles(ctx, mock, &cfgGeneration3Concurrency)
+// 	r.NoError(err)
+// 	r.NotEmpty(iamOutput)
+// }
