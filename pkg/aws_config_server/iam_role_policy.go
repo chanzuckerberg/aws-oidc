@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/pkg/errors"
@@ -30,14 +29,17 @@ func (se *StatementEntry) GetFederatedClientIDs(oidcProviderHostname string) []o
 		return nil
 	}
 
-	federatedARN := se.Principal.Federated
-	if !strings.Contains(federatedARN, oidcProviderHostname) {
-		return nil
-	}
-
 	clientKey := fmt.Sprintf("%s:aud", oidcProviderHostname)
 	clientIDs, ok := se.Condition.StringEquals[clientKey]
 	if !ok {
+		return nil
+	}
+
+	isWebIdentityAction := false
+	for _, action := range se.Action {
+		isWebIdentityAction = isWebIdentityAction || (action == assumeRoleWebIdentityAction)
+	}
+	if !isWebIdentityAction {
 		return nil
 	}
 
@@ -45,13 +47,7 @@ func (se *StatementEntry) GetFederatedClientIDs(oidcProviderHostname string) []o
 	// Loop through all the clientIDS for thsi statement's conditional
 	for _, clientIDStr := range clientIDs {
 		clientID := okta.ClientID(clientIDStr)
-		isWebIdentityAction := false
-		for _, action := range se.Action {
-			isWebIdentityAction = isWebIdentityAction || (action == assumeRoleWebIdentityAction)
-		}
-		if !isWebIdentityAction {
-			continue
-		}
+
 		filteredClientIDs = append(filteredClientIDs, clientID)
 	}
 	return filteredClientIDs
