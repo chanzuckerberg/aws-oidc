@@ -28,7 +28,8 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/sys v0.0.0-20200722175500-76b94024e4b6 // indirect
+	golang.org/x/sys v0.0.0-20200724161237-0e2f3a69832c // indirect
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
