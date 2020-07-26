@@ -61,6 +61,7 @@ lint-ci: ## run the fast go linters
 release: ## run a release
 	bff bump
 	git push
+	git push --tags
 .PHONY: release
 
 fmt:
