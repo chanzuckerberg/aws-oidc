@@ -25,6 +25,13 @@ dockers:
       - go.sum
       - main.go
 
+nfpms:
+  - vendor: Chan Zuckerberg Initiative, LLC
+    license: MIT
+    description: AWS cli single sign on using OIDC
+    formats:
+      - deb
+
 archives:
   - files:
       - none*
