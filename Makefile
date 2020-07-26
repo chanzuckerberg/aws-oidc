@@ -61,17 +61,7 @@ lint-ci: ## run the fast go linters
 release: ## run a release
 	bff bump
 	git push
-	goreleaser release --rm-dist
 .PHONY: release
-
-release-prerelease: ## release to github as a 'pre-release'
-	commit=`git rev-parse --short HEAD`; \
-	version=`cat VERSION`; \
-	git tag v"$$version"+"$$commit"; \
-	git push
-	git push --tags
-	goreleaser release -f .goreleaser.prerelease.yml --debug --rm-dist
-.PHONY: release-prelease
 
 fmt:
 	goimports -w -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
