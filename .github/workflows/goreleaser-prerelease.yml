@@ -1,0 +1,36 @@
+name: goreleaser-prerelease
+
+on:
+  push:
+    branches: master
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+      - name: Create pre-release tag for goreleaser
+        run: |
+          commit_hash=$(git rev-parse --short HEAD)
+          version=$(cat VERSION)
+          git_remote=https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/chanzuckerberg/aws-oidc.git
+
+          git tag v"${version}"+"${commit_hash}"
+          git push ${git_remote} HEAD:master --tags
+        env:
+          GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
+          GITHUB_ACTOR: ${{ secrets.CZIBUILDBOT_USERNAME }}
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v2
+        with:
+          version: latest
+          args: release --rm-dist -f .goreleaser.prerelease.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
