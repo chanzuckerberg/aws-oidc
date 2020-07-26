@@ -5,6 +5,8 @@ on:
     branches: master
     paths-ignore:
       - VERSION
+    tags-ignore:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   goreleaser:
