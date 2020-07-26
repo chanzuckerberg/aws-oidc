@@ -65,7 +65,6 @@ release: ## run a release
 .PHONY: release
 
 release-prerelease: ## release to github as a 'pre-release'
-	go build ${LDFLAGS} .
 	commit=`git rev-parse --short HEAD`; \
 	version=`cat VERSION`; \
 	git tag v"$$version"+"$$commit"; \
