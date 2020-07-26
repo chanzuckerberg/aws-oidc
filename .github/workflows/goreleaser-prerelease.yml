@@ -3,6 +3,8 @@ name: goreleaser-prerelease
 on:
   push:
     branches: master
+    paths-ignore:
+      - VERSION
 
 jobs:
   goreleaser:
