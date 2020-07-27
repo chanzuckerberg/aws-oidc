@@ -93,6 +93,16 @@ func (a *AWSConfigSTDOUTWriter) Write(p []byte) (int, error) {
 }
 
 func mergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
+	// first, delete all overlapping sections
+	for _, section := range new.Sections() {
+		// skip over the default section
+		if section.Name() == "DEFAULT" {
+			continue
+		}
+
+		old.DeleteSection(section.Name())
+	}
+
 	baseBytes := bytes.NewBuffer(nil)
 	newAWSProfileBytes := bytes.NewBuffer(nil)
 	_, err := new.WriteTo(newAWSProfileBytes)
