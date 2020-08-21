@@ -28,9 +28,9 @@ spec:
         {{- include "aws-oidc.selectorLabels" . | nindent 8 }}
       namespace: {{ .Values.namespace }}
     spec:
-      {{- with .Values.imagePullSecrets }}
+      {{- range .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+      - name: {{ . }}
       {{- end }}
       serviceAccount: {{ include "aws-oidc.serviceAccountName" . }}
       serviceAccountName: {{ include "aws-oidc.serviceAccountName" . }}
@@ -56,7 +56,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80
