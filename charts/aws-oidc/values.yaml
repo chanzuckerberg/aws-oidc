@@ -1,7 +1,7 @@
-project: si
-owner: infra-eng@chanzuckerberg.com
-env: playground
-serviceName: "aws-config-generation"
+project: ""
+owner: ""
+env: ""
+serviceName: ""
 
 namespace: ""
 
@@ -15,7 +15,7 @@ strategy: {
     type: RollingUpdate
 }
 
-image:
+container:
   repository: "docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc"
   tag: ""
   args: []
@@ -24,6 +24,21 @@ image:
       value: us-west-2
     - name: AWS_ORG_ROLE_ARNS
       value: arn:aws:iam::account-id:role/role-name
+
+readinessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+livenessProbe:
+  enabled: false
+  failureThreshold: 3
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
 
 imagePullSecrets: []
 nameOverride: ""
@@ -84,3 +99,12 @@ ingress:
       /*
     ]
   tls: []
+
+networkPolicy:
+  ingressRules:
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - port: 80
+      protocol: TCP

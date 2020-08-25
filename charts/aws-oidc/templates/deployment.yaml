@@ -44,43 +44,41 @@ spec:
       schedulerName: {{ .Values.schedulerName }}
       containers:
         - name: {{ .Chart.Name }}
-          {{- with .Values.image.args }}
+          {{- with .Values.container.args }}
           args:
           {{- toYaml . | nindent 10 }}
           {{- end }}
           env:
-          {{- range .Values.image.envs }}
+          {{- range .Values.container.envs }}
           - name: {{ .name }}
             value: {{ .value }}
           {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.container.repository }}:{{ .Values.container.tag | default .Chart.AppVersion }}"
           imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80
               protocol: TCP
+          {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
               path: /health
               port: http
               scheme: HTTP
-            failureThreshold: 3
-            initialDelaySeconds: 60
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
+            {{- with .Values.livenessProbe }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- end }}
           readinessProbe:
             httpGet:
               path: /health
               port: http
               scheme: HTTP
-            failureThreshold: 3
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
+            {{- with .Values.readinessProbe }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

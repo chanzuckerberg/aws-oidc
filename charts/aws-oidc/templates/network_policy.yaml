@@ -7,16 +7,12 @@ metadata:
   name: allow-{{ $fullName }}-external
   namespace: {{ .Values.namespace }}
 spec:
-  ingress:
-  - from:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-    ports:
-    - port: 80
-      protocol: TCP
   podSelector:
     matchLabels:
       {{- include "aws-oidc.selectorLabels" . | nindent 6 }}
   policyTypes:
   - Ingress
-
+  {{- with .Values.networkPolicy.ingressRules }}
+  ingress:
+  {{- toYaml . | nindent 4 }}
+  {{- end }}
