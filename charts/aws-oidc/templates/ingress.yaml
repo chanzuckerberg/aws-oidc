@@ -18,6 +18,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/actions.redirect: |-
       {"Type": "redirect", "RedirectConfig": {"Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.annotations.certificateArn }}
     alb.ingress.kubernetes.io/backend-protocol: "HTTP"
     alb.ingress.kubernetes.io/healthcheck-path: "/health"
     alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"

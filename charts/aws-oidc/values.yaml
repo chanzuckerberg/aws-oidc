@@ -91,6 +91,7 @@ service:
 ingress:
   enabled: true
   annotations:
+    certificateArn: ""
     securityGroup: ""
     subnets: ""
   http:
