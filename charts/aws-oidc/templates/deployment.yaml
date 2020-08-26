@@ -6,9 +6,7 @@ metadata:
   labels:
     {{- include "aws-oidc.labels" . | nindent 4 }}
 spec:
-{{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-{{- end }}
   selector:
     matchLabels:
       {{- include "aws-oidc.selectorLabels" . | nindent 6 }}
