@@ -23,7 +23,7 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-path: "/health"
     alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
     alb.ingress.kubernetes.io/listen-ports: |-
-      [{"HTTP": 80, "HTTPS": 443}],
+      [{"HTTP": 80, "HTTPS": 443}]
     alb.ingress.kubernetes.io/scheme: "internet-facing"
     alb.ingress.kubernetes.io/security-groups: {{ .Values.ingress.annotations.securityGroup }}
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-1-2017-01"
