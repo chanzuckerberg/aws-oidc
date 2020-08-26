@@ -90,6 +90,9 @@ service:
 
 ingress:
   enabled: true
+  annotations:
+    securityGroup: ""
+    subnets: ""
   http:
     paths:
       - /*
