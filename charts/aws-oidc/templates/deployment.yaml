@@ -1,3 +1,5 @@
+{{- $fullName := include "aws-oidc.fullname" . -}}
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,7 +30,7 @@ spec:
     spec:
       {{- range .Values.imagePullSecrets }}
       imagePullSecrets:
-      - name: {{ . }}
+      - name: {{ $fullName }}-image-pull-secret
       {{- end }}
       serviceAccount: {{ include "aws-oidc.serviceAccountName" . }}
       serviceAccountName: {{ include "aws-oidc.serviceAccountName" . }}
