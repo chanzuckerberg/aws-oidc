@@ -1,0 +1,114 @@
+project: ""
+owner: ""
+env: ""
+serviceName: ""
+
+namespace: ""
+
+replicaCount: 2
+
+strategy: {
+    rollingUpdate: {
+      maxSurge: 25%,
+      maxUnavailable: 25%
+    },
+    type: RollingUpdate
+}
+
+container:
+  repository: "docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc"
+  tag: ""
+  args: []
+  envs:
+    - name: AWS_REGION
+      value: us-west-2
+    - name: AWS_ORG_ROLE_ARNS
+      value: arn:aws:iam::account-id:role/role-name
+
+readinessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+livenessProbe:
+  enabled: false
+  failureThreshold: 3
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  successThreshold: 1
+  timeoutSeconds: 1
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+automountServiceAccountToken: true
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+dnsPolicy: ClusterFirst
+restartPolicy: Always
+schedulerName: default-scheduler
+
+resources: {
+  limits: {
+    cpu: 300m,
+    memory: 2Gi
+  },
+  requests: {
+    cpu: 100m,
+    memory: 1500Mi
+  }
+}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 80
+
+ingress:
+  enabled: true
+  annotations:
+    certificateArn: ""
+    securityGroup: ""
+    subnets: ""
+  http:
+    paths:
+      - /*
+  host:
+    fqdn: placeholder.example
+    paths: [
+      /*
+    ]
+  tls: []
+
+networkPolicy:
+  ingressRules:
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - port: 80
+      protocol: TCP
