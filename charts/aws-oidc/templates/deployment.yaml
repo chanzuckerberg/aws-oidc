@@ -30,7 +30,7 @@ spec:
     spec:
       {{- range .Values.imagePullSecrets }}
       imagePullSecrets:
-      - name: {{ $fullName }}-image-pull-secret
+      - name: {{ . }}
       {{- end }}
       serviceAccount: {{ include "aws-oidc.serviceAccountName" . }}
       serviceAccountName: {{ include "aws-oidc.serviceAccountName" . }}
