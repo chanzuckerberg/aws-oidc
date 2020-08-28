@@ -1,7 +1,9 @@
+{{- $fullName := include "aws-oidc.fullname" . -}}
+
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "aws-oidc.fullname" . }}
+  name: {{ $fullName }}
   namespace: {{ .Values.namespace }}
   labels:
     {{- include "aws-oidc.labels" . | nindent 4 }}

@@ -25,7 +25,6 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: |-
       [{"HTTP": 80, "HTTPS": 443}]
     alb.ingress.kubernetes.io/scheme: "internet-facing"
-    alb.ingress.kubernetes.io/security-groups: {{ .Values.ingress.annotations.securityGroup }}
     alb.ingress.kubernetes.io/ssl-policy: "ELBSecurityPolicy-TLS-1-1-2017-01"
     alb.ingress.kubernetes.io/subnets: {{ .Values.ingress.annotations.subnets }}
     alb.ingress.kubernetes.io/success-codes: "200-399"
