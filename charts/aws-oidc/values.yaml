@@ -15,9 +15,6 @@ strategy: {
     type: RollingUpdate
 }
 
-secrets:
-  dockerconfigjson: ""
-
 container:
   repository: "docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc"
   tag: ""
