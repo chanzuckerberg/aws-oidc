@@ -249,7 +249,7 @@ func getAcctAlias(ctx context.Context, svc iamiface.IAMAPI) (*string, error) {
 	input := &iam.ListAccountAliasesInput{}
 	output, err := svc.ListAccountAliasesWithContext(ctx, input)
 	if processAWSErr(err) != nil {
-		return nil, errors.Wrap(err, "coudl not get account alias")
+		return nil, errors.Wrap(err, "could not get account alias")
 	}
 
 	// no alias
@@ -271,7 +271,7 @@ func processAWSErr(err error) error {
 		return err
 	}
 	if awsErr.Code() == errAWSAccessDenied {
-		logrus.WithError(err).Errorf("AWS error %s", awsErr)
+		logrus.Errorf("AWS error: %s", awsErr.Message())
 		return nil // we skip the access denied errors, but notify on them
 	}
 

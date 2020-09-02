@@ -56,6 +56,29 @@ func TestProcessAWSError(t *testing.T) {
 	}
 }
 
+// aku: We're verifying the lines inside the processAWSError work as expected
+// We want to make sure two identical AccessDenied Errors return the same exact error
+// (we want to keep the logrus lines there, return nil if needed)
+// Even if the requestID field might be different
+func TestDuplicateAWSError(t *testing.T) {
+	r := require.New(t)
+
+	testErrors := []awserr.Error{
+		awserr.New(errAWSAccessDenied, "bla", nil),
+		awserr.New(errAWSAccessDenied, "bla", nil),
+	}
+
+	processedErrors := []error{}
+	for _, awsErr := range testErrors {
+		if awsErr.Code() == errAWSAccessDenied {
+			currentError := errors.Errorf("AWS error: %s", awsErr.Message())
+			processedErrors = append(processedErrors, currentError)
+		}
+	}
+	r.Len(processedErrors, 2)
+	r.Equal(processedErrors[0], processedErrors[1])
+}
+
 func TestGetAcctAlias(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
