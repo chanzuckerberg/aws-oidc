@@ -19,14 +19,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type test struct {
-	name     string
-	in       error
-	expected error
-}
-
 func TestProcessAWSError(t *testing.T) {
 	r := require.New(t)
+
+	type test struct {
+		name     string
+		in       error
+		expected error
+	}
 
 	tests := []test{
 		{
