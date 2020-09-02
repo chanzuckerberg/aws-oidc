@@ -2,7 +2,7 @@ name: goreleaser-prerelease
 
 on:
   push:
-    branches: master
+    branches: main
     paths-ignore:
       - VERSION
     tags-ignore:
@@ -33,7 +33,7 @@ jobs:
           git_remote=https://${GITHUB_ACTOR}:${GITHUB_TOKEN}@github.com/chanzuckerberg/aws-oidc.git
 
           git tag v"${version}"+"${commit_hash}"
-          git push ${git_remote} HEAD:master --tags
+          git push ${git_remote} HEAD:main --tags
         env:
           GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
           GITHUB_ACTOR: ${{ secrets.CZIBUILDBOT_USERNAME }}
