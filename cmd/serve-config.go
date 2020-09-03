@@ -40,7 +40,7 @@ var skipAccountList []string
 
 func init() {
 	rootCmd.AddCommand(serveConfigCmd)
-	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "port to host the aws config website")
+	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "Port to host the aws config website")
 	serveConfigCmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of parallel goroutines for account processing")
 	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
 	serveConfigCmd.Flags().StringSliceVar(&skipAccountList, "skip-accts", []string{}, "List of accounts that skip serve-config processing")

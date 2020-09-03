@@ -52,7 +52,7 @@ $ aws-oidc exec --profile <your profile> -- aws sts get-caller-identity
 }
 ```
 ### serve-config
-Deploys a service that displays an AWS Config file for any authorized visitor (see [Deployment Requirements](#deployment-requirements))
+Deploys a service that displays an AWS Config file for any authorized visitor.
 
 ### configure
 Will query your aws config service (serve-config command) to help populate your `~/.aws/config`. It will guide you through the process of setting this up.
