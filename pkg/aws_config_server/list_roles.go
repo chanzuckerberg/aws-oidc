@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
+	"github.com/chanzuckerberg/go-misc/sets"
 	"github.com/hashicorp/go-multierror"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
@@ -42,7 +43,9 @@ func getWorkerRoles(
 	session *session.Session,
 	awsOrgRoleAssumer awsOrgRoleAssumer,
 	orgRoles []string,
-	workerRoleName string) ([]workerRole, error) {
+	workerRoleName string,
+	skipAccts sets.StringSet,
+) ([]workerRole, error) {
 	ctx, span := beeline.StartSpan(ctx, "server_get_worker_roles")
 	defer span.Send()
 
@@ -53,13 +56,15 @@ func getWorkerRoles(
 			CredentialsChainVerboseErrors: aws.Bool(true),
 			Retryer:                       session.Config.Retryer,
 		}
-
 		orgClient := awsOrgRoleAssumer(orgAWSConfig)
 		accountList, err := getActiveAccountList(ctx, orgClient)
 		if err != nil {
 			return nil, errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
 		for _, acct := range accountList {
+			if skipAccts.ContainsElement(*acct.Id) {
+				continue
+			}
 			// create a new IAM session for each account
 			roleARN := &arn.ARN{
 				Partition: "aws",

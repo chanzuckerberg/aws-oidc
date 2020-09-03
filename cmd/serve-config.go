@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	CZIOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/chanzuckerberg/go-misc/sets"
 	"github.com/coreos/go-oidc"
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
@@ -34,12 +35,14 @@ type AWSRoleEnvironment struct {
 
 var concurrency int
 var awsSessionRetries int
+var skipAccountList []string
 
 func init() {
 	rootCmd.AddCommand(serveConfigCmd)
-	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "port to host the aws config website")
+	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "Port to host the aws config website")
 	serveConfigCmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of parallel goroutines for account processing")
 	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
+	serveConfigCmd.Flags().StringSliceVar(&skipAccountList, "skip-accts", []string{}, "List of AWS account IDs serve-config should ignore.")
 }
 
 var serveConfigCmd = &cobra.Command{
@@ -134,7 +137,10 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		AWSWorkerRole: awsEnv.READER_ROLE_NAME,
 		AWSOrgRoles:   awsEnv.ORG_ROLE_ARNS,
 		Concurrency:   concurrency,
+		SkipAccounts:  sets.StringSet{},
 	}
+
+	configGenerationParams.SkipAccounts.Add(skipAccountList...)
 
 	getClientIDToProfiles, err := webserver.NewCachedGetClientIDToProfiles(
 		ctx,
