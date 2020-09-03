@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/organizations/organizationsiface"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
+	"github.com/chanzuckerberg/go-misc/sets"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -401,13 +402,14 @@ func TestGetWorkerRoles(t *testing.T) {
 
 	orgRoles := []string{"first"}
 	workerRoleName := "foobar"
+	emptySkipAccountSet := sets.StringSet{}
 
 	// ignores access denied errors
 	mock.EXPECT().
 		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(awserr.New(errAWSAccessDenied, "ignore me", nil))
 
-	actual, err := getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName)
+	actual, err := getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName, emptySkipAccountSet)
 	r.NoError(err)
 	r.Empty(actual)
 
@@ -416,7 +418,7 @@ func TestGetWorkerRoles(t *testing.T) {
 		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(fmt.Errorf("do not ignore"))
 
-	actual, err = getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName)
+	actual, err = getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName, emptySkipAccountSet)
 	r.Equal(fmt.Errorf("do not ignore"), errors.Cause(err))
 	r.Empty(actual)
 
@@ -446,7 +448,68 @@ func TestGetWorkerRoles(t *testing.T) {
 				return nil
 			},
 		)
-	actual, err = getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName)
+	actual, err = getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName, emptySkipAccountSet)
+	r.NoError(err)
+	r.Equal([]workerRole{
+		{
+			role: &arn.ARN{
+				Partition: "aws",
+				Service:   "iam",
+				AccountID: "0123456789",
+				Resource:  "role/foobar",
+			},
+			accountName: "active",
+		},
+	}, actual)
+}
+
+func TestSkipAccounts(t *testing.T) {
+	ctx := context.Background()
+	r := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	client := &cziAWS.Client{}
+	_, mock := client.WithMockOrganizations(ctrl)
+
+	sess, server := cziAWS.NewMockSession()
+	defer server.Close()
+
+	orgAssumer := func(config *aws.Config) organizationsiface.OrganizationsAPI {
+		return mock
+	}
+
+	orgRoles := []string{"first"}
+	workerRoleName := "foobar"
+	skipAccountSet := sets.StringSet{}
+	skipAccountSet.Add("invalid")
+
+	// adds some active, some inactive. returns only active
+	mock.EXPECT().
+		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(
+			func(
+				ctx context.Context,
+				input *organizations.ListAccountsInput,
+				accumulator func(*organizations.ListAccountsOutput, bool) bool,
+			) error {
+				accumulator(&organizations.ListAccountsOutput{
+					Accounts: []*organizations.Account{
+						{
+							Status: aws.String("ACTIVE"),
+							Id:     aws.String("0123456789"),
+							Name:   aws.String("active"),
+						},
+						{
+							Status: aws.String("ACTIVE"),
+							Id:     aws.String("0000000000000000"),
+							Name:   aws.String("invalid"),
+						},
+					},
+				}, true)
+				return nil
+			},
+		)
+	actual, err := getWorkerRoles(ctx, sess, orgAssumer, orgRoles, workerRoleName, skipAccountSet)
 	r.NoError(err)
 	r.Equal([]workerRole{
 		{

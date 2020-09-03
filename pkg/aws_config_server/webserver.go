@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/chanzuckerberg/go-misc/sets"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
 	"github.com/honeycombio/beeline-go"
@@ -36,6 +37,7 @@ type AWSConfigGenerationParams struct {
 	AWSWorkerRole string
 	AWSOrgRoles   []string
 	Concurrency   int
+	SkipAccounts  sets.StringSet
 }
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
