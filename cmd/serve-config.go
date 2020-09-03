@@ -16,7 +16,6 @@ import (
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +42,7 @@ func init() {
 	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "Port to host the aws config website")
 	serveConfigCmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of parallel goroutines for account processing")
 	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
-	serveConfigCmd.Flags().StringSliceVar(&skipAccountList, "skip-accts", []string{}, "List of accounts that skip serve-config processing")
+	serveConfigCmd.Flags().StringSliceVar(&skipAccountList, "skip-accts", []string{}, "List of account numbers that skip serve-config processing")
 }
 
 var serveConfigCmd = &cobra.Command{
@@ -141,11 +140,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		SkipAccounts:  sets.StringSet{},
 	}
 
-	for _, skipAcct := range skipAccountList {
-		logrus.Debug(skipAcct)
-		configGenerationParams.SkipAccounts.Add(skipAcct)
-	}
-	logrus.Debugf("skipAccts: %v\n", configGenerationParams.SkipAccounts)
+	configGenerationParams.SkipAccounts.Add(skipAccountList...)
 
 	getClientIDToProfiles, err := webserver.NewCachedGetClientIDToProfiles(
 		ctx,

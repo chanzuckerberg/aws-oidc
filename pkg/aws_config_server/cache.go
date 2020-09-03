@@ -86,7 +86,7 @@ func (c *CachedGetClientIDToProfiles) refresh(
 		orgAssumer,
 		configParams.AWSOrgRoles,
 		configParams.AWSWorkerRole,
-		configParams.SkipAccounts, // note to self: should be a string set
+		configParams.SkipAccounts,
 	)
 	if err != nil {
 		return err

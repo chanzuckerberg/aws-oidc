@@ -62,7 +62,7 @@ func getWorkerRoles(
 			return nil, errors.Wrap(err, "Unable to get list of AWS Profiles")
 		}
 		for _, acct := range accountList {
-			if skipAccts.ContainsElement(*acct.Name) {
+			if skipAccts.ContainsElement(*acct.Id) {
 				continue
 			}
 			// create a new IAM session for each account

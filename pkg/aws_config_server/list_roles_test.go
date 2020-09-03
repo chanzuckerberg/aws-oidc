@@ -481,7 +481,7 @@ func TestSkipAccounts(t *testing.T) {
 	orgRoles := []string{"first"}
 	workerRoleName := "foobar"
 	skipAccountSet := sets.StringSet{}
-	skipAccountSet.Add("invalid")
+	skipAccountSet.Add("0000000000000000")
 
 	// adds some active, some inactive. returns only active
 	mock.EXPECT().
