@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "aws-oidc.fullname" . }}
-  namespace: {{ .Values.namespace }}
   labels:
     {{- include "aws-oidc.labels" . | nindent 4 }}
 spec:
@@ -24,7 +23,6 @@ spec:
     {{- end }}
       labels:
         {{- include "aws-oidc.selectorLabels" . | nindent 8 }}
-      namespace: {{ .Values.namespace }}
     spec:
       {{- range .Values.imagePullSecrets }}
       imagePullSecrets:
