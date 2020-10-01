@@ -52,10 +52,10 @@ $ aws-oidc exec --profile <your profile> -- aws sts get-caller-identity
 }
 ```
 ### serve-config
-Deploys a service that displays an AWS Config file for any authorized visitor.
+Sets up the webserver that clients ping to set up their AWS Config. 
 
 ### configure
-Will query your aws config service (serve-config command) to help populate your `~/.aws/config`. It will guide you through the process of setting this up.
+Will query the aws config service (serve-config command) to help populate your `~/.aws/config`. It will guide you through the process of setting this up.
 
 ### env
 Env is primarily here to assist when running docker locally. It requires your `~/.aws/config` to be configured through `aws-oidc configure`. You can run the following to test it out:
