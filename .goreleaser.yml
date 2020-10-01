@@ -34,7 +34,7 @@ release:
 
 brews:
   - description: 'A command line utility tool to help generate AWS STS credentials from an OIDC application.'
-    github:
+    tap:
       owner: chanzuckerberg
       name: homebrew-tap
     homepage: 'https://github.com/chanzuckerberg/aws-oidc'
