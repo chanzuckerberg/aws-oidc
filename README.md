@@ -20,7 +20,7 @@ brew install aws-oidc
 ```
 
 ## WSL2
-We have tested on WSL2 Ubuntu-18. Make sure you're [upgraded](https://docs.microsoft.com/en-us/windows/wsl/install-win10#step-5---set-wsl-2-as-your-default-version) to WSL2. A couple extra steps are required:
+We have tested on WSL2 Ubuntu-18. Make sure you've [upgraded](https://docs.microsoft.com/en-us/windows/wsl/install-win10#step-5---set-wsl-2-as-your-default-version) to WSL2. A couple extra steps are required:
 ```
 sudo apt update && sudo apt install xdg-utils
 brew tap chanzuckerberg/tap
@@ -81,6 +81,6 @@ We use standard go tools + makefiles to build aws-oidc. Getting started should b
 We follow the [Contributor Conduct](https://www.contributor-covenant.org/version/2/0/code_of_conduct/).
 
 # Copyright
-Copyright 2019-2020, Chan Zuckerberg Initiative, LLC
+Copyright 2019-2021, Chan Zuckerberg Initiative, LLC
 
 For our license, see [LICENSE](LICENSE).
