@@ -19,8 +19,8 @@ brew tap chanzuckerberg/tap
 brew install aws-oidc
 ```
 
-## WSL
-We have tested on WSL Ubuntu-18. A couple extra steps are required:
+## WSL2
+We have tested on WSL2 Ubuntu-18. Make sure you're [upgraded](https://docs.microsoft.com/en-us/windows/wsl/install-win10#step-5---set-wsl-2-as-your-default-version) to WSL2. A couple extra steps are required:
 ```
 sudo apt update && sudo apt install xdg-utils
 brew tap chanzuckerberg/tap
