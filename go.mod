@@ -15,7 +15,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/gorilla/handlers v1.4.2
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/honeycombio/beeline-go v0.5.1
+	github.com/honeycombio/beeline-go v0.11.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
@@ -28,7 +28,6 @@ require (
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/sys v0.0.0-20200724161237-0e2f3a69832c // indirect
 	golang.org/x/text v0.3.3 // indirect
 	gopkg.in/ini.v1 v1.57.0
 	gopkg.in/yaml.v2 v2.3.0 // indirect
