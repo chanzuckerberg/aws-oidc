@@ -82,18 +82,6 @@ func TestParseMultipleActions(t *testing.T) {
 		},
 	).AnyTimes()
 
-	mockIAM.EXPECT().
-		ListRoleTagsWithContext(gomock.Any(), gomock.Any()).
-		Return(&iam.ListRoleTagsOutput{}, nil)
-
-	mockIAM.EXPECT().
-		ListAccountAliases(gomock.Any()).Return(
-		&iam.ListAccountAliasesOutput{
-			AccountAliases: []*string{aws.String("Account1")},
-		},
-		nil,
-	)
-
 	iamOutput, err := listRoles(ctx, mockIAM)
 	r.NoError(err)
 	r.Len(iamOutput, 1)

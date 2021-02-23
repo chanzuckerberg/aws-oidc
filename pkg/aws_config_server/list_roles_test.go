@@ -254,22 +254,6 @@ func TestListRolesForAccountsNoRolesFound(t *testing.T) {
 	workerRoles := []workerRole{}
 	oidcProvider := "foo-provider"
 
-	mock.EXPECT().ListAccountAliasesWithContext(gomock.Any(), gomock.Any()).Return(nil, nil) // no alias
-
-	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(
-			func(
-				ctx context.Context,
-				input *iam.ListRolesInput,
-				accumulator func(*iam.ListRolesOutput, bool) bool,
-			) error {
-				accumulator(&iam.ListRolesOutput{
-					Roles: []*iam.Role{},
-				}, true)
-				return nil
-			},
-		)
 	federatedRoles, err := listRolesForAccounts(ctx, sess, roleAssumer, workerRoles, oidcProvider, 10)
 	r.NoError(err)
 	r.Empty(federatedRoles)
