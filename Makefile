@@ -46,7 +46,7 @@ test-coverage-integration:  ## run the test with proper coverage reporting
 .PHONY: test-coverage-all
 
 deps:
-	go get -u ./...
+	go get ./...
 	go mod tidy
 .PHONY: deps
 
