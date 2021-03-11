@@ -3,7 +3,7 @@ module github.com/chanzuckerberg/aws-oidc
 go 1.14
 
 require (
-	github.com/AlecAivazis/survey/v2 v2.2.8
+	github.com/AlecAivazis/survey/v2 v2.2.9
 	github.com/aws/aws-sdk-go v1.37.22
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/certifi/gocertifi v0.0.0-20200922220541-2c3bb06c6054 // indirect
