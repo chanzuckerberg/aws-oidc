@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/handlers v1.5.1
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/honeycombio/beeline-go v0.11.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
