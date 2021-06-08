@@ -46,9 +46,19 @@ var credProcessCmd = &cobra.Command{
 	RunE: credProcessRun,
 }
 
-func credProcessRun(cmd *cobra.Command, args []string) error {
-	ctx := cmd.Context()
+type cacheEntry struct {
+	Output *sts.AssumeRoleWithWebIdentityOutput,
+	Expiration time
+}
 
+func cache_pull_or_replace(cache , ctx context.Context,
+awsOIDCConfig *aws_config_client.AWSOIDCConfiguration
+) (*sts.AssumeRoleWithWebIdentityOutput, error){
+	cache_output, err:= // fetch from cache
+	if cache_output & time < cache_output.expiration {
+			return cache_output.configuration
+	} else {
+		//cache miss or stale. Fetch new results
 	assumeRoleOutput, err := assumeRole(
 		ctx,
 		&aws_config_client.AWSOIDCConfiguration{
@@ -58,6 +68,22 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 		},
 		time.Hour, // default to 1 hour
 	)
+	if err != nil {
+		return err
+	}
+	return *assumeRoleOutput.Credentials
+}
+
+func credProcessRun(cmd *cobra.Command, args []string) error {
+	ctx := cmd.Context()
+	config := &aws_config_client.AWSOIDCConfiguration{
+		ClientID:  clientID,
+		IssuerURL: issuerURL,
+		RoleARN:   roleARN,
+	}
+
+	cache := // TODO
+	cacheOutput, err := cachePullOrReplace(cache, config)
 	if err != nil {
 		return err
 	}
