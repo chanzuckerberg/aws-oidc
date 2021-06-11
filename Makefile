@@ -67,8 +67,3 @@ release: ## run a release
 fmt:
 	goimports -w -d $$(find . -type f -name '*.go' -not -path "./vendor/*")
 .PHONY: fmt
-
-check-mod:
-	go mod tidy
-	git diff --exit-code -- go.mod go.sum
-.PHONY: check-mod
