@@ -80,6 +80,8 @@ func updateCred(ctx context.Context,
 
 func credProcessRun(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	ctx, span := beeline.StartSpan(ctx, "get_cred_process_run")
+	defer span.Send()
 
 	fileLock, err := pidlock.NewLock(lockFilePath)
 	if err != nil {
