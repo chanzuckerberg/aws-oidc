@@ -13,7 +13,7 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
-	"github.com/chanzuckerberg/go-misc/oidc_cli/storage" // Not sure why this is also necessary, given above line?
+	"github.com/chanzuckerberg/go-misc/oidc_cli/storage"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
@@ -42,7 +42,7 @@ var credProcessCmd = &cobra.Command{
 
 const (
 	lockFilePath          = "/tmp/aws-oidc-cred.lock"
-	defaultFileStorageDir = "~/.oidc-cli" //Do we need a different storage directory from the rest of the CLI, here?
+	defaultFileStorageDir = "~/.oidc-cli"
 	assumeRoleTime = time.Hour // default to 1 hour
 
 )
@@ -56,7 +56,7 @@ func updateCred(ctx context.Context,
 			assumeRoleTime,
 		)
 		if err != nil {
-			return nil, err //Is this correct error handling when err is second result?
+			return nil, err
 		}
 	
 		creds := processedCred{
@@ -67,7 +67,7 @@ func updateCred(ctx context.Context,
 			Expiration:      assumeRoleOutput.Credentials.Expiration.Format(time.RFC3339),
 			CacheExpiry: 	 *assumeRoleOutput.Credentials.Expiration,
 		}
-		return &creds, nil // correct for when no error?
+		return &creds, nil
 	
 		output, err := json.MarshalIndent(creds, "", "	")
 		if err != nil {
@@ -93,6 +93,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 		IssuerURL: issuerURL,
 		RoleARN:   roleARN,
 	}
+
 	storage, err := getStorage(clientID, issuerURL)
 	if err != nil {
 		return err
@@ -151,8 +152,7 @@ func getOIDCToken(
 	)
 }
 
-// COPYPASTA from https://github.com/chanzuckerberg/go-misc/blob/53701f2e26a17e5dee3e5ee793478f442679764c/oidc_cli/token_getter.go
-// TODO - Refactor
+// TODO - Refactor out
 func getStorage(clientID string, issuerURL string) (storage.Storage, error) {
 	isWSL, err := osutil.IsWSL()
 	if err != nil {

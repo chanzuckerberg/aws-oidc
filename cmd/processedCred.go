@@ -9,15 +9,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// renamed credProcess to processedCred because I think that's more accurate
-// and delineates between the command and the datastructure
+// Used to store the parsed results from running assumeRole
 type processedCred struct {
 	Version         int    `json:"Version"`
 	AccessKeyID     string `json:"AccessKeyId"`
 	SecretAccessKey string `json:"SecretAccessKey"`
 	SessionToken    string `json:"SessionToken"`
 	Expiration      string `json:"Expiration"`
-	CacheExpiry time.Time `json: "CacheExpiration"`
+	CacheExpiry     time.Time `json: "CacheExpiration"`
 }
 
 func (pc *processedCred) IsFresh() bool {

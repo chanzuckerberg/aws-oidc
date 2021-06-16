@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 
-	// removed client
 	"github.com/chanzuckerberg/go-misc/oidc_cli/storage"
 	"github.com/chanzuckerberg/go-misc/pidlock"
 	"github.com/pkg/errors"
@@ -11,7 +10,6 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 )
 
-// Cache to cache credentials
 type Cache struct {
 	storage storage.Storage
 	lock    *pidlock.Lock
@@ -19,7 +17,6 @@ type Cache struct {
 	updateCred func(context.Context, *aws_config_client.AWSOIDCConfiguration) (*processedCred, error)
 }
 
-// Cache returns a new cache
 func NewCache(
 	storage storage.Storage,
 	credGetter func(context.Context, *aws_config_client.AWSOIDCConfiguration) (*processedCred, error),
@@ -78,7 +75,6 @@ func (c *Cache) refresh(ctx context.Context, config *aws_config_client.AWSOIDCCo
 		return nil, errors.New("invalid cred fetched")
 	}
 
-	// marshal cred, I removed processing options here because I wasn't sure how they were used.
 	strCred, err := cred.Marshal()
 	
 	if err != nil {
