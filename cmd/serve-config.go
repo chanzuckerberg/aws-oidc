@@ -22,15 +22,15 @@ import (
 var webServerPort int
 
 type OktaWebserverEnvironment struct {
-	PRIVATE_KEY       string
-	SERVICE_CLIENT_ID string
-	CLIENT_ID         string
-	ISSUER_URL        string
+	PRIVATE_KEY       string `required:"true"`
+	SERVICE_CLIENT_ID string `required:"true"`
+	CLIENT_ID         string `required:"true"`
+	ISSUER_URL        string `required:"true"`
 }
 
 type AWSRoleEnvironment struct {
-	READER_ROLE_NAME string
-	ORG_ROLE_ARNS    []string
+	READER_ROLE_NAME string   `required:"true"`
+	ORG_ROLE_ARNS    []string `required:"true"`
 }
 
 var concurrency int
