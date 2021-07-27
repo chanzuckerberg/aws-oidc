@@ -1,4 +1,4 @@
-package cred
+package creds_process
 
 import (
 	"context"

@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
-	cred "github.com/chanzuckerberg/aws-oidc/pkg/creds_process"
+	"github.com/chanzuckerberg/aws-oidc/pkg/creds_process"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
@@ -42,14 +42,14 @@ var credProcessCmd = &cobra.Command{
 }
 
 const (
-	lockFilePath          = "/tmp/aws-oidc-cred.lock"
+	lockFilePath          = "/tmp/aws-oidc-creds_process.lock"
 	defaultFileStorageDir = "~/.oidc-cli"
 	assumeRoleTime        = time.Hour // default to 1 hour
 
 )
 
 func updateCred(ctx context.Context,
-	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration) (*cred.ProcessedCred, error) {
+	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration) (*creds_process.ProcessedCred, error) {
 	assumeRoleOutput, err := assumeRole(
 		ctx,
 		awsOIDCConfig,
@@ -59,8 +59,8 @@ func updateCred(ctx context.Context,
 		return nil, err
 	}
 
-	creds := cred.ProcessedCred{
-		Version:         cred.ProcessedCredVersion,
+	creds := creds_process.ProcessedCred{
+		Version:         creds_process.ProcessedCredVersion,
 		AccessKeyID:     string(*assumeRoleOutput.Credentials.AccessKeyId),
 		SecretAccessKey: string(*assumeRoleOutput.Credentials.SecretAccessKey),
 		SessionToken:    string(*assumeRoleOutput.Credentials.SessionToken),
@@ -99,7 +99,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cache := cred.NewCache(storage, updateCred, fileLock)
+	cache := creds_process.NewCache(storage, updateCred, fileLock)
 
 	creds, err := cache.Read(ctx, config)
 	if err != nil {
