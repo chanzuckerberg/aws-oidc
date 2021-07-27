@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chanzuckerberg/go-misc/osutil"
-	"github.com/chanzuckerberg/go-misc/pidlock"
-	"github.com/mitchellh/go-homedir" // for storage, refactor out.
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
+	cred "github.com/chanzuckerberg/aws-oidc/pkg/creds_process"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
-	"github.com/chanzuckerberg/go-misc/oidc_cli/storage"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/storage"
+	"github.com/chanzuckerberg/go-misc/osutil"
+	"github.com/chanzuckerberg/go-misc/pidlock"
 	"github.com/honeycombio/beeline-go"
+	"github.com/mitchellh/go-homedir" // for storage, refactor out.
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -43,40 +44,39 @@ var credProcessCmd = &cobra.Command{
 const (
 	lockFilePath          = "/tmp/aws-oidc-cred.lock"
 	defaultFileStorageDir = "~/.oidc-cli"
-	assumeRoleTime = time.Hour // default to 1 hour
+	assumeRoleTime        = time.Hour // default to 1 hour
 
 )
 
-
 func updateCred(ctx context.Context,
-	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration) (*processedCred, error) {
-		assumeRoleOutput, err := assumeRole(
-			ctx,
-			awsOIDCConfig,
-			assumeRoleTime,
-		)
-		if err != nil {
-			return nil, err
-		}
-	
-		creds := processedCred{
-			Version:         processedCredVersion,
-			AccessKeyID:     string(*assumeRoleOutput.Credentials.AccessKeyId),
-			SecretAccessKey: string(*assumeRoleOutput.Credentials.SecretAccessKey),
-			SessionToken:    string(*assumeRoleOutput.Credentials.SessionToken),
-			Expiration:      assumeRoleOutput.Credentials.Expiration.Format(time.RFC3339),
-			CacheExpiry: 	 *assumeRoleOutput.Credentials.Expiration,
-		}
-		return &creds, nil
-	
-		output, err := json.MarshalIndent(creds, "", "	")
-		if err != nil {
-			return nil, errors.Wrap(err, "Unable to convert current credentials to json output") //error handling? as above
-		}
-		fmt.Println(string(output))
-	
-		return nil, nil
+	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration) (*cred.ProcessedCred, error) {
+	assumeRoleOutput, err := assumeRole(
+		ctx,
+		awsOIDCConfig,
+		assumeRoleTime,
+	)
+	if err != nil {
+		return nil, err
 	}
+
+	creds := cred.ProcessedCred{
+		Version:         cred.ProcessedCredVersion,
+		AccessKeyID:     string(*assumeRoleOutput.Credentials.AccessKeyId),
+		SecretAccessKey: string(*assumeRoleOutput.Credentials.SecretAccessKey),
+		SessionToken:    string(*assumeRoleOutput.Credentials.SessionToken),
+		Expiration:      assumeRoleOutput.Credentials.Expiration.Format(time.RFC3339),
+		CacheExpiry:     *assumeRoleOutput.Credentials.Expiration,
+	}
+	return &creds, nil
+
+	output, err := json.MarshalIndent(creds, "", "	")
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to convert current credentials to json output") //error handling? as above
+	}
+	fmt.Println(string(output))
+
+	return nil, nil
+}
 
 func credProcessRun(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
@@ -99,7 +99,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cache := NewCache(storage, updateCred, fileLock)
+	cache := cred.NewCache(storage, updateCred, fileLock)
 
 	creds, err := cache.Read(ctx, config)
 	if err != nil {

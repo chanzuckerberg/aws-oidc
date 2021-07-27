@@ -1,4 +1,4 @@
-package cmd
+package cred
 
 import (
 	"encoding/base64"
@@ -10,16 +10,16 @@ import (
 )
 
 // Used to store the parsed results from running assumeRole
-type processedCred struct {
-	Version         int    `json:"Version"`
-	AccessKeyID     string `json:"AccessKeyId"`
-	SecretAccessKey string `json:"SecretAccessKey"`
-	SessionToken    string `json:"SessionToken"`
-	Expiration      string `json:"Expiration"`
-	CacheExpiry     time.Time `json: "CacheExpiration"`
+type ProcessedCred struct {
+	Version         int       `json:"Version"`
+	AccessKeyID     string    `json:"AccessKeyId"`
+	SecretAccessKey string    `json:"SecretAccessKey"`
+	SessionToken    string    `json:"SessionToken"`
+	Expiration      string    `json:"Expiration"`
+	CacheExpiry     time.Time `json:"CacheExpiration"`
 }
 
-func (pc *processedCred) IsFresh() bool {
+func (pc *ProcessedCred) IsFresh() bool {
 	if pc == nil {
 		return false
 	}
@@ -27,11 +27,11 @@ func (pc *processedCred) IsFresh() bool {
 }
 
 const (
-	timeSkew = 5 * time.Minute
-	processedCredVersion = 1
+	timeSkew             = 5 * time.Minute
+	ProcessedCredVersion = 1
 )
 
-func CredFromString(credString *string, opts ...MarshalOpts) (*processedCred, error) {
+func CredFromString(credString *string, opts ...MarshalOpts) (*ProcessedCred, error) {
 	if credString == nil {
 		logrus.Debug("nil cred string")
 		return nil, nil
@@ -40,8 +40,8 @@ func CredFromString(credString *string, opts ...MarshalOpts) (*processedCred, er
 	if err != nil {
 		return nil, errors.Wrap(err, "error b64 decoding token")
 	}
-	pc := &processedCred{
-		Version: processedCredVersion,
+	pc := &ProcessedCred{
+		Version: ProcessedCredVersion,
 	}
 	err = json.Unmarshal(credBytes, pc)
 	if err != nil {
@@ -54,7 +54,7 @@ func CredFromString(credString *string, opts ...MarshalOpts) (*processedCred, er
 	return pc, nil
 }
 
-func (pc *processedCred) Marshal(opts ...MarshalOpts) (string, error) {
+func (pc *ProcessedCred) Marshal(opts ...MarshalOpts) (string, error) {
 	if pc == nil {
 		return "", errors.New("error Marshalling nil token")
 	}
@@ -74,4 +74,4 @@ func (pc *processedCred) Marshal(opts ...MarshalOpts) (string, error) {
 }
 
 // MarshalOpts changes a token for marshaling
-type MarshalOpts func(*processedCred)
+type MarshalOpts func(*ProcessedCred)

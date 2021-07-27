@@ -1,37 +1,37 @@
-package cmd
+package cred
 
 import (
 	"context"
 
+	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/storage"
 	"github.com/chanzuckerberg/go-misc/pidlock"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 )
 
 type Cache struct {
 	storage storage.Storage
 	lock    *pidlock.Lock
 
-	updateCred func(context.Context, *aws_config_client.AWSOIDCConfiguration) (*processedCred, error)
+	updateCred func(context.Context, *aws_config_client.AWSOIDCConfiguration) (*ProcessedCred, error)
 }
 
 func NewCache(
 	storage storage.Storage,
-	credGetter func(context.Context, *aws_config_client.AWSOIDCConfiguration) (*processedCred, error),
+	credGetter func(context.Context, *aws_config_client.AWSOIDCConfiguration) (*ProcessedCred, error),
 	lock *pidlock.Lock,
 ) *Cache {
 	return &Cache{
-		storage:      storage,
+		storage:    storage,
 		updateCred: credGetter,
-		lock:         lock,
+		lock:       lock,
 	}
 }
 
 // Read will attempt to read a cred from the cache
 //      if not present or expired, will refresh
-func (c *Cache) Read(ctx context.Context, config *aws_config_client.AWSOIDCConfiguration) (*processedCred, error) {
+func (c *Cache) Read(ctx context.Context, config *aws_config_client.AWSOIDCConfiguration) (*ProcessedCred, error) {
 	cachedCred, err := c.readFromStorage(ctx)
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (c *Cache) Read(ctx context.Context, config *aws_config_client.AWSOIDCConfi
 	return c.refresh(ctx, config)
 }
 
-func (c *Cache) refresh(ctx context.Context, config *aws_config_client.AWSOIDCConfiguration) (*processedCred, error) {
+func (c *Cache) refresh(ctx context.Context, config *aws_config_client.AWSOIDCConfiguration) (*ProcessedCred, error) {
 	err := c.lock.Lock()
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (c *Cache) refresh(ctx context.Context, config *aws_config_client.AWSOIDCCo
 	}
 
 	strCred, err := cred.Marshal()
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to marshall cred")
 	}
@@ -91,7 +91,7 @@ func (c *Cache) refresh(ctx context.Context, config *aws_config_client.AWSOIDCCo
 
 // reads cred from storage, potentially returning a nil/expired cred
 // users must call IsFresh to check cred validty
-func (c *Cache) readFromStorage(ctx context.Context) (*processedCred, error) {
+func (c *Cache) readFromStorage(ctx context.Context) (*ProcessedCred, error) {
 	cached, err := c.storage.Read(ctx)
 	if err != nil {
 		return nil, err
