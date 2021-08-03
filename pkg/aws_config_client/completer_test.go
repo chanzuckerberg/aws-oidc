@@ -47,7 +47,7 @@ region             = test-region
 		true, // Does this config file look right?
 	)
 
-	c := NewCompleter(prompt, generateDummyData())
+	c := NewCompleter(prompt, generateDummyData(), "", "")
 
 	testWriter := &testWriter{}
 	err = c.Complete(baseAWSConfig, testWriter)
@@ -101,7 +101,7 @@ region             = test-region
 		true, // Does this config file look right?
 	)
 
-	c := NewCompleter(prompt, generateDummyData())
+	c := NewCompleter(prompt, generateDummyData(), "", "")
 
 	testWriter := &testWriter{}
 	err := c.Complete(baseAWSConfig, testWriter)
@@ -153,7 +153,56 @@ region             = test-region
 		true,          // Does this config file look right?
 	)
 
-	c := NewCompleter(prompt, generateDummyData())
+	c := NewCompleter(prompt, generateDummyData(), "", "")
+
+	testWriter := &testWriter{}
+	err := c.Complete(newAWSProfiles, testWriter)
+	r.NoError(err)
+	r.Equal(expected, testWriter.String())
+}
+
+func TestNoSurvey(t *testing.T) {
+	r := require.New(t)
+
+	expected := `[profile account-name-with-spaces-test1RoleName]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName
+region             = test-region
+
+[profile account-name-with-spaces]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test1RoleName
+region             = test-region
+
+[profile account-name-with-spaces-test2RoleName]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=foo_client_id --aws-role-arn=test2RoleName
+region             = test-region
+
+[profile test1-test1RoleName]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
+region             = test-region
+
+[profile test1]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
+region             = test-region
+
+[profile test1-test2RoleName]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName
+region             = test-region
+
+`
+	newAWSProfiles := ini.Empty()
+
+	prompt := &MockPrompt{}
+	prompt.inputs = append(prompt.inputs,
+		true, // Does this config file look right?
+	)
+
+	c := NewCompleter(prompt, generateDummyData(), "test-region", "test1RoleName")
 
 	testWriter := &testWriter{}
 	err := c.Complete(newAWSProfiles, testWriter)
@@ -167,7 +216,7 @@ func TestNoRoles(t *testing.T) {
 	baseAWSConfig := ini.Empty()
 	prompt := &MockPrompt{}
 
-	c := NewCompleter(prompt, generateEmptyData())
+	c := NewCompleter(prompt, generateEmptyData(), "", "")
 	testWriter := &testWriter{}
 	err := c.Complete(baseAWSConfig, testWriter)
 	r.Error(err)
@@ -198,7 +247,7 @@ func TestAWSProfileNameValidator(t *testing.T) {
 		{input: "valid", err: nil},
 	}
 
-	c := NewCompleter(nil, generateDummyData())
+	c := NewCompleter(nil, generateDummyData(), "", "")
 	for _, test := range tests {
 		err := c.awsProfileNameValidator(test.input)
 		if test.err == nil {
@@ -238,7 +287,7 @@ func TestCalculateDefaultProfileName(t *testing.T) {
 
 	r := require.New(t)
 
-	c := NewCompleter(nil, generateDummyData())
+	c := NewCompleter(nil, generateDummyData(), "", "")
 	for _, test := range tests {
 		profleName := c.calculateDefaultProfileName(test.input)
 		r.Equal(test.output, profleName)

@@ -12,6 +12,8 @@ import (
 
 var configURL string
 var printOnly bool
+var defaultRegion string
+var defaultRoleName string
 
 func init() {
 	// required flags
@@ -30,6 +32,8 @@ func init() {
 		`Set this flag if you don't want aws-oidc to modify your ~/.aws/config directly.
 		 You can then configure your ~/.aws/config with the output.`,
 	)
+	configureCmd.Flags().StringVar(&defaultRegion, "default-region", "", "Region to configure for all profiles")
+	configureCmd.Flags().StringVar(&defaultRoleName, "default-role-name", "", "Default role to configure for all profiles")
 
 	rootCmd.AddCommand(configureCmd)
 }
@@ -58,6 +62,8 @@ var configureCmd = &cobra.Command{
 		completer := aws_config_client.NewCompleter(
 			survey,
 			config,
+			defaultRegion,
+			defaultRoleName,
 		)
 
 		// TODO(el): should this be configurable?
