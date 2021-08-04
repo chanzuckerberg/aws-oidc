@@ -16,18 +16,24 @@ import (
 const DefaultAWSRegion = "us-west-2"
 
 type completer struct {
-	awsConfig *server.AWSConfig
-	prompt    Prompt
+	awsConfig       *server.AWSConfig
+	prompt          Prompt
+	defaultRegion   string
+	defaultRoleName string
 }
 
 func NewCompleter(
 	prompt Prompt,
 	awsConfig *server.AWSConfig,
+	defaultRegion string,
+	defaultRoleName string,
 ) *completer {
 
 	return &completer{
-		awsConfig: awsConfig,
-		prompt:    prompt,
+		awsConfig:       awsConfig,
+		prompt:          prompt,
+		defaultRegion:   defaultRegion,
+		defaultRoleName: defaultRoleName,
 	}
 }
 
@@ -71,6 +77,10 @@ func (c *completer) calculateDefaultProfileName(account server.AWSAccount) strin
 }
 
 func (c *completer) SurveyRegion() (string, error) {
+	if c.defaultRegion != "" {
+		return c.defaultRegion, nil
+	}
+
 	return c.prompt.Input(
 		"Please input your default AWS region:",
 		DefaultAWSRegion,
@@ -125,14 +135,20 @@ func (c *completer) SurveyRoles() ([]*AWSNamedProfile, error) {
 	roles := c.awsConfig.GetRoleNames()
 	accounts := c.awsConfig.GetAccounts()
 
-	roleIdx, err := c.prompt.Select(
-		"Select the AWS role you would like to make default:",
-		roles,
-	)
-	if err != nil {
-		return nil, err
+	var targetRole string
+
+	if c.defaultRoleName == "" {
+		roleIdx, err := c.prompt.Select(
+			"Select the AWS role you would like to make default:",
+			roles,
+		)
+		if err != nil {
+			return nil, err
+		}
+		targetRole = roles[roleIdx]
+	} else {
+		targetRole = c.defaultRoleName
 	}
-	targetRole := roles[roleIdx]
 
 	configuredProfiles := []*AWSNamedProfile{}
 
@@ -197,6 +213,10 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 }
 
 func (c *completer) Survey() ([]*AWSNamedProfile, error) {
+	if c.defaultRoleName != "" {
+		return c.SurveyRoles()
+
+	}
 	configureOptions := []string{
 		"Automatically configure the same role for each account? (recommended)",
 		"Configure one role at a time? (advanced)"}
