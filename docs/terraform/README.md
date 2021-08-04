@@ -105,6 +105,7 @@ data "aws_iam_policy_document" "aws-config-generation-organizations" {
 
     resources = ["*"]
   }
+}
 ```
 - If you have multiple Organizations you can create this role in each. Note the ARNs for these roles. The Config Generation Service will look for a list in the `AWS_ORG_ROLE_ARNS` environment variables.
 
@@ -125,6 +126,7 @@ data "aws_iam_policy_document" "aws-config-generation-worker" {
 
     resources = ["*"]
   }
+}
 ```
 - You can now deploy the AWS Config Generation Service in your framework of choice. `aws-oidc serve-config` will launch the service, by default on port `8080`. You will need to set all the environment variables from previous steps.
 
