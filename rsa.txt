@@ -1,3 +1,5 @@
+# Dummy secrets to test secret scanning on this repo.
+
 -----BEGIN RSA PRIVATE KEY-----
 MIICWwIBAAKBgGvOuDMRDJQEAYLQd443pVixCC4Vc7hijYhoW2gNsLb/sb/s1Ey+
 8bEhZt5hBAp/yWWRSuPgTGv8YgkTI+8C3YhqPb55icWG1tIVpNugAIaCMoe5Z2Bc
@@ -13,3 +15,6 @@ M1WYa6QhzBwej6zeBpQPAUrs0tc+Q+C/hZsFSzaupnLuvJ2IySPUkxjNfKEAjeRM
 8cLY1rAtgVvJT1cZ+wJAfOsZiYQltc6O4F7aXFqIZT0mm8xbZkXtCz8D34HDhODP
 cPUAzzPhqiGq7ub9M1tcADmRIezTZjcsJnzUiqmQNQ==
 -----END RSA PRIVATE KEY-----
+
+
+Other API Key = "PMAK-6138e18eab2416004da8fca2-51f1103608ad8e21cd40c37bdad3af87f3"
