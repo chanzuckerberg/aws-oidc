@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
@@ -71,6 +74,14 @@ var configureCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrap(err, "Could not parse aws config file path")
 		}
+
+		// create .aws dir if not present
+		awsConfigDirPath := filepath.Dir(awsConfigPath)
+		err = os.MkdirAll(awsConfigDirPath, 0775)
+		if err != nil {
+			return errors.Wrap(err, "could not create dir %s")
+		}
+
 		// LooseLoad ignores the aws config file if missing
 		originalConfig, err := ini.LooseLoad(awsConfigPath)
 		if err != nil {
