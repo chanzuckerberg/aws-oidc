@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/iam"
 	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 	"github.com/golang/mock/gomock"
@@ -71,11 +72,12 @@ func TestParseMultipleActions(t *testing.T) {
 	_, mockIAM := client.WithMockIAM(ctrl)
 
 	mockIAM.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			ctx context.Context,
 			input *iam.ListRolesInput,
 			accumulatorFunc func(*iam.ListRolesOutput, bool) bool,
+			arg3 ...request.Option,
 		) error {
 			accumulatorFunc(&iam.ListRolesOutput{Roles: testRoles3}, true)
 			return nil

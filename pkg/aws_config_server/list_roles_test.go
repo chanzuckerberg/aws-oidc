@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/organizations"
@@ -137,12 +138,13 @@ func TestGetActiveAccountList(t *testing.T) {
 
 	// adds some active, some inactive. returns only active
 	mock.EXPECT().
-		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
 				input *organizations.ListAccountsInput,
 				accumulator func(*organizations.ListAccountsOutput, bool) bool,
+				arg3 ...request.Option,
 			) error {
 				accumulator(&organizations.ListAccountsOutput{
 					Accounts: []*organizations.Account{
@@ -191,12 +193,13 @@ func TestListRoles(t *testing.T) {
 
 	// adds some active, some inactive. returns only active
 	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
 				input *iam.ListRolesInput,
 				accumulator func(*iam.ListRolesOutput, bool) bool,
+				arg3 ...request.Option,
 			) error {
 				accumulator(&iam.ListRolesOutput{
 					Roles: []*iam.Role{
@@ -309,12 +312,13 @@ func TestListRolesForAccountsRolesFound(t *testing.T) {
 	mock.EXPECT().ListAccountAliasesWithContext(gomock.Any(), gomock.Any()).Return(nil, nil) // no alias
 
 	mock.EXPECT().
-		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		ListRolesPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
 				input *iam.ListRolesInput,
 				accumulator func(*iam.ListRolesOutput, bool) bool,
+				arg3 ...request.Option,
 			) error {
 				accumulator(&iam.ListRolesOutput{
 					Roles: roles,
@@ -327,7 +331,8 @@ func TestListRolesForAccountsRolesFound(t *testing.T) {
 	mock.EXPECT().
 		ListRoleTagsWithContext(
 			gomock.Any(),
-			gomock.Eq(&iam.ListRoleTagsInput{RoleName: aws.String("bar")})).
+			gomock.Eq(&iam.ListRoleTagsInput{RoleName: aws.String("bar")}),
+			gomock.Any()).
 		Return(&iam.ListRoleTagsOutput{
 			Tags: []*iam.Tag{
 				{
@@ -408,12 +413,13 @@ func TestGetWorkerRoles(t *testing.T) {
 
 	// adds some active, some inactive. returns only active
 	mock.EXPECT().
-		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
 				input *organizations.ListAccountsInput,
 				accumulator func(*organizations.ListAccountsOutput, bool) bool,
+				arg3 ...request.Option,
 			) error {
 				accumulator(&organizations.ListAccountsOutput{
 					Accounts: []*organizations.Account{
@@ -469,12 +475,13 @@ func TestSkipAccounts(t *testing.T) {
 
 	// adds some active, some inactive. returns only active
 	mock.EXPECT().
-		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		ListAccountsPagesWithContext(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
 				input *organizations.ListAccountsInput,
 				accumulator func(*organizations.ListAccountsOutput, bool) bool,
+				arg3 ...request.Option,
 			) error {
 				accumulator(&organizations.ListAccountsOutput{
 					Accounts: []*organizations.Account{
