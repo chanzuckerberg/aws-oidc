@@ -17,7 +17,7 @@ clean: ## clean the repo
 
 setup: # setup development dependencies
 	export GO111MODULE=on
-	go install github.com/goreleaser/goreleaser@latest
+	go install github.com/goreleaser/goreleaser@v1.5.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0
 	curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh| sh -s -- v0.9.14
 	curl -sfL https://raw.githubusercontent.com/chanzuckerberg/bff/main/download.sh | sh
