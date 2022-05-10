@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.4
-	github.com/aws/aws-sdk-go v1.44.8
+	github.com/aws/aws-sdk-go v1.44.10
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/chanzuckerberg/go-misc v0.0.0-20220427140813-f56b2102d4f1
 	github.com/coreos/go-oidc v2.2.1+incompatible
