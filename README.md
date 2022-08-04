@@ -80,6 +80,9 @@ We use standard go tools + makefiles to build aws-oidc. Getting started should b
 
 We follow the [Contributor Conduct](https://www.contributor-covenant.org/version/2/0/code_of_conduct/).
 
+## Releases
+Each time a change gets merged to main, GitHub Actions triggers a release process. The build gets pushed to our [chanzuckerberg/homebrew-tap](https://github.com/chanzuckerberg/homebrew-tap) repo so you can pull the latest version using `brew`.
+
 # Copyright
 Copyright 2019-2021, Chan Zuckerberg Initiative, LLC
 
