@@ -13,18 +13,19 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - '-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true'
+      - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true"
 
-dockers:
-  - dockerfile: Dockerfile
-    image_templates:
-      - docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc:v{{.Version}}
-    extra_files:
-      - cmd
-      - pkg
-      - go.mod
-      - go.sum
-      - main.go
+# This is broken and needs to be fixed, commenting out so that we can release to brew a high priority fix
+# dockers:
+#   - dockerfile: Dockerfile
+#     image_templates:
+#       - docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc:v{{.Version}}
+#     extra_files:
+#       - cmd
+#       - pkg
+#       - go.mod
+#       - go.sum
+#       - main.go
 
 archives:
   - files:
@@ -34,12 +35,9 @@ release:
   prerelease: false
 
 brews:
-  - description: 'A command line utility tool to help generate AWS STS credentials from an OIDC application.'
+  - description: "A command line utility tool to help generate AWS STS credentials from an OIDC application."
     tap:
       owner: chanzuckerberg
       name: homebrew-tap
-    homepage: 'https://github.com/chanzuckerberg/aws-oidc'
+    homepage: "https://github.com/chanzuckerberg/aws-oidc"
     test: system "#{bin}/aws-oidc version"
-
-env_files:
-  github_token: ~/.config/goreleaser/github_token
