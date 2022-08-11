@@ -1,9 +1,5 @@
-before:
-  hooks:
-    - make clean
-
 builds:
-  - binary: aws-oidc
+  - binary: aws-oidc-rc
     env:
       - CGO_ENABLED=0
     goos:
@@ -33,12 +29,17 @@ nfpms:
     formats:
       - deb
 
-archives:
-  - files:
-      - none*
-
 release:
   prerelease: true
+  github:
+    owner: chanzuckerberg
+    name: aws-oidc
 
-env_files:
-  github_token: ~/.config/goreleaser/github_token
+brews:
+  - description: "A command line utility tool to help generate AWS STS credentials from an OIDC application."
+    name : "aws-oidc-rc"
+    tap:
+      owner: chanzuckerberg
+      name: homebrew-tap
+    homepage: "https://github.com/chanzuckerberg/aws-oidc"
+    test: system "#{bin}/aws-oidc-rc"
