@@ -14,7 +14,6 @@ builds:
       - arm64
     ldflags:
       - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true"
-
 # This is broken and needs to be fixed, commenting out so that we can release to brew a high priority fix
 # dockers:
 #   - dockerfile: Dockerfile
