@@ -1,7 +1,3 @@
-before:
-  hooks:
-    - make clean
-
 builds:
   - binary: aws-oidc
     env:
@@ -13,22 +9,10 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true"
-# This is broken and needs to be fixed, commenting out so that we can release to brew a high priority fix
-# dockers:
-#   - dockerfile: Dockerfile
-#     image_templates:
-#       - docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc:v{{.Version}}
-#     extra_files:
-#       - cmd
-#       - pkg
-#       - go.mod
-#       - go.sum
-#       - main.go
+      - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.ReleaseGitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.ReleaseVersion={{.Version}}"
+    flags:
+      - -trimpath
 
-archives:
-  - files:
-      - none*
 release:
   github:
     owner: chanzuckerberg
@@ -40,4 +24,4 @@ brews:
       owner: chanzuckerberg
       name: homebrew-tap
     homepage: "https://github.com/chanzuckerberg/aws-oidc"
-    test: system "#{bin}/aws-oidc version"
+    test: system "#{bin}/aws-oidc"
