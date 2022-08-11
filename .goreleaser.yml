@@ -30,9 +30,10 @@ builds:
 archives:
   - files:
       - none*
-
 release:
-  prerelease: false
+  github:
+    owner: chanzuckerberg
+    name: aws-oidc
 
 brews:
   - description: "A command line utility tool to help generate AWS STS credentials from an OIDC application."
