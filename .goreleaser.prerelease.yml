@@ -13,6 +13,24 @@ builds:
     flags:
       - -trimpath
 
+dockers:
+  - dockerfile: Dockerfile
+    image_templates:
+      - docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc:{{.ShortCommit}}
+    extra_files:
+      - cmd
+      - pkg
+      - go.mod
+      - go.sum
+      - main.go
+
+nfpms:
+  - vendor: Chan Zuckerberg Initiative, LLC
+    license: MIT
+    description: AWS cli single sign on using OIDC
+    formats:
+      - deb
+
 release:
   prerelease: true
   github:

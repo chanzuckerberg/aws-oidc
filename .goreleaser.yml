@@ -12,7 +12,16 @@ builds:
       - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.ReleaseGitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.ReleaseVersion={{.Version}}"
     flags:
       - -trimpath
-
+dockers:
+  - dockerfile: Dockerfile
+    image_templates:
+      - docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc:v{{.Version}}
+    extra_files:
+      - cmd
+      - pkg
+      - go.mod
+      - go.sum
+      - main.go
 release:
   github:
     owner: chanzuckerberg
