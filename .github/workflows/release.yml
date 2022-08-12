@@ -50,6 +50,14 @@ jobs:
         with:
           go-version: 1.18
         if: ${{ steps.release.outputs.release_created }}
+
+      - name: Log in to Docker GitHub registry
+        run: |
+          docker login docker.pkg.github.com -u ${GITHUB_ACTOR} -p ${GITHUB_TOKEN}
+        env:
+          GITHUB_ACTOR: ${{ secrets.CZIBUILDBOT_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v2
         with:
@@ -97,6 +105,13 @@ jobs:
 
           git tag -a "${VERSION}" -m "${MESSAGE}"
           git push origin "${VERSION}"
+
+      - name: Log in to Docker GitHub registry
+        run: |
+          docker login docker.pkg.github.com -u ${GITHUB_ACTOR} -p ${GITHUB_TOKEN}
+        env:
+          GITHUB_ACTOR: ${{ secrets.CZIBUILDBOT_USERNAME }}
+          GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
 
       - name: Prerelease
         uses: goreleaser/goreleaser-action@v2

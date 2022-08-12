@@ -42,4 +42,4 @@ brews:
       owner: chanzuckerberg
       name: homebrew-tap
     homepage: "https://github.com/chanzuckerberg/aws-oidc"
-    test: system "#{bin}/aws-oidc-rc"
+    test: system "#{bin}/aws-oidc version"

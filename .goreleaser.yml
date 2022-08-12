@@ -10,8 +10,6 @@ builds:
       - arm64
     ldflags:
       - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true"
-    flags:
-      - -trimpath
 dockers:
   - dockerfile: Dockerfile
     image_templates:
@@ -33,4 +31,4 @@ brews:
       owner: chanzuckerberg
       name: homebrew-tap
     homepage: "https://github.com/chanzuckerberg/aws-oidc"
-    test: system "#{bin}/aws-oidc"
+    test: system "#{bin}/aws-oidc version"
