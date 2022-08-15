@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.24.9](https://github.com/chanzuckerberg/aws-oidc/compare/v0.24.8...v0.24.9) (2022-08-15)
+
+
+### BugFixes
+
+* add docker login step to release actions ([#374](https://github.com/chanzuckerberg/aws-oidc/issues/374)) ([5fe6c12](https://github.com/chanzuckerberg/aws-oidc/commit/5fe6c1214700db17c54dd92e37c11a8a8904676f))
+
+
+### Misc
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.44.73 to 1.44.76 ([#376](https://github.com/chanzuckerberg/aws-oidc/issues/376)) ([2a0d35c](https://github.com/chanzuckerberg/aws-oidc/commit/2a0d35cc1b982fd0e2f144f07fa2d0f6dd173d30))
+
 ## [0.24.8](https://github.com/chanzuckerberg/aws-oidc/compare/v0.24.7...v0.24.8) (2022-08-11)
 
 
