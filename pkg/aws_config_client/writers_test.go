@@ -72,7 +72,6 @@ output = json
 region             = us-west-2
 output             = json
 credential_process = aws-oidc creds-process --issuer-url=foo --client-id=foo --aws-role-arn=arn:aws:iam::01234567890:role/foo
-
 `
 
 	oldINI, err := ini.Load([]byte(old))

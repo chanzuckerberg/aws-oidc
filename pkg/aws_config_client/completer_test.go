@@ -32,7 +32,6 @@ func TestRemoveOldProfile(t *testing.T) {
 output             = json
 credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
-
 `
 	prompt := &MockPrompt{}
 	prompt.inputs = append(prompt.inputs,
@@ -73,7 +72,6 @@ region             = test-region
 output             = json
 credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test1RoleName
 region             = test-region
-
 `
 
 	baseAWSConfig := ini.Empty()
@@ -141,7 +139,6 @@ region             = test-region
 output             = json
 credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName
 region             = test-region
-
 `
 	newAWSProfiles := ini.Empty()
 
@@ -193,7 +190,6 @@ region             = test-region
 output             = json
 credential_process = aws-oidc creds-process --issuer-url=issuer-url --client-id=bar_client_id --aws-role-arn=test2RoleName
 region             = test-region
-
 `
 	newAWSProfiles := ini.Empty()
 
