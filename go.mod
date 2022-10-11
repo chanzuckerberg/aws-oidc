@@ -28,7 +28,6 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.2.0 // indirect
-	github.com/alessio/shellescape v1.4.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
@@ -76,4 +75,5 @@ require (
 
 // breaking change for mac keychains
 exclude github.com/zalando/go-keyring v0.2.0
+
 exclude github.com/zalando/go-keyring v0.2.1
