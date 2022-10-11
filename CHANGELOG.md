@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.2...v0.25.3) (2022-10-11)
+
+
+### BugFixes
+
+* go-keyring downgrade ([#422](https://github.com/chanzuckerberg/aws-oidc/issues/422)) ([ee588a6](https://github.com/chanzuckerberg/aws-oidc/commit/ee588a6a19973fae682c00ad80d873ff6245716e))
+
 ## [0.25.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.1...v0.25.2) (2022-10-10)
 
 
