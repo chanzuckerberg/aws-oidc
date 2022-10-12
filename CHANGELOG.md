@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.3...v0.25.4) (2022-10-12)
+
+
+### Misc
+
+* bump github.com/spf13/cobra from 1.5.0 to 1.6.0 ([#424](https://github.com/chanzuckerberg/aws-oidc/issues/424)) ([eecf02a](https://github.com/chanzuckerberg/aws-oidc/commit/eecf02ae0536db737ca73e6a1596b9d486849d94))
+* Prevent dependabot from upgrading broken dep ([#426](https://github.com/chanzuckerberg/aws-oidc/issues/426)) ([72a83cc](https://github.com/chanzuckerberg/aws-oidc/commit/72a83cc2def989058cb963de19c2f3306122a20c))
+
 ## [0.25.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.2...v0.25.3) (2022-10-11)
 
 
