@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.5](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.4...v0.25.5) (2022-10-13)
+
+
+### Misc
+
+* bump github.com/honeycombio/beeline-go from 1.10.0 to 1.11.0 ([#427](https://github.com/chanzuckerberg/aws-oidc/issues/427)) ([3052a70](https://github.com/chanzuckerberg/aws-oidc/commit/3052a70a6e7737a5f5dab11e485e13dcab9a1945))
+
 ## [0.25.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.3...v0.25.4) (2022-10-12)
 
 
