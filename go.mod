@@ -18,7 +18,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/okta/okta-sdk-golang/v2 v2.14.0
-	github.com/peterhellberg/link v1.1.0
+	github.com/peterhellberg/link v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
