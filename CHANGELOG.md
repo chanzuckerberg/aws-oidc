@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.7](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.6...v0.25.7) (2022-12-07)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.44.147 to 1.44.151 ([#468](https://github.com/chanzuckerberg/aws-oidc/issues/468)) ([adb6b47](https://github.com/chanzuckerberg/aws-oidc/commit/adb6b47f046a70720887d412a4765dcdbf870178))
+* bump github.com/aws/aws-sdk-go from 1.44.151 to 1.44.154 ([#471](https://github.com/chanzuckerberg/aws-oidc/issues/471)) ([8cfe181](https://github.com/chanzuckerberg/aws-oidc/commit/8cfe181de333bc56c41502d378f48a6ace980a00))
+* bump github.com/okta/okta-sdk-golang/v2 from 2.15.0 to 2.16.0 ([#466](https://github.com/chanzuckerberg/aws-oidc/issues/466)) ([9fb7d8c](https://github.com/chanzuckerberg/aws-oidc/commit/9fb7d8cbbc54147762230d01a5517e510610b4cb))
+* Upgrade Docker builder image to go 1.19 ([#473](https://github.com/chanzuckerberg/aws-oidc/issues/473)) ([0f4165f](https://github.com/chanzuckerberg/aws-oidc/commit/0f4165fcdf2736fe4667a2a09e88b24fcaf6b4dd))
+
 ## [0.25.6](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.5...v0.25.6) (2022-10-14)
 
 
