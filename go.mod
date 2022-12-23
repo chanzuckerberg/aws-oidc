@@ -6,7 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/aws/aws-sdk-go v1.44.166
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/chanzuckerberg/go-misc v0.0.0-20221213143904-b3bd2223ae17
+	github.com/chanzuckerberg/go-misc v1.0.0
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/go-errors/errors v1.4.2
@@ -77,3 +77,5 @@ require (
 exclude github.com/zalando/go-keyring v0.2.0
 
 exclude github.com/zalando/go-keyring v0.2.1
+
+replace github.com/zalando/go-keyring => github.com/zalando/go-keyring v0.1.1
