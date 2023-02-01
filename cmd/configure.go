@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
-	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
-	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
+	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -46,7 +46,7 @@ var configureCmd = &cobra.Command{
 	Short: "aws-oidc configure",
 	Long:  "Configure helps you configure your aws config. Depends on a config generation service running.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, err := oidc.GetToken(
+		token, err := oidc_impl.GetToken(
 			cmd.Context(),
 			clientID,
 			issuerURL,

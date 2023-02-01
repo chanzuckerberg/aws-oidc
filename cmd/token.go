@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -41,7 +41,7 @@ var tokenCmd = &cobra.Command{
 			Version: stdoutTokenVersion,
 		}
 
-		token, err := oidc.GetToken(
+		token, err := oidc_impl.GetToken(
 			cmd.Context(),
 			clientID,
 			issuerURL,

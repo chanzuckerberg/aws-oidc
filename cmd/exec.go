@@ -6,8 +6,8 @@ import (
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
-	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
-	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
+	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -75,7 +75,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	token, err := oidc.GetToken(
+	token, err := oidc_impl.GetToken(
 		ctx,
 		awsOIDCConfig.ClientID,
 		awsOIDCConfig.IssuerURL,
