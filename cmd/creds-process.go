@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
-	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
@@ -107,7 +107,7 @@ func getOIDCToken(
 	ctx, span := beeline.StartSpan(ctx, "get_oidc_token")
 	defer span.Send()
 
-	return oidc.GetToken(
+	return oidc_impl.GetToken(
 		ctx,
 		awsOIDCConfig.ClientID,
 		awsOIDCConfig.IssuerURL,
