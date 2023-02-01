@@ -7,7 +7,7 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	oidc "github.com/chanzuckerberg/go-misc/oidc_cli"
-	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"

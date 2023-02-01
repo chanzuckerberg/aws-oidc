@@ -10,7 +10,7 @@ import (
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/util"
-	"github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/propagation"
 	"github.com/pkg/errors"

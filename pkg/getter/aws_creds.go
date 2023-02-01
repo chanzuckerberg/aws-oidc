@@ -7,7 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
-	client "github.com/chanzuckerberg/go-misc/oidc_cli/client"
+	client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/pkg/errors"
 )
