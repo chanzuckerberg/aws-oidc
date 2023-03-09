@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.45](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.44...v0.25.45) (2023-03-09)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.44.214 to 1.44.215 ([#574](https://github.com/chanzuckerberg/aws-oidc/issues/574)) ([fdeb778](https://github.com/chanzuckerberg/aws-oidc/commit/fdeb778f2e12bd9f36c94ddf4561d5ccdc13c90b))
+* bump github.com/aws/aws-sdk-go from 1.44.215 to 1.44.216 ([#577](https://github.com/chanzuckerberg/aws-oidc/issues/577)) ([5cb733e](https://github.com/chanzuckerberg/aws-oidc/commit/5cb733eb74aa2adedf73d64cef34eb7f8a411675))
+* bump github.com/aws/aws-sdk-go from 1.44.216 to 1.44.217 ([#578](https://github.com/chanzuckerberg/aws-oidc/issues/578)) ([7b65a0f](https://github.com/chanzuckerberg/aws-oidc/commit/7b65a0ff9c7e9299fa6b850cd68a3d4c73abb5b1))
+* bump github.com/okta/okta-sdk-golang/v2 from 2.16.0 to 2.17.0 ([#575](https://github.com/chanzuckerberg/aws-oidc/issues/575)) ([90e1c4a](https://github.com/chanzuckerberg/aws-oidc/commit/90e1c4a8d491adb134456da1f1b03b063d43c0d8))
+
 ## [0.25.44](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.43...v0.25.44) (2023-03-06)
 
 
