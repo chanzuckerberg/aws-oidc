@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.56](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.55...v0.25.56) (2023-04-05)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.44.235 to 1.44.236 ([#608](https://github.com/chanzuckerberg/aws-oidc/issues/608)) ([44891bf](https://github.com/chanzuckerberg/aws-oidc/commit/44891bf88d5022c9fde19570dee25bdabaf297f7))
+* bump github.com/spf13/cobra from 1.6.1 to 1.7.0 ([#609](https://github.com/chanzuckerberg/aws-oidc/issues/609)) ([1b71c91](https://github.com/chanzuckerberg/aws-oidc/commit/1b71c91f2dcf33ae4973b25e232944c53a955ffb))
+
 ## [0.25.55](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.54...v0.25.55) (2023-04-04)
 
 
