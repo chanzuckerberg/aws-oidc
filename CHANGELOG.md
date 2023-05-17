@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.69](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.68...v0.25.69) (2023-05-17)
+
+
+### Misc
+
+* bump github.com/sirupsen/logrus from 1.9.0 to 1.9.1 ([#653](https://github.com/chanzuckerberg/aws-oidc/issues/653)) ([fd036db](https://github.com/chanzuckerberg/aws-oidc/commit/fd036db7640b8b1b235dd968ac1d9ea2ba5a7057))
+
 ## [0.25.68](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.67...v0.25.68) (2023-05-11)
 
 
