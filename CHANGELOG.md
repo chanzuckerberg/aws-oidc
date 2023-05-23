@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.71](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.70...v0.25.71) (2023-05-23)
+
+
+### Misc
+
+* bump github.com/stretchr/testify from 1.8.2 to 1.8.3 ([#658](https://github.com/chanzuckerberg/aws-oidc/issues/658)) ([f46d836](https://github.com/chanzuckerberg/aws-oidc/commit/f46d83665d42e484e44fc3d286ba74556e783221))
+
 ## [0.25.70](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.69...v0.25.70) (2023-05-18)
 
 
