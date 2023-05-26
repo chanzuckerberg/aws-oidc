@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.72](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.71...v0.25.72) (2023-05-26)
+
+
+### Misc
+
+* bump github.com/chanzuckerberg/go-misc from 1.0.9 to 1.10.0 ([#663](https://github.com/chanzuckerberg/aws-oidc/issues/663)) ([290deb1](https://github.com/chanzuckerberg/aws-oidc/commit/290deb1dabbba15b4d68b65cf9bf68516546b35d))
+
 ## [0.25.71](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.70...v0.25.71) (2023-05-23)
 
 
