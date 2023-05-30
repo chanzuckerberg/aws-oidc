@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.73](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.72...v0.25.73) (2023-05-30)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.44.269 to 1.44.271 ([#665](https://github.com/chanzuckerberg/aws-oidc/issues/665)) ([1ee6eb5](https://github.com/chanzuckerberg/aws-oidc/commit/1ee6eb5025ab8bec585031aea7400d6725767194))
+* bump github.com/stretchr/testify from 1.8.3 to 1.8.4 ([#666](https://github.com/chanzuckerberg/aws-oidc/issues/666)) ([97c801c](https://github.com/chanzuckerberg/aws-oidc/commit/97c801cacca3af04c782b1dd43f81a4a8a351eaf))
+
 ## [0.25.72](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.71...v0.25.72) (2023-05-26)
 
 
