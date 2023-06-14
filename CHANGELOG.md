@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.77](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.76...v0.25.77) (2023-06-14)
+
+
+### Misc
+
+* bump github.com/AlecAivazis/survey/v2 from 2.3.6 to 2.3.7 ([#682](https://github.com/chanzuckerberg/aws-oidc/issues/682)) ([eb639d0](https://github.com/chanzuckerberg/aws-oidc/commit/eb639d098f87499b8cd9b350ea3c88dcc4873c3e))
+* bump github.com/aws/aws-sdk-go from 1.44.277 to 1.44.280 ([#679](https://github.com/chanzuckerberg/aws-oidc/issues/679)) ([5fb236f](https://github.com/chanzuckerberg/aws-oidc/commit/5fb236fcf38923cba34bf9c7f2abddcb7a09fa79))
+
 ## [0.25.76](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.75...v0.25.76) (2023-06-09)
 
 
