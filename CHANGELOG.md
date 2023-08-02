@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.25.90](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.89...v0.25.90) (2023-08-02)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.44.309 to 1.44.312 ([#725](https://github.com/chanzuckerberg/aws-oidc/issues/725)) ([a2dc901](https://github.com/chanzuckerberg/aws-oidc/commit/a2dc901e0050dde66d1403806786efbc338dd664))
+* bump github.com/aws/aws-sdk-go from 1.44.312 to 1.44.313 ([#730](https://github.com/chanzuckerberg/aws-oidc/issues/730)) ([360fcb0](https://github.com/chanzuckerberg/aws-oidc/commit/360fcb0368b8d464ec8ef6f4d02fe9a431454504))
+* bump github.com/aws/aws-sdk-go from 1.44.313 to 1.44.314 ([#731](https://github.com/chanzuckerberg/aws-oidc/issues/731)) ([2d2602b](https://github.com/chanzuckerberg/aws-oidc/commit/2d2602b3d858ce48f0ff93afcad09290468d3264))
+* bump github.com/chanzuckerberg/go-misc from 1.10.2 to 1.10.3 ([#726](https://github.com/chanzuckerberg/aws-oidc/issues/726)) ([3511cbf](https://github.com/chanzuckerberg/aws-oidc/commit/3511cbf799001db1a204cd01b7fe7a026a47385d))
+* bump github.com/chanzuckerberg/go-misc from 1.10.3 to 1.10.4 ([#728](https://github.com/chanzuckerberg/aws-oidc/issues/728)) ([f13d2a2](https://github.com/chanzuckerberg/aws-oidc/commit/f13d2a20726e412c076772ce80f24916234651f5))
+* bump github.com/honeycombio/beeline-go from 1.12.0 to 1.13.0 ([#729](https://github.com/chanzuckerberg/aws-oidc/issues/729)) ([0170e2f](https://github.com/chanzuckerberg/aws-oidc/commit/0170e2f26e589cff5b6c6550bbf3632280c8bd94))
+
 ## [0.25.89](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.88...v0.25.89) (2023-07-27)
 
 
