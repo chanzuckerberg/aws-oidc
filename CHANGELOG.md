@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.26.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.92...v0.26.0) (2023-08-08)
+
+
+### Features
+
+* allow dependabot to automerge ([#737](https://github.com/chanzuckerberg/aws-oidc/issues/737)) ([a20bce2](https://github.com/chanzuckerberg/aws-oidc/commit/a20bce2169ae6b93673e78341e7ff1b9570d2dbc))
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.44.317 to 1.44.318 ([#739](https://github.com/chanzuckerberg/aws-oidc/issues/739)) ([42eb492](https://github.com/chanzuckerberg/aws-oidc/commit/42eb49221ed81ae24b805e225f9777bc951feb66))
+
 ## [0.25.92](https://github.com/chanzuckerberg/aws-oidc/compare/v0.25.91...v0.25.92) (2023-08-04)
 
 
