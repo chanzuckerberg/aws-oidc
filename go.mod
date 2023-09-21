@@ -8,7 +8,7 @@ require (
 	github.com/chanzuckerberg/go-misc v1.10.7
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
-	github.com/go-errors/errors v1.5.0
+	github.com/go-errors/errors v1.5.1
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/hashicorp/go-multierror v1.1.1
