@@ -1,6 +1,7 @@
 module github.com/chanzuckerberg/aws-oidc
 
-go 1.21
+go 1.20
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/aws/aws-sdk-go v1.45.17
