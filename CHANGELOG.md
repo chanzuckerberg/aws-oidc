@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.28.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.27.0...v0.28.0) (2023-09-27)
+
+
+### Features
+
+* Downgrade go to 1.20 ([#792](https://github.com/chanzuckerberg/aws-oidc/issues/792)) ([d57d4e1](https://github.com/chanzuckerberg/aws-oidc/commit/d57d4e184366e0a340218605cf68a370b218d615))
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.45.12 to 1.45.13 ([#787](https://github.com/chanzuckerberg/aws-oidc/issues/787)) ([9d42752](https://github.com/chanzuckerberg/aws-oidc/commit/9d42752bf1be7b3bac580d99d981be8622a644a1))
+* bump github.com/aws/aws-sdk-go from 1.45.13 to 1.45.14 ([#788](https://github.com/chanzuckerberg/aws-oidc/issues/788)) ([77c2d5e](https://github.com/chanzuckerberg/aws-oidc/commit/77c2d5e39bb4ad0f0f32bbabea4bba8df9eb300d))
+* bump github.com/aws/aws-sdk-go from 1.45.14 to 1.45.15 ([#790](https://github.com/chanzuckerberg/aws-oidc/issues/790)) ([0ab7df4](https://github.com/chanzuckerberg/aws-oidc/commit/0ab7df4b92566a042856b61658d3a7b0b86239de))
+* bump github.com/aws/aws-sdk-go from 1.45.15 to 1.45.16 ([#791](https://github.com/chanzuckerberg/aws-oidc/issues/791)) ([c255f29](https://github.com/chanzuckerberg/aws-oidc/commit/c255f29848da0e80b932a43fd8ef13cce9407b3f))
+* bump github.com/aws/aws-sdk-go from 1.45.16 to 1.45.17 ([#793](https://github.com/chanzuckerberg/aws-oidc/issues/793)) ([b098e18](https://github.com/chanzuckerberg/aws-oidc/commit/b098e18803a9cfeb036b39df080be8ae3471b146))
+* bump github.com/aws/aws-sdk-go from 1.45.5 to 1.45.12 ([#783](https://github.com/chanzuckerberg/aws-oidc/issues/783)) ([adfb562](https://github.com/chanzuckerberg/aws-oidc/commit/adfb56234bf139fa043a61879df8a21bb3284b2c))
+* bump github.com/chanzuckerberg/go-misc from 1.10.5 to 1.10.6 ([#784](https://github.com/chanzuckerberg/aws-oidc/issues/784)) ([904cf8b](https://github.com/chanzuckerberg/aws-oidc/commit/904cf8b8125ec04b17a0de19ffd54a1ca9b22871))
+* bump github.com/chanzuckerberg/go-misc from 1.10.6 to 1.10.7 ([#786](https://github.com/chanzuckerberg/aws-oidc/issues/786)) ([604db98](https://github.com/chanzuckerberg/aws-oidc/commit/604db984b551dcb4cd4f444295a1f54532ee0927))
+* bump github.com/go-errors/errors from 1.5.0 to 1.5.1 ([#789](https://github.com/chanzuckerberg/aws-oidc/issues/789)) ([adcbe6c](https://github.com/chanzuckerberg/aws-oidc/commit/adcbe6ce2cabb2d35d9a3ce59169fa3c3c8d1f87))
+
 ## [0.27.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.26.17...v0.27.0) (2023-09-08)
 
 
