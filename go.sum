@@ -16,8 +16,8 @@ github.com/cenkalti/backoff/v4 v4.2.0 h1:HN5dHm3WBOgndBH6E8V0q2jIYIR3s9yglV8k/+M
 github.com/cenkalti/backoff/v4 v4.2.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d h1:S2NE3iHSwP0XV47EEXL8mWmRdEfGscSJ+7EgePNgt0s=
 github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d/go.mod h1:sGbDF6GwGcLpkNXPUTkMRoywsNa/ol15pxFe6ERfguA=
-github.com/chanzuckerberg/go-misc v1.10.8 h1:gjcYS2z22DYCMOvP3QWlycmcTz70oCXcPgyxHFqAnHQ=
-github.com/chanzuckerberg/go-misc v1.10.8/go.mod h1:k9XXsgya63Sv/dHMgmMqV8j2Z8fRjz9miVzTRlaG2tc=
+github.com/chanzuckerberg/go-misc v1.10.9 h1:cj0J5Kx1jtGL0u1mywiLE4bnzz+1qeb7y+7zjklSqgw=
+github.com/chanzuckerberg/go-misc v1.10.9/go.mod h1:DkOBq4mv3wxCjo9T0US0tIVEtwCRo46jHDsSVnekGgc=
 github.com/coreos/go-oidc v2.2.1+incompatible h1:mh48q/BqXqgjVHpy2ZY7WnWAbenxRjsz9N1i1YxjHAk=
 github.com/coreos/go-oidc v2.2.1+incompatible/go.mod h1:CgnwVTmzoESiwO9qyAFEMiHoZ1nMCKZlZ9V6mm3/LKc=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
