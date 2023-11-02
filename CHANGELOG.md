@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.28.13](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.12...v0.28.13) (2023-11-02)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.46.7 to 1.47.0 ([#829](https://github.com/chanzuckerberg/aws-oidc/issues/829)) ([b65fc40](https://github.com/chanzuckerberg/aws-oidc/commit/b65fc407737a46ae979cbb574208b340233b6687))
+* bump github.com/aws/aws-sdk-go from 1.47.0 to 1.47.1 ([#832](https://github.com/chanzuckerberg/aws-oidc/issues/832)) ([48b2264](https://github.com/chanzuckerberg/aws-oidc/commit/48b2264c4dbce8537c01cbed360dbcf045f01c55))
+* bump github.com/chanzuckerberg/go-misc from 1.10.10 to 1.10.11 ([#831](https://github.com/chanzuckerberg/aws-oidc/issues/831)) ([8172fb2](https://github.com/chanzuckerberg/aws-oidc/commit/8172fb24860d7e6036358732289fefe581e59db7))
+
 ## [0.28.12](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.11...v0.28.12) (2023-10-31)
 
 
