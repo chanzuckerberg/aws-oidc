@@ -11,7 +11,7 @@ require (
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/go-errors/errors v1.5.1
 	github.com/golang/mock v1.6.0
-	github.com/gorilla/handlers v1.5.1
+	github.com/gorilla/handlers v1.5.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/honeycombio/beeline-go v1.13.0
 	github.com/julienschmidt/httprouter v1.3.0
