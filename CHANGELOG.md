@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.28.15](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.14...v0.28.15) (2023-11-16)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.47.10 to 1.47.11 ([#846](https://github.com/chanzuckerberg/aws-oidc/issues/846)) ([d33bb25](https://github.com/chanzuckerberg/aws-oidc/commit/d33bb2527278e8f3a193769fb4d986fcc13c6f6b))
+* bump github.com/aws/aws-sdk-go from 1.47.11 to 1.47.12 ([#847](https://github.com/chanzuckerberg/aws-oidc/issues/847)) ([d6f0e28](https://github.com/chanzuckerberg/aws-oidc/commit/d6f0e28b7d10fe96d825a56c79bef262ed9e0052))
+* bump github.com/aws/aws-sdk-go from 1.47.2 to 1.47.3 ([#837](https://github.com/chanzuckerberg/aws-oidc/issues/837)) ([4dd0f85](https://github.com/chanzuckerberg/aws-oidc/commit/4dd0f85d555dcc3b309bfdd5c15a9f283e6b0f6a))
+* bump github.com/aws/aws-sdk-go from 1.47.3 to 1.47.4 ([#839](https://github.com/chanzuckerberg/aws-oidc/issues/839)) ([cd9df82](https://github.com/chanzuckerberg/aws-oidc/commit/cd9df824063680b595f20d0d8455511c7aa8ec86))
+* bump github.com/aws/aws-sdk-go from 1.47.4 to 1.47.5 ([#840](https://github.com/chanzuckerberg/aws-oidc/issues/840)) ([81f6604](https://github.com/chanzuckerberg/aws-oidc/commit/81f6604692014f01306938d9e50ec8e70ac91395))
+* bump github.com/aws/aws-sdk-go from 1.47.5 to 1.47.7 ([#841](https://github.com/chanzuckerberg/aws-oidc/issues/841)) ([480c8b5](https://github.com/chanzuckerberg/aws-oidc/commit/480c8b5b9cfd126b41af5d89c7e4ebfcd91ff45e))
+* bump github.com/aws/aws-sdk-go from 1.47.7 to 1.47.8 ([#842](https://github.com/chanzuckerberg/aws-oidc/issues/842)) ([93cbe1e](https://github.com/chanzuckerberg/aws-oidc/commit/93cbe1eee29f58ca1baaa058427cf6bf603eab7a))
+* bump github.com/aws/aws-sdk-go from 1.47.8 to 1.47.9 ([#843](https://github.com/chanzuckerberg/aws-oidc/issues/843)) ([86c753b](https://github.com/chanzuckerberg/aws-oidc/commit/86c753b2f6c5a384255d4be97d072de906692990))
+* bump github.com/aws/aws-sdk-go from 1.47.9 to 1.47.10 ([#844](https://github.com/chanzuckerberg/aws-oidc/issues/844)) ([e45f328](https://github.com/chanzuckerberg/aws-oidc/commit/e45f328a08b609b0b77922181d7e7cad5e50f32b))
+* bump github.com/chanzuckerberg/go-misc from 1.10.11 to 1.10.12 ([#845](https://github.com/chanzuckerberg/aws-oidc/issues/845)) ([fd9b8c9](https://github.com/chanzuckerberg/aws-oidc/commit/fd9b8c921170e121c2387f07a7934f3f4fdab9ac))
+* bump github.com/chanzuckerberg/go-misc from 1.10.12 to 1.10.13 ([#848](https://github.com/chanzuckerberg/aws-oidc/issues/848)) ([b9a98ab](https://github.com/chanzuckerberg/aws-oidc/commit/b9a98abb187ac3c757cb751227258dd2041826bd))
+* bump github.com/gorilla/handlers from 1.5.1 to 1.5.2 ([#835](https://github.com/chanzuckerberg/aws-oidc/issues/835)) ([93c3aab](https://github.com/chanzuckerberg/aws-oidc/commit/93c3aab1b8109c6f5976f7aa99973a97de18482e))
+* bump github.com/spf13/cobra from 1.7.0 to 1.8.0 ([#836](https://github.com/chanzuckerberg/aws-oidc/issues/836)) ([5d70851](https://github.com/chanzuckerberg/aws-oidc/commit/5d70851c54473b0dbbb187d21fb5b9be3caad0fb))
+
 ## [0.28.14](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.13...v0.28.14) (2023-11-03)
 
 
