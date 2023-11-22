@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.28.17](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.16...v0.28.17) (2023-11-22)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.47.13 to 1.48.0 ([#851](https://github.com/chanzuckerberg/aws-oidc/issues/851)) ([b0b32d1](https://github.com/chanzuckerberg/aws-oidc/commit/b0b32d142da7a436140642b4d3804f09ab3affaa))
+* bump github.com/aws/aws-sdk-go from 1.48.0 to 1.48.1 ([#854](https://github.com/chanzuckerberg/aws-oidc/issues/854)) ([cf0964a](https://github.com/chanzuckerberg/aws-oidc/commit/cf0964a644939a67f410dcb6fa892439f48dd866))
+* bump github.com/aws/aws-sdk-go from 1.48.1 to 1.48.2 ([#856](https://github.com/chanzuckerberg/aws-oidc/issues/856)) ([ba5511f](https://github.com/chanzuckerberg/aws-oidc/commit/ba5511f64ead2736f06ad267536e2bef98a9fe7d))
+* bump github.com/chanzuckerberg/go-misc from 1.10.13 to 1.10.14 ([#853](https://github.com/chanzuckerberg/aws-oidc/issues/853)) ([221ebc7](https://github.com/chanzuckerberg/aws-oidc/commit/221ebc7eb8dd48fff66abe1918a5770737628d9f))
+* bump github.com/go-jose/go-jose/v3 from 3.0.0 to 3.0.1 ([#855](https://github.com/chanzuckerberg/aws-oidc/issues/855)) ([ea36f17](https://github.com/chanzuckerberg/aws-oidc/commit/ea36f17ca5ca21bc0cf8d6f06123510d8d98987c))
+
 ## [0.28.16](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.15...v0.28.16) (2023-11-17)
 
 
