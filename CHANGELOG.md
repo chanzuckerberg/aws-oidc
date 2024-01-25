@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.37](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.36...v0.28.37) (2024-01-25)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.50.2 to 1.50.3 ([#918](https://github.com/chanzuckerberg/aws-oidc/issues/918)) ([21df5df](https://github.com/chanzuckerberg/aws-oidc/commit/21df5dfdcbc132bea0f78072a2a6a889e2904309))
+
 ## [0.28.36](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.35...v0.28.36) (2024-01-24)
 
 
