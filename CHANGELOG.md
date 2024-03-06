@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.28.57](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.56...v0.28.57) (2024-03-06)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.50.30 to 1.50.31 ([#969](https://github.com/chanzuckerberg/aws-oidc/issues/969)) ([cf957f7](https://github.com/chanzuckerberg/aws-oidc/commit/cf957f715c158904595d6f1a0a850bdab56d767a))
+* bump github.com/aws/aws-sdk-go from 1.50.31 to 1.50.32 ([#971](https://github.com/chanzuckerberg/aws-oidc/issues/971)) ([2a6272b](https://github.com/chanzuckerberg/aws-oidc/commit/2a6272bafbf18532956f8fff61b2660cefd5295a))
+* bump github.com/honeycombio/beeline-go from 1.14.0 to 1.15.0 ([#972](https://github.com/chanzuckerberg/aws-oidc/issues/972)) ([143998e](https://github.com/chanzuckerberg/aws-oidc/commit/143998e439ac42f94068d6d55403d664680d3583))
+
 ## [0.28.56](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.55...v0.28.56) (2024-03-04)
 
 
