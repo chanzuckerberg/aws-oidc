@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.63](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.62...v0.28.63) (2024-03-14)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.50.37 to 1.50.38 ([#986](https://github.com/chanzuckerberg/aws-oidc/issues/986)) ([97eba39](https://github.com/chanzuckerberg/aws-oidc/commit/97eba39a637a87aadadf608d5b160f0502b24091))
+* bump google.golang.org/protobuf from 1.32.0 to 1.33.0 ([#984](https://github.com/chanzuckerberg/aws-oidc/issues/984)) ([ed1f7de](https://github.com/chanzuckerberg/aws-oidc/commit/ed1f7deddab36a22ebdfe8446faa1563e9d29e86))
+
 ## [0.28.62](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.61...v0.28.62) (2024-03-13)
 
 
