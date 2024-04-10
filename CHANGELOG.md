@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.28.66](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.65...v0.28.66) (2024-04-10)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.51.1 to 1.51.2 ([#991](https://github.com/chanzuckerberg/aws-oidc/issues/991)) ([3c1433e](https://github.com/chanzuckerberg/aws-oidc/commit/3c1433ee4fe564e8bfab111974892ac24bc2937b))
+* bump github.com/aws/aws-sdk-go from 1.51.10 to 1.51.11 ([#1001](https://github.com/chanzuckerberg/aws-oidc/issues/1001)) ([0f41f3f](https://github.com/chanzuckerberg/aws-oidc/commit/0f41f3ff7f374a121ec3739e83c96f6c19bc56f5))
+* bump github.com/aws/aws-sdk-go from 1.51.11 to 1.51.12 ([#1002](https://github.com/chanzuckerberg/aws-oidc/issues/1002)) ([1d96e85](https://github.com/chanzuckerberg/aws-oidc/commit/1d96e85185d98774f949c18dbf8b0a214af917b8))
+* bump github.com/aws/aws-sdk-go from 1.51.12 to 1.51.13 ([#1003](https://github.com/chanzuckerberg/aws-oidc/issues/1003)) ([5fd283f](https://github.com/chanzuckerberg/aws-oidc/commit/5fd283f5018c207640f03fbe371d76a5c206e29e))
+* bump github.com/aws/aws-sdk-go from 1.51.13 to 1.51.14 ([#1004](https://github.com/chanzuckerberg/aws-oidc/issues/1004)) ([d408e14](https://github.com/chanzuckerberg/aws-oidc/commit/d408e145748c322be229f4fe0c0c7b16bcf44ac1))
+* bump github.com/aws/aws-sdk-go from 1.51.14 to 1.51.15 ([#1006](https://github.com/chanzuckerberg/aws-oidc/issues/1006)) ([2e21ae7](https://github.com/chanzuckerberg/aws-oidc/commit/2e21ae7caaa1625c93ddaa5cac5d9d6490d4aaaf))
+* bump github.com/aws/aws-sdk-go from 1.51.15 to 1.51.16 ([#1008](https://github.com/chanzuckerberg/aws-oidc/issues/1008)) ([4eee46e](https://github.com/chanzuckerberg/aws-oidc/commit/4eee46e22911b6b13a3fb9e8b7b165e26544a652))
+* bump github.com/aws/aws-sdk-go from 1.51.16 to 1.51.17 ([#1009](https://github.com/chanzuckerberg/aws-oidc/issues/1009)) ([5ae0f1f](https://github.com/chanzuckerberg/aws-oidc/commit/5ae0f1f5a4fab52ba53c5bf8a00514ef92f1e75a))
+* bump github.com/aws/aws-sdk-go from 1.51.17 to 1.51.18 ([#1010](https://github.com/chanzuckerberg/aws-oidc/issues/1010)) ([db55dbf](https://github.com/chanzuckerberg/aws-oidc/commit/db55dbfd8993bf65b3dc26d8ebd6b8ffb9f2b66f))
+* bump github.com/aws/aws-sdk-go from 1.51.2 to 1.51.3 ([#993](https://github.com/chanzuckerberg/aws-oidc/issues/993)) ([eea9e85](https://github.com/chanzuckerberg/aws-oidc/commit/eea9e851107d0a30cb899a9a89cfef3a4a4b1ed0))
+* bump github.com/aws/aws-sdk-go from 1.51.3 to 1.51.4 ([#994](https://github.com/chanzuckerberg/aws-oidc/issues/994)) ([85371e1](https://github.com/chanzuckerberg/aws-oidc/commit/85371e185234aae2de5944bdbc5398d6d5b2492e))
+* bump github.com/aws/aws-sdk-go from 1.51.4 to 1.51.5 ([#995](https://github.com/chanzuckerberg/aws-oidc/issues/995)) ([7d5c1e1](https://github.com/chanzuckerberg/aws-oidc/commit/7d5c1e11992a4b090c773a3786c21d2bd563783b))
+* bump github.com/aws/aws-sdk-go from 1.51.5 to 1.51.6 ([#996](https://github.com/chanzuckerberg/aws-oidc/issues/996)) ([c0e2f7d](https://github.com/chanzuckerberg/aws-oidc/commit/c0e2f7d14475f65c9bf1c512547351013dcc9266))
+* bump github.com/aws/aws-sdk-go from 1.51.6 to 1.51.7 ([#997](https://github.com/chanzuckerberg/aws-oidc/issues/997)) ([98cefab](https://github.com/chanzuckerberg/aws-oidc/commit/98cefab7e4611c5b1bdd72540f891826650f2a05))
+* bump github.com/aws/aws-sdk-go from 1.51.7 to 1.51.8 ([#998](https://github.com/chanzuckerberg/aws-oidc/issues/998)) ([e9afcf1](https://github.com/chanzuckerberg/aws-oidc/commit/e9afcf16fdf5de2ed44a7aa46c667873e04d4689))
+* bump github.com/aws/aws-sdk-go from 1.51.8 to 1.51.9 ([#999](https://github.com/chanzuckerberg/aws-oidc/issues/999)) ([9d314d2](https://github.com/chanzuckerberg/aws-oidc/commit/9d314d2d71849c189276c48482e03b58cb51729f))
+* bump github.com/aws/aws-sdk-go from 1.51.9 to 1.51.10 ([#1000](https://github.com/chanzuckerberg/aws-oidc/issues/1000)) ([1ce9113](https://github.com/chanzuckerberg/aws-oidc/commit/1ce91130e5446b690f2d3373ede537673de00073))
+* bump github.com/chanzuckerberg/go-misc from 1.12.0 to 2.2.0+incompatible ([#1005](https://github.com/chanzuckerberg/aws-oidc/issues/1005)) ([fbfdf8b](https://github.com/chanzuckerberg/aws-oidc/commit/fbfdf8b5652a6a0f2ec9fddf6df0408bc98ae4d6))
+* bump github.com/honeycombio/beeline-go from 1.15.0 to 1.16.0 ([#1007](https://github.com/chanzuckerberg/aws-oidc/issues/1007)) ([fcd6511](https://github.com/chanzuckerberg/aws-oidc/commit/fcd65113fadae9e3464ba2c5dc78186c29ff9359))
+
 ## [0.28.65](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.64...v0.28.65) (2024-03-18)
 
 
