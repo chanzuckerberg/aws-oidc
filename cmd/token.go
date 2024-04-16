@@ -7,16 +7,21 @@ import (
 	"time"
 
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
+	"github.com/sirupsen/logrus"
+
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
+var scopes []string
+
 func init() {
 	tokenCmd.Flags().StringVar(&clientID, "client-id", "", "client_id generated from the OIDC application")
-	tokenCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
+	tokenCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider (either default IDP url or authorization server URL)")
 	tokenCmd.MarkFlagRequired("client-id")  // nolint:errcheck
 	tokenCmd.MarkFlagRequired("issuer-url") // nolint:errcheck
-
+	tokenCmd.Flags().StringArrayVar(&scopes, "add-scope", []string{"openid", "offline_access", "email", "groups"}, "Individual scopes you want to add when fetching a token. separate them with a comma like this: --add-scope openid --add-scope email")
 	rootCmd.AddCommand(tokenCmd)
 }
 
@@ -40,11 +45,17 @@ var tokenCmd = &cobra.Command{
 		stdoutToken := &stdoutToken{
 			Version: stdoutTokenVersion,
 		}
+		clientOptions := []client.Option{}
+		for _, scope := range scopes {
+			logrus.Debugf("scope: %s", scope)
+			clientOptions = append(clientOptions, client.AddScope(scope))
+		}
 
 		token, err := oidc_impl.GetToken(
 			cmd.Context(),
 			clientID,
 			issuerURL,
+			clientOptions...,
 		)
 		if err != nil {
 			return err
