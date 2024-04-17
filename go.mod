@@ -6,7 +6,7 @@ toolchain go1.22.1
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/aws/aws-sdk-go v1.51.20
+	github.com/aws/aws-sdk-go v1.51.22
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/chanzuckerberg/go-misc/aws v0.0.0-20240404202010-3f56fc5722ce
 	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20240416193832-0f78372f02d4
