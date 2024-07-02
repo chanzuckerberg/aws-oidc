@@ -64,6 +64,16 @@ Env is primarily here to assist when running docker locally. It requires your `~
 docker run -it --env-file <(aws-oidc env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
 ```
 
+### token
+Fetches ID and Access tokens so you can exchange it for an OIDC token later.  
+If you're authenticating with a non-default Authorization Server, you might have to provide custom scopes.
+
+```
+aws-oidc token --client-id 0oa1zjpaq9mptVVu30h8 --issuer-url https://czisandbox.oktapreview.com/oauth2/aus21ym8isqPvUMzj0h8 --add-scope openid --add-scope offline_access --add-scope email
+```
+
+if you do not provide scopes: the default scopes will be "openid", "offline_access", "email", and "groups".
+
 ### version
 Prints the version of aws-oidc to stdout.
 
