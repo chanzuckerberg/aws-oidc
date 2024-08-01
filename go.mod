@@ -1,15 +1,17 @@
 module github.com/chanzuckerberg/aws-oidc
 
-go 1.20
+go 1.21
+
+toolchain go1.22.1
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/aws/aws-sdk-go v1.55.3
+	github.com/aws/aws-sdk-go v1.55.5
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/chanzuckerberg/go-misc/aws v0.0.0-20240404202010-3f56fc5722ce
-	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20240404202010-3f56fc5722ce
-	github.com/chanzuckerberg/go-misc/sets v0.0.0-20240404202010-3f56fc5722ce
-	github.com/chanzuckerberg/go-misc/ver v0.0.0-20240404202010-3f56fc5722ce
+	github.com/chanzuckerberg/go-misc/aws v0.0.0-20240725203325-487be12b6b5f
+	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20240731170753-14766edc6e85
+	github.com/chanzuckerberg/go-misc/sets v0.0.0-20240725203325-487be12b6b5f
+	github.com/chanzuckerberg/go-misc/ver v0.0.0-20240731170753-14766edc6e85
 	github.com/coreos/go-oidc v2.2.1+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/go-errors/errors v1.5.1
@@ -30,14 +32,14 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
-	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20240404182313-43e397411f6e // indirect
-	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20240320212149-709d6d5c338b // indirect
+	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20240731170753-14766edc6e85 // indirect
+	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20240725203325-487be12b6b5f // indirect
 	github.com/creack/pty v1.1.18 // indirect
-	github.com/danieljoos/wincred v1.2.1 // indirect
+	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
 	github.com/facebookgo/limitgroup v0.0.0-20150612190941-6abd8d71ec01 // indirect
@@ -46,13 +48,12 @@ require (
 	github.com/getsentry/raven-go v0.2.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/honeycombio/libhoney-go v1.23.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/klauspost/compress v1.17.8 // indirect
+	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
@@ -64,15 +65,13 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/zalando/go-keyring v0.2.4 // indirect
-	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/oauth2 v0.18.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
-	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/grpc v1.62.1 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
+	github.com/zalando/go-keyring v0.2.5 // indirect
+	golang.org/x/crypto v0.25.0 // indirect
+	golang.org/x/oauth2 v0.21.0 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/term v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
+	google.golang.org/grpc v1.65.0 // indirect
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

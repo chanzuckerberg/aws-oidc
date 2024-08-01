@@ -50,6 +50,11 @@ deps:
 	go mod tidy
 .PHONY: deps
 
+update:
+	go get -u ./...
+	go mod tidy
+.PHONY: update
+
 lint:
 	golangci-lint run -E whitespace --exclude-use-default
 .PHONY: lint
