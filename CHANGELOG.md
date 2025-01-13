@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.69](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.68...v0.28.69) (2024-11-25)
+
+
+### Misc
+
+* bump github.com/honeycombio/beeline-go from 1.17.0 to 1.18.0 ([#1087](https://github.com/chanzuckerberg/aws-oidc/issues/1087)) ([14e0c23](https://github.com/chanzuckerberg/aws-oidc/commit/14e0c2335ac479367b7353bb258c59eea76c9874))
+* bump github.com/stretchr/testify from 1.9.0 to 1.10.0 ([#1088](https://github.com/chanzuckerberg/aws-oidc/issues/1088)) ([a6f3e87](https://github.com/chanzuckerberg/aws-oidc/commit/a6f3e8741782e7b2047c82d27080b15511125f47))
+
 ## [0.28.68](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.67...v0.28.68) (2024-08-01)
 
 
