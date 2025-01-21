@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.70](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.69...v0.28.70) (2025-01-16)
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go from 1.55.5 to 1.55.6 ([#1090](https://github.com/chanzuckerberg/aws-oidc/issues/1090)) ([0d1e46a](https://github.com/chanzuckerberg/aws-oidc/commit/0d1e46a7385315cfae208ab160f282bc66207c90))
+* bump golang.org/x/crypto from 0.25.0 to 0.31.0 ([#1091](https://github.com/chanzuckerberg/aws-oidc/issues/1091)) ([ac0886d](https://github.com/chanzuckerberg/aws-oidc/commit/ac0886d20e1d2a787c7927d99403bac3ac5eca20))
+
 ## [0.28.69](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.68...v0.28.69) (2024-11-25)
 
 
