@@ -12,7 +12,7 @@ require (
 	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20240731170753-14766edc6e85
 	github.com/chanzuckerberg/go-misc/sets v0.0.0-20240725203325-487be12b6b5f
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20240731170753-14766edc6e85
-	github.com/coreos/go-oidc v2.2.1+incompatible
+	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/evalphobia/logrus_sentry v0.8.2
 	github.com/go-errors/errors v1.5.1
 	github.com/golang/mock v1.6.0
@@ -73,6 +73,7 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect
+	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
