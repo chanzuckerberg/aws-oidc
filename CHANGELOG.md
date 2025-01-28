@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.71](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.70...v0.28.71) (2025-01-23)
+
+
+### Misc
+
+* bump github.com/coreos/go-oidc from 2.2.1+incompatible to 2.3.0+incompatible ([#1093](https://github.com/chanzuckerberg/aws-oidc/issues/1093)) ([00c4603](https://github.com/chanzuckerberg/aws-oidc/commit/00c4603bc78268c9af4949f30d1569c6d126b1dd))
+
 ## [0.28.70](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.69...v0.28.70) (2025-01-16)
 
 
