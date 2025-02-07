@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.72](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.71...v0.28.72) (2025-02-07)
+
+
+### BugFixes
+
+* Update runs-on labels in GitHub Actions workflows ([#1095](https://github.com/chanzuckerberg/aws-oidc/issues/1095)) ([fe0228b](https://github.com/chanzuckerberg/aws-oidc/commit/fe0228b88d9b3c92fee5b6d7a59c9f185e8cd5d9))
+* Update runs-on to use ARM64 or X64 ([fe0228b](https://github.com/chanzuckerberg/aws-oidc/commit/fe0228b88d9b3c92fee5b6d7a59c9f185e8cd5d9))
+
 ## [0.28.71](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.70...v0.28.71) (2025-01-23)
 
 
