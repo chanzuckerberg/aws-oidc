@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.73](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.72...v0.28.73) (2025-02-17)
+
+
+### Misc
+
+* bump github.com/spf13/cobra from 1.8.1 to 1.9.1 ([#1097](https://github.com/chanzuckerberg/aws-oidc/issues/1097)) ([c792200](https://github.com/chanzuckerberg/aws-oidc/commit/c7922009fe2ae3f854f0103f5f749d04c65a01ec))
+
 ## [0.28.72](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.71...v0.28.72) (2025-02-07)
 
 
