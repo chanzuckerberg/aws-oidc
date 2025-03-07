@@ -60,10 +60,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release --rm-dist
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         if: ${{ steps.release.outputs.release_created }}
@@ -116,9 +116,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CZIBUILDBOT_GITHUB_KEY }}
 
       - name: Prerelease
-        uses: goreleaser/goreleaser-action@v2
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release --rm-dist -f .goreleaser.prerelease.yml
+          args: release --clean -f .goreleaser.prerelease.yml
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
