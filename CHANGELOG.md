@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.28.73](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.72...v0.28.73) (2025-03-07)
+
+
+### Misc
+
+* bump github.com/go-jose/go-jose/v3 from 3.0.3 to 3.0.4 ([#1099](https://github.com/chanzuckerberg/aws-oidc/issues/1099)) ([123c542](https://github.com/chanzuckerberg/aws-oidc/commit/123c54281275ced928d772db81d5360a3b23c076))
+* bump github.com/spf13/cobra from 1.8.1 to 1.9.1 ([#1097](https://github.com/chanzuckerberg/aws-oidc/issues/1097)) ([c792200](https://github.com/chanzuckerberg/aws-oidc/commit/c7922009fe2ae3f854f0103f5f749d04c65a01ec))
+* fix goreleaser ([#1100](https://github.com/chanzuckerberg/aws-oidc/issues/1100)) ([e7338b1](https://github.com/chanzuckerberg/aws-oidc/commit/e7338b122c1aa435dfd59d210dc6fe863709711b))
+
 ## [0.28.72](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.71...v0.28.72) (2025-02-07)
 
 
