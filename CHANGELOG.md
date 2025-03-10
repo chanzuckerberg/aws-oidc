@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.74](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.73...v0.28.74) (2025-03-10)
+
+
+### BugFixes
+
+* remove toolchain directive ([#1101](https://github.com/chanzuckerberg/aws-oidc/issues/1101)) ([107923e](https://github.com/chanzuckerberg/aws-oidc/commit/107923e8b457f957a5248d490b07ccc0495ca237))
+
 ## [0.28.73](https://github.com/chanzuckerberg/aws-oidc/compare/v0.28.72...v0.28.73) (2025-03-07)
 
 
