@@ -24,7 +24,7 @@ jobs:
         run: |
           go run main.go
           cp rolemap.yaml ./infra/prod/rolemap/rolemap.yaml
-          cp rolemap.yaml ./infra/stagin/rolemap/rolemap.yaml
+          cp rolemap.yaml ./infra/rdev/rolemap/rolemap.yaml
       - uses: EndBug/add-and-commit@v9
         with:
           add: -A
