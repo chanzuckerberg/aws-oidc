@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
+	"os"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/client"
-	"github.com/aws/aws-sdk-go/aws/session"
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	CZIOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/chanzuckerberg/go-misc/sets"
@@ -17,6 +14,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert/yaml"
 )
 
 var webServerPort int
@@ -109,24 +107,6 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: oktaEnv.CLIENT_ID})
 
-	awsSession, err := session.NewSessionWithOptions(
-		session.Options{
-			SharedConfigState: session.SharedConfigEnable,
-			Config: aws.Config{
-				Retryer: &client.DefaultRetryer{
-					NumMaxRetries:    awsSessionRetries,
-					MinRetryDelay:    time.Millisecond,
-					MinThrottleDelay: time.Millisecond,
-					MaxThrottleDelay: 10 * time.Second,
-					MaxRetryDelay:    10 * time.Second,
-				},
-			},
-		},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to create aws session")
-	}
-
 	oktaAppClient, err := createOktaClientApps(ctx, oktaEnv.ISSUER_URL, oktaEnv.PRIVATE_KEY, oktaEnv.SERVICE_CLIENT_ID)
 	if err != nil {
 		return errors.Wrap(err, "failed to create okta apps")
@@ -142,20 +122,20 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 
 	configGenerationParams.SkipAccounts.Add(skipAccountList...)
 
-	getClientIDToProfiles, err := webserver.NewCachedGetClientIDToProfiles(
-		ctx,
-		&configGenerationParams,
-		awsSession,
-	)
+	b, err := os.ReadFile("/rolemap/rolemap.yaml")
 	if err != nil {
-		return errors.Wrap(err, "could not generate client id to aws role mapping")
+		return fmt.Errorf("reading rolemap.yaml: %w", err)
+	}
+	roleMappings := OIDCRoleMappingByClientID{}
+	err = yaml.Unmarshal(b, &roleMappings)
+	if err != nil {
+		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)
 	}
 
 	routerConfig := &webserver.RouterConfig{
-		Verifier:              verifier,
-		AwsGenerationParams:   &configGenerationParams,
-		OktaAppClient:         oktaAppClient,
-		GetClientIDToProfiles: getClientIDToProfiles,
+		Verifier:            verifier,
+		AwsGenerationParams: &configGenerationParams,
+		OktaAppClient:       oktaAppClient,
 	}
 
 	router := webserver.GetRouter(ctx, routerConfig)

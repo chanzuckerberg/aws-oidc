@@ -18,6 +18,8 @@ type OIDCRoleMapping struct {
 	OktaClientID string `yaml:"okta_client_id"`
 }
 
+type OIDCRoleMappingByClientID map[string][]OIDCRoleMapping
+
 const (
 	accountIDOutputName             = "current_account_id"
 	oktaCZIAdminClientIDsOutputName = "okta-czi-admin_oidc_client_ids"
@@ -149,17 +151,7 @@ func exec(ctx context.Context) error {
 		return allMappings[i].AWSAccountID > allMappings[j].AWSAccountID
 	})
 
-	keyedByClientID := map[string][]OIDCRoleMapping{}
-	for _, mapping := range allMappings {
-		_, ok := keyedByClientID[mapping.OktaClientID]
-		if !ok {
-			keyedByClientID[mapping.OktaClientID] = []OIDCRoleMapping{mapping}
-		} else {
-			keyedByClientID[mapping.OktaClientID] = append(keyedByClientID[mapping.OktaClientID], mapping)
-		}
-	}
-
-	b, err := yaml.Marshal(keyedByClientID)
+	b, err := yaml.Marshal(allMappings)
 	if err != nil {
 		return fmt.Errorf("marshalling role mappings to YAML: %w", err)
 	}

@@ -22,7 +22,7 @@ type ClientIDToAWSRoles struct {
 func createAWSConfig(
 	ctx context.Context,
 	oidcProvider string,
-	clientMapping *oidcFederatedRoles,
+	clientMapping *okta.OIDCRoleMappingByClientID,
 	userClientIDs []okta.ClientID) (*AWSConfig, error) {
 
 	awsConfig := &AWSConfig{
@@ -31,7 +31,8 @@ func createAWSConfig(
 
 	for _, clientID := range userClientIDs {
 		configList := clientMapping.roles[clientID]
-		for _, config := range configList {
+
+		for _, config := range *clientMapping {
 			profile := AWSProfile{
 				ClientID: clientID,
 				RoleARN:  config.RoleARN.String(),

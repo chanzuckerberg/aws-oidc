@@ -106,7 +106,6 @@ func getSubFromCtx(ctx context.Context) *string {
 
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
-	cachedClientIDtoProfiles *CachedGetClientIDToProfiles,
 	oktaClient okta.AppResource,
 ) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -136,13 +135,7 @@ func Index(
 
 		logrus.Debugf("%s's clientIDs: %s", *email, clientIDs)
 
-		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
-		if err != nil {
-			logrus.Errorf("error: Unable to create mapping from clientID to roleARNs: %s", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
-			return
-		}
-
+		clientMapping := okta.FromContext(ctx)
 		logrus.Debugf("%s's client mapping: %#v", *email, clientMapping)
 
 		awsConfig, err := createAWSConfig(ctx, awsGenerationParams.OIDCProvider, clientMapping, clientIDs)
@@ -163,10 +156,9 @@ func Index(
 }
 
 type RouterConfig struct {
-	Verifier              oidcVerifier
-	AwsGenerationParams   *AWSConfigGenerationParams
-	OktaAppClient         okta.AppResource
-	GetClientIDToProfiles *CachedGetClientIDToProfiles
+	Verifier            oidcVerifier
+	AwsGenerationParams *AWSConfigGenerationParams
+	OktaAppClient       okta.AppResource
 }
 
 func GetRouter(
@@ -177,7 +169,6 @@ func GetRouter(
 	handle := requireAuthentication(
 		Index(
 			config.AwsGenerationParams,
-			config.GetClientIDToProfiles,
 			config.OktaAppClient,
 		),
 		config.Verifier,
