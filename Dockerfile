@@ -1,5 +1,5 @@
 # First stage: build the executable
-FROM golang:1.21 AS builder
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.23-alpine AS builder
 
 # Enable Go modules
 ENV GO111MODULE=on CGO_ENABLED=0 GOOS=linux
@@ -16,7 +16,7 @@ COPY pkg pkg
 RUN go build -o aws-oidc .
 
 # Final stage: the running container
-FROM alpine:latest AS final
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.23-alpine AS prod
 
 # Install SSL root certificates
 RUN apk update && apk --no-cache add ca-certificates curl
