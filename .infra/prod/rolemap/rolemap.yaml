@@ -1,862 +1,862 @@
 0oa1n187fpfGwK3k35d7:
-  - aws_account_id: "984830177581"
-    aws_role_arn: arn:aws:iam::984830177581:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "977655849919"
-    aws_role_arn: arn:aws:iam::977655849919:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "941037323260"
-    aws_role_arn: arn:aws:iam::941037323260:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "913524907765"
-    aws_role_arn: arn:aws:iam::913524907765:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "911167894392"
-    aws_role_arn: arn:aws:iam::911167894392:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "908710317728"
-    aws_role_arn: arn:aws:iam::908710317728:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "871040364337"
-    aws_role_arn: arn:aws:iam::871040364337:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "868904014114"
-    aws_role_arn: arn:aws:iam::868904014114:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "829407189049"
-    aws_role_arn: arn:aws:iam::829407189049:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "820135055454"
-    aws_role_arn: arn:aws:iam::820135055454:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "787588439240"
-    aws_role_arn: arn:aws:iam::787588439240:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "745463180746"
-    aws_role_arn: arn:aws:iam::745463180746:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "732052188396"
-    aws_role_arn: arn:aws:iam::732052188396:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "724328632434"
-    aws_role_arn: arn:aws:iam::724328632434:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "723754913286"
-    aws_role_arn: arn:aws:iam::723754913286:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "699936264352"
-    aws_role_arn: arn:aws:iam::699936264352:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "696384994809"
-    aws_role_arn: arn:aws:iam::696384994809:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "654654427257"
-    aws_role_arn: arn:aws:iam::654654427257:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "654654367136"
-    aws_role_arn: arn:aws:iam::654654367136:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "648573913056"
-    aws_role_arn: arn:aws:iam::648573913056:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "634134578715"
-    aws_role_arn: arn:aws:iam::634134578715:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "626314663667"
-    aws_role_arn: arn:aws:iam::626314663667:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "612168857605"
-    aws_role_arn: arn:aws:iam::612168857605:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "607813682535"
-    aws_role_arn: arn:aws:iam::607813682535:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "586794448189"
-    aws_role_arn: arn:aws:iam::586794448189:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "577638397886"
-    aws_role_arn: arn:aws:iam::577638397886:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "533267185808"
-    aws_role_arn: arn:aws:iam::533267185808:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "516466186502"
-    aws_role_arn: arn:aws:iam::516466186502:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "489077519657"
-    aws_role_arn: arn:aws:iam::489077519657:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "473004499091"
-    aws_role_arn: arn:aws:iam::473004499091:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "471112759938"
-    aws_role_arn: arn:aws:iam::471112759938:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "445567094889"
-    aws_role_arn: arn:aws:iam::445567094889:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "440744247602"
-    aws_role_arn: arn:aws:iam::440744247602:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "422553907334"
-    aws_role_arn: arn:aws:iam::422553907334:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "416703108729"
-    aws_role_arn: arn:aws:iam::416703108729:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "401986845158"
-    aws_role_arn: arn:aws:iam::401986845158:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "339713142298"
-    aws_role_arn: arn:aws:iam::339713142298:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "277707108111"
-    aws_role_arn: arn:aws:iam::277707108111:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "254379453707"
-    aws_role_arn: arn:aws:iam::254379453707:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "254044266527"
-    aws_role_arn: arn:aws:iam::254044266527:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "248448116955"
-    aws_role_arn: arn:aws:iam::248448116955:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "243100295622"
-    aws_role_arn: arn:aws:iam::243100295622:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "231426846575"
-    aws_role_arn: arn:aws:iam::231426846575:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "216989105463"
-    aws_role_arn: arn:aws:iam::216989105463:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "119435350371"
-    aws_role_arn: arn:aws:iam::119435350371:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "109067257620"
-    aws_role_arn: arn:aws:iam::109067257620:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "060795925407"
-    aws_role_arn: arn:aws:iam::060795925407:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "058264139299"
-    aws_role_arn: arn:aws:iam::058264139299:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "046341869686"
-    aws_role_arn: arn:aws:iam::046341869686:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
-  - aws_account_id: "023695267945"
-    aws_role_arn: arn:aws:iam::023695267945:role/okta-czi-admin
-    okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "984830177581"
+  aws_role_arn: arn:aws:iam::984830177581:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "977655849919"
+  aws_role_arn: arn:aws:iam::977655849919:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "941037323260"
+  aws_role_arn: arn:aws:iam::941037323260:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "913524907765"
+  aws_role_arn: arn:aws:iam::913524907765:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "911167894392"
+  aws_role_arn: arn:aws:iam::911167894392:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "908710317728"
+  aws_role_arn: arn:aws:iam::908710317728:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "871040364337"
+  aws_role_arn: arn:aws:iam::871040364337:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "868904014114"
+  aws_role_arn: arn:aws:iam::868904014114:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "829407189049"
+  aws_role_arn: arn:aws:iam::829407189049:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "820135055454"
+  aws_role_arn: arn:aws:iam::820135055454:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "787588439240"
+  aws_role_arn: arn:aws:iam::787588439240:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "745463180746"
+  aws_role_arn: arn:aws:iam::745463180746:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "732052188396"
+  aws_role_arn: arn:aws:iam::732052188396:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "724328632434"
+  aws_role_arn: arn:aws:iam::724328632434:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "723754913286"
+  aws_role_arn: arn:aws:iam::723754913286:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "699936264352"
+  aws_role_arn: arn:aws:iam::699936264352:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "696384994809"
+  aws_role_arn: arn:aws:iam::696384994809:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "654654427257"
+  aws_role_arn: arn:aws:iam::654654427257:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "654654367136"
+  aws_role_arn: arn:aws:iam::654654367136:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "648573913056"
+  aws_role_arn: arn:aws:iam::648573913056:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "634134578715"
+  aws_role_arn: arn:aws:iam::634134578715:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "626314663667"
+  aws_role_arn: arn:aws:iam::626314663667:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "612168857605"
+  aws_role_arn: arn:aws:iam::612168857605:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "607813682535"
+  aws_role_arn: arn:aws:iam::607813682535:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "586794448189"
+  aws_role_arn: arn:aws:iam::586794448189:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "577638397886"
+  aws_role_arn: arn:aws:iam::577638397886:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "533267185808"
+  aws_role_arn: arn:aws:iam::533267185808:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "516466186502"
+  aws_role_arn: arn:aws:iam::516466186502:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "489077519657"
+  aws_role_arn: arn:aws:iam::489077519657:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "473004499091"
+  aws_role_arn: arn:aws:iam::473004499091:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "471112759938"
+  aws_role_arn: arn:aws:iam::471112759938:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "445567094889"
+  aws_role_arn: arn:aws:iam::445567094889:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "440744247602"
+  aws_role_arn: arn:aws:iam::440744247602:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "422553907334"
+  aws_role_arn: arn:aws:iam::422553907334:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "416703108729"
+  aws_role_arn: arn:aws:iam::416703108729:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "401986845158"
+  aws_role_arn: arn:aws:iam::401986845158:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "339713142298"
+  aws_role_arn: arn:aws:iam::339713142298:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "277707108111"
+  aws_role_arn: arn:aws:iam::277707108111:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "254379453707"
+  aws_role_arn: arn:aws:iam::254379453707:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "254044266527"
+  aws_role_arn: arn:aws:iam::254044266527:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "248448116955"
+  aws_role_arn: arn:aws:iam::248448116955:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "243100295622"
+  aws_role_arn: arn:aws:iam::243100295622:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "231426846575"
+  aws_role_arn: arn:aws:iam::231426846575:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "216989105463"
+  aws_role_arn: arn:aws:iam::216989105463:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "119435350371"
+  aws_role_arn: arn:aws:iam::119435350371:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "109067257620"
+  aws_role_arn: arn:aws:iam::109067257620:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "060795925407"
+  aws_role_arn: arn:aws:iam::060795925407:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "058264139299"
+  aws_role_arn: arn:aws:iam::058264139299:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "046341869686"
+  aws_role_arn: arn:aws:iam::046341869686:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "023695267945"
+  aws_role_arn: arn:aws:iam::023695267945:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
 0oa1slbsln6P7ue2f5d7:
-  - aws_account_id: "984830177581"
-    aws_role_arn: arn:aws:iam::984830177581:role/poweruser
-    okta_client_id: 0oa1slbsln6P7ue2f5d7
+- aws_account_id: "984830177581"
+  aws_role_arn: arn:aws:iam::984830177581:role/poweruser
+  okta_client_id: 0oa1slbsln6P7ue2f5d7
 0oa1slc12ljvTUsYQ5d7:
-  - aws_account_id: "829407189049"
-    aws_role_arn: arn:aws:iam::829407189049:role/poweruser
-    okta_client_id: 0oa1slc12ljvTUsYQ5d7
-  - aws_account_id: "473004499091"
-    aws_role_arn: arn:aws:iam::473004499091:role/poweruser
-    okta_client_id: 0oa1slc12ljvTUsYQ5d7
+- aws_account_id: "829407189049"
+  aws_role_arn: arn:aws:iam::829407189049:role/poweruser
+  okta_client_id: 0oa1slc12ljvTUsYQ5d7
+- aws_account_id: "473004499091"
+  aws_role_arn: arn:aws:iam::473004499091:role/poweruser
+  okta_client_id: 0oa1slc12ljvTUsYQ5d7
 0oa1slfwk8hZXpzb35d7:
-  - aws_account_id: "699936264352"
-    aws_role_arn: arn:aws:iam::699936264352:role/poweruser
-    okta_client_id: 0oa1slfwk8hZXpzb35d7
-  - aws_account_id: "231426846575"
-    aws_role_arn: arn:aws:iam::231426846575:role/poweruser
-    okta_client_id: 0oa1slfwk8hZXpzb35d7
-  - aws_account_id: "023695267945"
-    aws_role_arn: arn:aws:iam::023695267945:role/poweruser
-    okta_client_id: 0oa1slfwk8hZXpzb35d7
+- aws_account_id: "699936264352"
+  aws_role_arn: arn:aws:iam::699936264352:role/poweruser
+  okta_client_id: 0oa1slfwk8hZXpzb35d7
+- aws_account_id: "231426846575"
+  aws_role_arn: arn:aws:iam::231426846575:role/poweruser
+  okta_client_id: 0oa1slfwk8hZXpzb35d7
+- aws_account_id: "023695267945"
+  aws_role_arn: arn:aws:iam::023695267945:role/poweruser
+  okta_client_id: 0oa1slfwk8hZXpzb35d7
 0oa1slg2qvGYA71QU5d7:
-  - aws_account_id: "607813682535"
-    aws_role_arn: arn:aws:iam::607813682535:role/readonly
-    okta_client_id: 0oa1slg2qvGYA71QU5d7
+- aws_account_id: "607813682535"
+  aws_role_arn: arn:aws:iam::607813682535:role/readonly
+  okta_client_id: 0oa1slg2qvGYA71QU5d7
 0oa1slgkmncchvGvb5d7:
-  - aws_account_id: "868904014114"
-    aws_role_arn: arn:aws:iam::868904014114:role/poweruser
-    okta_client_id: 0oa1slgkmncchvGvb5d7
-  - aws_account_id: "516466186502"
-    aws_role_arn: arn:aws:iam::516466186502:role/poweruser
-    okta_client_id: 0oa1slgkmncchvGvb5d7
+- aws_account_id: "868904014114"
+  aws_role_arn: arn:aws:iam::868904014114:role/poweruser
+  okta_client_id: 0oa1slgkmncchvGvb5d7
+- aws_account_id: "516466186502"
+  aws_role_arn: arn:aws:iam::516466186502:role/poweruser
+  okta_client_id: 0oa1slgkmncchvGvb5d7
 0oa1slhhk7U5qdv4U5d7:
-  - aws_account_id: "745463180746"
-    aws_role_arn: arn:aws:iam::745463180746:role/poweruser
-    okta_client_id: 0oa1slhhk7U5qdv4U5d7
-  - aws_account_id: "732052188396"
-    aws_role_arn: arn:aws:iam::732052188396:role/poweruser
-    okta_client_id: 0oa1slhhk7U5qdv4U5d7
+- aws_account_id: "745463180746"
+  aws_role_arn: arn:aws:iam::745463180746:role/poweruser
+  okta_client_id: 0oa1slhhk7U5qdv4U5d7
+- aws_account_id: "732052188396"
+  aws_role_arn: arn:aws:iam::732052188396:role/poweruser
+  okta_client_id: 0oa1slhhk7U5qdv4U5d7
 0oa1slhldtAle3cMc5d7:
-  - aws_account_id: "607813682535"
-    aws_role_arn: arn:aws:iam::607813682535:role/poweruser
-    okta_client_id: 0oa1slhldtAle3cMc5d7
+- aws_account_id: "607813682535"
+  aws_role_arn: arn:aws:iam::607813682535:role/poweruser
+  okta_client_id: 0oa1slhldtAle3cMc5d7
 0oa1slhw5pdjUPHzo5d7:
-  - aws_account_id: "829407189049"
-    aws_role_arn: arn:aws:iam::829407189049:role/readonly
-    okta_client_id: 0oa1slhw5pdjUPHzo5d7
-  - aws_account_id: "473004499091"
-    aws_role_arn: arn:aws:iam::473004499091:role/readonly
-    okta_client_id: 0oa1slhw5pdjUPHzo5d7
+- aws_account_id: "829407189049"
+  aws_role_arn: arn:aws:iam::829407189049:role/readonly
+  okta_client_id: 0oa1slhw5pdjUPHzo5d7
+- aws_account_id: "473004499091"
+  aws_role_arn: arn:aws:iam::473004499091:role/readonly
+  okta_client_id: 0oa1slhw5pdjUPHzo5d7
 0oa1slisiols22P665d7:
-  - aws_account_id: "340591210379"
-    aws_role_arn: arn:aws:iam::340591210379:role/poweruser
-    okta_client_id: 0oa1slisiols22P665d7
+- aws_account_id: "340591210379"
+  aws_role_arn: arn:aws:iam::340591210379:role/poweruser
+  okta_client_id: 0oa1slisiols22P665d7
 0oa2hw0ew3x4S3cdv5d7:
-  - aws_account_id: "732052188396"
-    aws_role_arn: arn:aws:iam::732052188396:role/poweruser
-    okta_client_id: 0oa2hw0ew3x4S3cdv5d7
+- aws_account_id: "732052188396"
+  aws_role_arn: arn:aws:iam::732052188396:role/poweruser
+  okta_client_id: 0oa2hw0ew3x4S3cdv5d7
 0oa3ee16gdemVFDrd5d7:
-  - aws_account_id: "724328632434"
-    aws_role_arn: arn:aws:iam::724328632434:role/poweruser
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
-  - aws_account_id: "723754913286"
-    aws_role_arn: arn:aws:iam::723754913286:role/poweruser
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
-  - aws_account_id: "648573913056"
-    aws_role_arn: arn:aws:iam::648573913056:role/poweruser
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
-  - aws_account_id: "626314663667"
-    aws_role_arn: arn:aws:iam::626314663667:role/poweruser
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
-  - aws_account_id: "473004499091"
-    aws_role_arn: arn:aws:iam::473004499091:role/poweruser
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
-  - aws_account_id: "416703108729"
-    aws_role_arn: arn:aws:iam::416703108729:role/readonly
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
-  - aws_account_id: "416703108729"
-    aws_role_arn: arn:aws:iam::416703108729:role/poweruser
-    okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "724328632434"
+  aws_role_arn: arn:aws:iam::724328632434:role/poweruser
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "723754913286"
+  aws_role_arn: arn:aws:iam::723754913286:role/poweruser
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "648573913056"
+  aws_role_arn: arn:aws:iam::648573913056:role/poweruser
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "626314663667"
+  aws_role_arn: arn:aws:iam::626314663667:role/poweruser
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "473004499091"
+  aws_role_arn: arn:aws:iam::473004499091:role/poweruser
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "416703108729"
+  aws_role_arn: arn:aws:iam::416703108729:role/readonly
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
+- aws_account_id: "416703108729"
+  aws_role_arn: arn:aws:iam::416703108729:role/poweruser
+  okta_client_id: 0oa3ee16gdemVFDrd5d7
 0oa3qf4rw4VgWtxyd5d7:
-  - aws_account_id: "401986845158"
-    aws_role_arn: arn:aws:iam::401986845158:role/poweruser
-    okta_client_id: 0oa3qf4rw4VgWtxyd5d7
+- aws_account_id: "401986845158"
+  aws_role_arn: arn:aws:iam::401986845158:role/poweruser
+  okta_client_id: 0oa3qf4rw4VgWtxyd5d7
 0oa7gmdwfgSxUNeac5d7:
-  - aws_account_id: "977655849919"
-    aws_role_arn: arn:aws:iam::977655849919:role/poweruser
-    okta_client_id: 0oa7gmdwfgSxUNeac5d7
+- aws_account_id: "977655849919"
+  aws_role_arn: arn:aws:iam::977655849919:role/poweruser
+  okta_client_id: 0oa7gmdwfgSxUNeac5d7
 0oa8u5pt3tYxUdPNQ5d7:
-  - aws_account_id: "908710317728"
-    aws_role_arn: arn:aws:iam::908710317728:role/poweruser
-    okta_client_id: 0oa8u5pt3tYxUdPNQ5d7
-  - aws_account_id: "489077519657"
-    aws_role_arn: arn:aws:iam::489077519657:role/poweruser
-    okta_client_id: 0oa8u5pt3tYxUdPNQ5d7
-  - aws_account_id: "243100295622"
-    aws_role_arn: arn:aws:iam::243100295622:role/poweruser
-    okta_client_id: 0oa8u5pt3tYxUdPNQ5d7
+- aws_account_id: "908710317728"
+  aws_role_arn: arn:aws:iam::908710317728:role/poweruser
+  okta_client_id: 0oa8u5pt3tYxUdPNQ5d7
+- aws_account_id: "489077519657"
+  aws_role_arn: arn:aws:iam::489077519657:role/poweruser
+  okta_client_id: 0oa8u5pt3tYxUdPNQ5d7
+- aws_account_id: "243100295622"
+  aws_role_arn: arn:aws:iam::243100295622:role/poweruser
+  okta_client_id: 0oa8u5pt3tYxUdPNQ5d7
 0oadp1fwi1I1f3Wxm5d7:
-  - aws_account_id: "444275452013"
-    aws_role_arn: arn:aws:iam::444275452013:role/readonly
-    okta_client_id: 0oadp1fwi1I1f3Wxm5d7
-  - aws_account_id: "254379453707"
-    aws_role_arn: arn:aws:iam::254379453707:role/poweruser
-    okta_client_id: 0oadp1fwi1I1f3Wxm5d7
-  - aws_account_id: "254379453707"
-    aws_role_arn: arn:aws:iam::254379453707:role/readonly
-    okta_client_id: 0oadp1fwi1I1f3Wxm5d7
-  - aws_account_id: "046341869686"
-    aws_role_arn: arn:aws:iam::046341869686:role/poweruser
-    okta_client_id: 0oadp1fwi1I1f3Wxm5d7
-  - aws_account_id: "046341869686"
-    aws_role_arn: arn:aws:iam::046341869686:role/readonly
-    okta_client_id: 0oadp1fwi1I1f3Wxm5d7
+- aws_account_id: "444275452013"
+  aws_role_arn: arn:aws:iam::444275452013:role/readonly
+  okta_client_id: 0oadp1fwi1I1f3Wxm5d7
+- aws_account_id: "254379453707"
+  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
+  okta_client_id: 0oadp1fwi1I1f3Wxm5d7
+- aws_account_id: "254379453707"
+  aws_role_arn: arn:aws:iam::254379453707:role/readonly
+  okta_client_id: 0oadp1fwi1I1f3Wxm5d7
+- aws_account_id: "046341869686"
+  aws_role_arn: arn:aws:iam::046341869686:role/poweruser
+  okta_client_id: 0oadp1fwi1I1f3Wxm5d7
+- aws_account_id: "046341869686"
+  aws_role_arn: arn:aws:iam::046341869686:role/readonly
+  okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 0oafjzaonkdmceXEG5d7:
-  - aws_account_id: "058264139299"
-    aws_role_arn: arn:aws:iam::058264139299:role/poweruser
-    okta_client_id: 0oafjzaonkdmceXEG5d7
+- aws_account_id: "058264139299"
+  aws_role_arn: arn:aws:iam::058264139299:role/poweruser
+  okta_client_id: 0oafjzaonkdmceXEG5d7
 0oafvluhsdyQM0SZd5d7:
-  - aws_account_id: "339713142298"
-    aws_role_arn: arn:aws:iam::339713142298:role/poweruser
-    okta_client_id: 0oafvluhsdyQM0SZd5d7
+- aws_account_id: "339713142298"
+  aws_role_arn: arn:aws:iam::339713142298:role/poweruser
+  okta_client_id: 0oafvluhsdyQM0SZd5d7
 0oag3jbdi9rZLbX9d5d7:
-  - aws_account_id: "654654367136"
-    aws_role_arn: arn:aws:iam::654654367136:role/poweruser
-    okta_client_id: 0oag3jbdi9rZLbX9d5d7
+- aws_account_id: "654654367136"
+  aws_role_arn: arn:aws:iam::654654367136:role/poweruser
+  okta_client_id: 0oag3jbdi9rZLbX9d5d7
 0oag6nt32qJyM9Esb5d7:
-  - aws_account_id: "243100295622"
-    aws_role_arn: arn:aws:iam::243100295622:role/poweruser
-    okta_client_id: 0oag6nt32qJyM9Esb5d7
+- aws_account_id: "243100295622"
+  aws_role_arn: arn:aws:iam::243100295622:role/poweruser
+  okta_client_id: 0oag6nt32qJyM9Esb5d7
 0oag6ntx7pKDsqGUS5d7:
-  - aws_account_id: "696384994809"
-    aws_role_arn: arn:aws:iam::696384994809:role/poweruser
-    okta_client_id: 0oag6ntx7pKDsqGUS5d7
+- aws_account_id: "696384994809"
+  aws_role_arn: arn:aws:iam::696384994809:role/poweruser
+  okta_client_id: 0oag6ntx7pKDsqGUS5d7
 0oag6ntx95wFURmCN5d7:
-  - aws_account_id: "820135055454"
-    aws_role_arn: arn:aws:iam::820135055454:role/poweruser
-    okta_client_id: 0oag6ntx95wFURmCN5d7
+- aws_account_id: "820135055454"
+  aws_role_arn: arn:aws:iam::820135055454:role/poweruser
+  okta_client_id: 0oag6ntx95wFURmCN5d7
 0oag6ntxu09RNw4dH5d7:
-  - aws_account_id: "829407189049"
-    aws_role_arn: arn:aws:iam::829407189049:role/poweruser
-    okta_client_id: 0oag6ntxu09RNw4dH5d7
+- aws_account_id: "829407189049"
+  aws_role_arn: arn:aws:iam::829407189049:role/poweruser
+  okta_client_id: 0oag6ntxu09RNw4dH5d7
 0oag6nu2enJzoOwZY5d7:
-  - aws_account_id: "654654427257"
-    aws_role_arn: arn:aws:iam::654654427257:role/poweruser
-    okta_client_id: 0oag6nu2enJzoOwZY5d7
+- aws_account_id: "654654427257"
+  aws_role_arn: arn:aws:iam::654654427257:role/poweruser
+  okta_client_id: 0oag6nu2enJzoOwZY5d7
 0oag6nu6y2CHeriY25d7:
-  - aws_account_id: "648573913056"
-    aws_role_arn: arn:aws:iam::648573913056:role/poweruser
-    okta_client_id: 0oag6nu6y2CHeriY25d7
+- aws_account_id: "648573913056"
+  aws_role_arn: arn:aws:iam::648573913056:role/poweruser
+  okta_client_id: 0oag6nu6y2CHeriY25d7
 0oag6nu7ljilOSUl95d7:
-  - aws_account_id: "607813682535"
-    aws_role_arn: arn:aws:iam::607813682535:role/poweruser
-    okta_client_id: 0oag6nu7ljilOSUl95d7
+- aws_account_id: "607813682535"
+  aws_role_arn: arn:aws:iam::607813682535:role/poweruser
+  okta_client_id: 0oag6nu7ljilOSUl95d7
 0oag6nuge7epTPbml5d7:
-  - aws_account_id: "231426846575"
-    aws_role_arn: arn:aws:iam::231426846575:role/poweruser
-    okta_client_id: 0oag6nuge7epTPbml5d7
+- aws_account_id: "231426846575"
+  aws_role_arn: arn:aws:iam::231426846575:role/poweruser
+  okta_client_id: 0oag6nuge7epTPbml5d7
 0oag6nuge86qy0f2R5d7:
-  - aws_account_id: "248448116955"
-    aws_role_arn: arn:aws:iam::248448116955:role/poweruser
-    okta_client_id: 0oag6nuge86qy0f2R5d7
+- aws_account_id: "248448116955"
+  aws_role_arn: arn:aws:iam::248448116955:role/poweruser
+  okta_client_id: 0oag6nuge86qy0f2R5d7
 0oag6numbz4A4l5ls5d7:
-  - aws_account_id: "787588439240"
-    aws_role_arn: arn:aws:iam::787588439240:role/poweruser
-    okta_client_id: 0oag6numbz4A4l5ls5d7
+- aws_account_id: "787588439240"
+  aws_role_arn: arn:aws:iam::787588439240:role/poweruser
+  okta_client_id: 0oag6numbz4A4l5ls5d7
 0oag6nuqgq8ygUwKU5d7:
-  - aws_account_id: "634134578715"
-    aws_role_arn: arn:aws:iam::634134578715:role/readonly
-    okta_client_id: 0oag6nuqgq8ygUwKU5d7
+- aws_account_id: "634134578715"
+  aws_role_arn: arn:aws:iam::634134578715:role/readonly
+  okta_client_id: 0oag6nuqgq8ygUwKU5d7
 0oag6nuuoxhasCQeq5d7:
-  - aws_account_id: "254044266527"
-    aws_role_arn: arn:aws:iam::254044266527:role/poweruser
-    okta_client_id: 0oag6nuuoxhasCQeq5d7
+- aws_account_id: "254044266527"
+  aws_role_arn: arn:aws:iam::254044266527:role/poweruser
+  okta_client_id: 0oag6nuuoxhasCQeq5d7
 0oag6nuv2fvo2PqTy5d7:
-  - aws_account_id: "254044266527"
-    aws_role_arn: arn:aws:iam::254044266527:role/readonly
-    okta_client_id: 0oag6nuv2fvo2PqTy5d7
+- aws_account_id: "254044266527"
+  aws_role_arn: arn:aws:iam::254044266527:role/readonly
+  okta_client_id: 0oag6nuv2fvo2PqTy5d7
 0oag6nuyf5vfMSEcL5d7:
-  - aws_account_id: "058264139299"
-    aws_role_arn: arn:aws:iam::058264139299:role/poweruser
-    okta_client_id: 0oag6nuyf5vfMSEcL5d7
+- aws_account_id: "058264139299"
+  aws_role_arn: arn:aws:iam::058264139299:role/poweruser
+  okta_client_id: 0oag6nuyf5vfMSEcL5d7
 0oag6nv2enWwYZwvv5d7:
-  - aws_account_id: "254379453707"
-    aws_role_arn: arn:aws:iam::254379453707:role/poweruser
-    okta_client_id: 0oag6nv2enWwYZwvv5d7
+- aws_account_id: "254379453707"
+  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
+  okta_client_id: 0oag6nv2enWwYZwvv5d7
 0oag6nv2vaqRcQ9DD5d7:
-  - aws_account_id: "416703108729"
-    aws_role_arn: arn:aws:iam::416703108729:role/poweruser
-    okta_client_id: 0oag6nv2vaqRcQ9DD5d7
+- aws_account_id: "416703108729"
+  aws_role_arn: arn:aws:iam::416703108729:role/poweruser
+  okta_client_id: 0oag6nv2vaqRcQ9DD5d7
 0oag6nv3xu03sw0lq5d7:
-  - aws_account_id: "119435350371"
-    aws_role_arn: arn:aws:iam::119435350371:role/poweruser
-    okta_client_id: 0oag6nv3xu03sw0lq5d7
+- aws_account_id: "119435350371"
+  aws_role_arn: arn:aws:iam::119435350371:role/poweruser
+  okta_client_id: 0oag6nv3xu03sw0lq5d7
 0oag6nvatqpcjZ64Y5d7:
-  - aws_account_id: "908710317728"
-    aws_role_arn: arn:aws:iam::908710317728:role/poweruser
-    okta_client_id: 0oag6nvatqpcjZ64Y5d7
+- aws_account_id: "908710317728"
+  aws_role_arn: arn:aws:iam::908710317728:role/poweruser
+  okta_client_id: 0oag6nvatqpcjZ64Y5d7
 0oag6nvll1NVcly0C5d7:
-  - aws_account_id: "984830177581"
-    aws_role_arn: arn:aws:iam::984830177581:role/poweruser
-    okta_client_id: 0oag6nvll1NVcly0C5d7
+- aws_account_id: "984830177581"
+  aws_role_arn: arn:aws:iam::984830177581:role/poweruser
+  okta_client_id: 0oag6nvll1NVcly0C5d7
 0oag6nvm5528wjNMh5d7:
-  - aws_account_id: "119435350371"
-    aws_role_arn: arn:aws:iam::119435350371:role/readonly
-    okta_client_id: 0oag6nvm5528wjNMh5d7
+- aws_account_id: "119435350371"
+  aws_role_arn: arn:aws:iam::119435350371:role/readonly
+  okta_client_id: 0oag6nvm5528wjNMh5d7
 0oag6nvrhjSGoAkWt5d7:
-  - aws_account_id: "339713142298"
-    aws_role_arn: arn:aws:iam::339713142298:role/readonly
-    okta_client_id: 0oag6nvrhjSGoAkWt5d7
+- aws_account_id: "339713142298"
+  aws_role_arn: arn:aws:iam::339713142298:role/readonly
+  okta_client_id: 0oag6nvrhjSGoAkWt5d7
 0oag6nvvo6Blpz3Gp5d7:
-  - aws_account_id: "634134578715"
-    aws_role_arn: arn:aws:iam::634134578715:role/poweruser
-    okta_client_id: 0oag6nvvo6Blpz3Gp5d7
+- aws_account_id: "634134578715"
+  aws_role_arn: arn:aws:iam::634134578715:role/poweruser
+  okta_client_id: 0oag6nvvo6Blpz3Gp5d7
 0oag6nvzpfAZQRiWO5d7:
-  - aws_account_id: "977655849919"
-    aws_role_arn: arn:aws:iam::977655849919:role/readonly
-    okta_client_id: 0oag6nvzpfAZQRiWO5d7
+- aws_account_id: "977655849919"
+  aws_role_arn: arn:aws:iam::977655849919:role/readonly
+  okta_client_id: 0oag6nvzpfAZQRiWO5d7
 0oag6nw7kj5j1nNVO5d7:
-  - aws_account_id: "254379453707"
-    aws_role_arn: arn:aws:iam::254379453707:role/readonly
-    okta_client_id: 0oag6nw7kj5j1nNVO5d7
+- aws_account_id: "254379453707"
+  aws_role_arn: arn:aws:iam::254379453707:role/readonly
+  okta_client_id: 0oag6nw7kj5j1nNVO5d7
 0oag6nw9s5DuzGSZT5d7:
-  - aws_account_id: "231426846575"
-    aws_role_arn: arn:aws:iam::231426846575:role/readonly
-    okta_client_id: 0oag6nw9s5DuzGSZT5d7
+- aws_account_id: "231426846575"
+  aws_role_arn: arn:aws:iam::231426846575:role/readonly
+  okta_client_id: 0oag6nw9s5DuzGSZT5d7
 0oag6nw10w8am4St55d7:
-  - aws_account_id: "699936264352"
-    aws_role_arn: arn:aws:iam::699936264352:role/poweruser
-    okta_client_id: 0oag6nw10w8am4St55d7
+- aws_account_id: "699936264352"
+  aws_role_arn: arn:aws:iam::699936264352:role/poweruser
+  okta_client_id: 0oag6nw10w8am4St55d7
 0oag6nw11zQJsui9a5d7:
-  - aws_account_id: "868904014114"
-    aws_role_arn: arn:aws:iam::868904014114:role/poweruser
-    okta_client_id: 0oag6nw11zQJsui9a5d7
+- aws_account_id: "868904014114"
+  aws_role_arn: arn:aws:iam::868904014114:role/poweruser
+  okta_client_id: 0oag6nw11zQJsui9a5d7
 0oag6nwdolPj8WeQ15d7:
-  - aws_account_id: "248448116955"
-    aws_role_arn: arn:aws:iam::248448116955:role/readonly
-    okta_client_id: 0oag6nwdolPj8WeQ15d7
+- aws_account_id: "248448116955"
+  aws_role_arn: arn:aws:iam::248448116955:role/readonly
+  okta_client_id: 0oag6nwdolPj8WeQ15d7
 0oag6nwk1oV6vCGGL5d7:
-  - aws_account_id: "654654367136"
-    aws_role_arn: arn:aws:iam::654654367136:role/poweruser
-    okta_client_id: 0oag6nwk1oV6vCGGL5d7
+- aws_account_id: "654654367136"
+  aws_role_arn: arn:aws:iam::654654367136:role/poweruser
+  okta_client_id: 0oag6nwk1oV6vCGGL5d7
 0oag6nww1fpU4f6gW5d7:
-  - aws_account_id: "732052188396"
-    aws_role_arn: arn:aws:iam::732052188396:role/poweruser
-    okta_client_id: 0oag6nww1fpU4f6gW5d7
+- aws_account_id: "732052188396"
+  aws_role_arn: arn:aws:iam::732052188396:role/poweruser
+  okta_client_id: 0oag6nww1fpU4f6gW5d7
 0oag6nww1o1JYfw295d7:
-  - aws_account_id: "607813682535"
-    aws_role_arn: arn:aws:iam::607813682535:role/readonly
-    okta_client_id: 0oag6nww1o1JYfw295d7
+- aws_account_id: "607813682535"
+  aws_role_arn: arn:aws:iam::607813682535:role/readonly
+  okta_client_id: 0oag6nww1o1JYfw295d7
 0oag6nww3lc9F2wQd5d7:
-  - aws_account_id: "340591210379"
-    aws_role_arn: arn:aws:iam::340591210379:role/poweruser
-    okta_client_id: 0oag6nww3lc9F2wQd5d7
+- aws_account_id: "340591210379"
+  aws_role_arn: arn:aws:iam::340591210379:role/poweruser
+  okta_client_id: 0oag6nww3lc9F2wQd5d7
 0oag6nwzmt0IGUKa15d7:
-  - aws_account_id: "471112759938"
-    aws_role_arn: arn:aws:iam::471112759938:role/poweruser
-    okta_client_id: 0oag6nwzmt0IGUKa15d7
-0oag6nx7gtNyZyPnp5d7:
-  - aws_account_id: "724328632434"
-    aws_role_arn: arn:aws:iam::724328632434:role/readonly
-    okta_client_id: 0oag6nx7gtNyZyPnp5d7
-  - aws_account_id: "724328632434"
-    aws_role_arn: arn:aws:iam::724328632434:role/poweruser
-    okta_client_id: 0oag6nx7gtNyZyPnp5d7
-0oag6nx9u7b1PXyWv5d7:
-  - aws_account_id: "984830177581"
-    aws_role_arn: arn:aws:iam::984830177581:role/readonly
-    okta_client_id: 0oag6nx9u7b1PXyWv5d7
-0oag6nx15rSgLjbHU5d7:
-  - aws_account_id: "340591210379"
-    aws_role_arn: arn:aws:iam::340591210379:role/readonly
-    okta_client_id: 0oag6nx15rSgLjbHU5d7
-0oag6nx1nisbJhfMN5d7:
-  - aws_account_id: "444275452013"
-    aws_role_arn: arn:aws:iam::444275452013:role/poweruser
-    okta_client_id: 0oag6nx1nisbJhfMN5d7
+- aws_account_id: "471112759938"
+  aws_role_arn: arn:aws:iam::471112759938:role/poweruser
+  okta_client_id: 0oag6nwzmt0IGUKa15d7
 0oag6nx7flyc3FJno5d7:
-  - aws_account_id: "732052188396"
-    aws_role_arn: arn:aws:iam::732052188396:role/readonly
-    okta_client_id: 0oag6nx7flyc3FJno5d7
+- aws_account_id: "732052188396"
+  aws_role_arn: arn:aws:iam::732052188396:role/readonly
+  okta_client_id: 0oag6nx7flyc3FJno5d7
+0oag6nx7gtNyZyPnp5d7:
+- aws_account_id: "724328632434"
+  aws_role_arn: arn:aws:iam::724328632434:role/readonly
+  okta_client_id: 0oag6nx7gtNyZyPnp5d7
+- aws_account_id: "724328632434"
+  aws_role_arn: arn:aws:iam::724328632434:role/poweruser
+  okta_client_id: 0oag6nx7gtNyZyPnp5d7
+0oag6nx9u7b1PXyWv5d7:
+- aws_account_id: "984830177581"
+  aws_role_arn: arn:aws:iam::984830177581:role/readonly
+  okta_client_id: 0oag6nx9u7b1PXyWv5d7
+0oag6nx15rSgLjbHU5d7:
+- aws_account_id: "340591210379"
+  aws_role_arn: arn:aws:iam::340591210379:role/readonly
+  okta_client_id: 0oag6nx15rSgLjbHU5d7
+0oag6nx1nisbJhfMN5d7:
+- aws_account_id: "444275452013"
+  aws_role_arn: arn:aws:iam::444275452013:role/poweruser
+  okta_client_id: 0oag6nx1nisbJhfMN5d7
 0oag6nx31gNUSKi0S5d7:
-  - aws_account_id: "868904014114"
-    aws_role_arn: arn:aws:iam::868904014114:role/readonly
-    okta_client_id: 0oag6nx31gNUSKi0S5d7
+- aws_account_id: "868904014114"
+  aws_role_arn: arn:aws:iam::868904014114:role/readonly
+  okta_client_id: 0oag6nx31gNUSKi0S5d7
 0oag6nx32oMUfS5Rh5d7:
-  - aws_account_id: "109067257620"
-    aws_role_arn: arn:aws:iam::109067257620:role/readonly
-    okta_client_id: 0oag6nx32oMUfS5Rh5d7
+- aws_account_id: "109067257620"
+  aws_role_arn: arn:aws:iam::109067257620:role/readonly
+  okta_client_id: 0oag6nx32oMUfS5Rh5d7
 0oag6nx868r0gEQBl5d7:
-  - aws_account_id: "871040364337"
-    aws_role_arn: arn:aws:iam::871040364337:role/poweruser
-    okta_client_id: 0oag6nx868r0gEQBl5d7
+- aws_account_id: "871040364337"
+  aws_role_arn: arn:aws:iam::871040364337:role/poweruser
+  okta_client_id: 0oag6nx868r0gEQBl5d7
 0oag6nxl0hJzfvpkg5d7:
-  - aws_account_id: "489077519657"
-    aws_role_arn: arn:aws:iam::489077519657:role/readonly
-    okta_client_id: 0oag6nxl0hJzfvpkg5d7
+- aws_account_id: "489077519657"
+  aws_role_arn: arn:aws:iam::489077519657:role/readonly
+  okta_client_id: 0oag6nxl0hJzfvpkg5d7
 0oag6nxln7V17q8Ap5d7:
-  - aws_account_id: "723754913286"
-    aws_role_arn: arn:aws:iam::723754913286:role/readonly
-    okta_client_id: 0oag6nxln7V17q8Ap5d7
+- aws_account_id: "723754913286"
+  aws_role_arn: arn:aws:iam::723754913286:role/readonly
+  okta_client_id: 0oag6nxln7V17q8Ap5d7
 0oag6nxte42KnIWHJ5d7:
-  - aws_account_id: "023695267945"
-    aws_role_arn: arn:aws:iam::023695267945:role/readonly
-    okta_client_id: 0oag6nxte42KnIWHJ5d7
+- aws_account_id: "023695267945"
+  aws_role_arn: arn:aws:iam::023695267945:role/readonly
+  okta_client_id: 0oag6nxte42KnIWHJ5d7
 0oag6nxv0v9u7G87P5d7:
-  - aws_account_id: "339713142298"
-    aws_role_arn: arn:aws:iam::339713142298:role/poweruser
-    okta_client_id: 0oag6nxv0v9u7G87P5d7
+- aws_account_id: "339713142298"
+  aws_role_arn: arn:aws:iam::339713142298:role/poweruser
+  okta_client_id: 0oag6nxv0v9u7G87P5d7
 0oag6nxxk20BKUP5i5d7:
-  - aws_account_id: "626314663667"
-    aws_role_arn: arn:aws:iam::626314663667:role/poweruser
-    okta_client_id: 0oag6nxxk20BKUP5i5d7
+- aws_account_id: "626314663667"
+  aws_role_arn: arn:aws:iam::626314663667:role/poweruser
+  okta_client_id: 0oag6nxxk20BKUP5i5d7
 0oag6nxxwzjByoo3S5d7:
-  - aws_account_id: "626314663667"
-    aws_role_arn: arn:aws:iam::626314663667:role/readonly
-    okta_client_id: 0oag6nxxwzjByoo3S5d7
+- aws_account_id: "626314663667"
+  aws_role_arn: arn:aws:iam::626314663667:role/readonly
+  okta_client_id: 0oag6nxxwzjByoo3S5d7
 0oag6nxyd1ZlIENRs5d7:
-  - aws_account_id: "046341869686"
-    aws_role_arn: arn:aws:iam::046341869686:role/poweruser
-    okta_client_id: 0oag6nxyd1ZlIENRs5d7
+- aws_account_id: "046341869686"
+  aws_role_arn: arn:aws:iam::046341869686:role/poweruser
+  okta_client_id: 0oag6nxyd1ZlIENRs5d7
 0oag6ny6liGXPBezW5d7:
-  - aws_account_id: "612168857605"
-    aws_role_arn: arn:aws:iam::612168857605:role/poweruser
-    okta_client_id: 0oag6ny6liGXPBezW5d7
+- aws_account_id: "612168857605"
+  aws_role_arn: arn:aws:iam::612168857605:role/poweruser
+  okta_client_id: 0oag6ny6liGXPBezW5d7
 0oag6ny6mnXoqBeT15d7:
-  - aws_account_id: "416703108729"
-    aws_role_arn: arn:aws:iam::416703108729:role/readonly
-    okta_client_id: 0oag6ny6mnXoqBeT15d7
+- aws_account_id: "416703108729"
+  aws_role_arn: arn:aws:iam::416703108729:role/readonly
+  okta_client_id: 0oag6ny6mnXoqBeT15d7
 0oag6ny78mffi5USi5d7:
-  - aws_account_id: "745463180746"
-    aws_role_arn: arn:aws:iam::745463180746:role/readonly
-    okta_client_id: 0oag6ny78mffi5USi5d7
+- aws_account_id: "745463180746"
+  aws_role_arn: arn:aws:iam::745463180746:role/readonly
+  okta_client_id: 0oag6ny78mffi5USi5d7
 0oag6ny7p8y7zN6Pb5d7:
-  - aws_account_id: "787588439240"
-    aws_role_arn: arn:aws:iam::787588439240:role/readonly
-    okta_client_id: 0oag6ny7p8y7zN6Pb5d7
+- aws_account_id: "787588439240"
+  aws_role_arn: arn:aws:iam::787588439240:role/readonly
+  okta_client_id: 0oag6ny7p8y7zN6Pb5d7
 0oag6nyaebJQrwlmQ5d7:
-  - aws_account_id: "401986845158"
-    aws_role_arn: arn:aws:iam::401986845158:role/readonly
-    okta_client_id: 0oag6nyaebJQrwlmQ5d7
+- aws_account_id: "401986845158"
+  aws_role_arn: arn:aws:iam::401986845158:role/readonly
+  okta_client_id: 0oag6nyaebJQrwlmQ5d7
 0oag6nychoAQj2avA5d7:
-  - aws_account_id: "046341869686"
-    aws_role_arn: arn:aws:iam::046341869686:role/readonly
-    okta_client_id: 0oag6nychoAQj2avA5d7
+- aws_account_id: "046341869686"
+  aws_role_arn: arn:aws:iam::046341869686:role/readonly
+  okta_client_id: 0oag6nychoAQj2avA5d7
 0oag6nyd10veWdXHn5d7:
-  - aws_account_id: "908710317728"
-    aws_role_arn: arn:aws:iam::908710317728:role/readonly
-    okta_client_id: 0oag6nyd10veWdXHn5d7
+- aws_account_id: "908710317728"
+  aws_role_arn: arn:aws:iam::908710317728:role/readonly
+  okta_client_id: 0oag6nyd10veWdXHn5d7
 0oag6nygkicBf9OKZ5d7:
-  - aws_account_id: "723754913286"
-    aws_role_arn: arn:aws:iam::723754913286:role/poweruser
-    okta_client_id: 0oag6nygkicBf9OKZ5d7
+- aws_account_id: "723754913286"
+  aws_role_arn: arn:aws:iam::723754913286:role/poweruser
+  okta_client_id: 0oag6nygkicBf9OKZ5d7
 0oag6nypzi8liHzIx5d7:
-  - aws_account_id: "648573913056"
-    aws_role_arn: arn:aws:iam::648573913056:role/readonly
-    okta_client_id: 0oag6nypzi8liHzIx5d7
+- aws_account_id: "648573913056"
+  aws_role_arn: arn:aws:iam::648573913056:role/readonly
+  okta_client_id: 0oag6nypzi8liHzIx5d7
 0oag6nyvvm53UtgvR5d7:
-  - aws_account_id: "654654427257"
-    aws_role_arn: arn:aws:iam::654654427257:role/readonly
-    okta_client_id: 0oag6nyvvm53UtgvR5d7
+- aws_account_id: "654654427257"
+  aws_role_arn: arn:aws:iam::654654427257:role/readonly
+  okta_client_id: 0oag6nyvvm53UtgvR5d7
 0oag6nyybfr4SPMGH5d7:
-  - aws_account_id: "489077519657"
-    aws_role_arn: arn:aws:iam::489077519657:role/poweruser
-    okta_client_id: 0oag6nyybfr4SPMGH5d7
+- aws_account_id: "489077519657"
+  aws_role_arn: arn:aws:iam::489077519657:role/poweruser
+  okta_client_id: 0oag6nyybfr4SPMGH5d7
 0oag6nz3xjturuJVN5d7:
-  - aws_account_id: "977655849919"
-    aws_role_arn: arn:aws:iam::977655849919:role/poweruser
-    okta_client_id: 0oag6nz3xjturuJVN5d7
+- aws_account_id: "977655849919"
+  aws_role_arn: arn:aws:iam::977655849919:role/poweruser
+  okta_client_id: 0oag6nz3xjturuJVN5d7
 0oag6nz471tPYuDtV5d7:
-  - aws_account_id: "058264139299"
-    aws_role_arn: arn:aws:iam::058264139299:role/readonly
-    okta_client_id: 0oag6nz471tPYuDtV5d7
+- aws_account_id: "058264139299"
+  aws_role_arn: arn:aws:iam::058264139299:role/readonly
+  okta_client_id: 0oag6nz471tPYuDtV5d7
 0oag6nz472G9iaIR65d7:
-  - aws_account_id: "243100295622"
-    aws_role_arn: arn:aws:iam::243100295622:role/readonly
-    okta_client_id: 0oag6nz472G9iaIR65d7
+- aws_account_id: "243100295622"
+  aws_role_arn: arn:aws:iam::243100295622:role/readonly
+  okta_client_id: 0oag6nz472G9iaIR65d7
 0oag6nzjmgMxPpJ3P5d7:
-  - aws_account_id: "444275452013"
-    aws_role_arn: arn:aws:iam::444275452013:role/readonly
-    okta_client_id: 0oag6nzjmgMxPpJ3P5d7
+- aws_account_id: "444275452013"
+  aws_role_arn: arn:aws:iam::444275452013:role/readonly
+  okta_client_id: 0oag6nzjmgMxPpJ3P5d7
 0oag6nzmw4GmuTnud5d7:
-  - aws_account_id: "612168857605"
-    aws_role_arn: arn:aws:iam::612168857605:role/readonly
-    okta_client_id: 0oag6nzmw4GmuTnud5d7
+- aws_account_id: "612168857605"
+  aws_role_arn: arn:aws:iam::612168857605:role/readonly
+  okta_client_id: 0oag6nzmw4GmuTnud5d7
 0oag6nzmx6nCYCmOC5d7:
-  - aws_account_id: "516466186502"
-    aws_role_arn: arn:aws:iam::516466186502:role/poweruser
-    okta_client_id: 0oag6nzmx6nCYCmOC5d7
+- aws_account_id: "516466186502"
+  aws_role_arn: arn:aws:iam::516466186502:role/poweruser
+  okta_client_id: 0oag6nzmx6nCYCmOC5d7
 0oag6nzuh9nSnpjNH5d7:
-  - aws_account_id: "422553907334"
-    aws_role_arn: arn:aws:iam::422553907334:role/poweruser
-    okta_client_id: 0oag6nzuh9nSnpjNH5d7
+- aws_account_id: "422553907334"
+  aws_role_arn: arn:aws:iam::422553907334:role/poweruser
+  okta_client_id: 0oag6nzuh9nSnpjNH5d7
 0oag6nzxiwnrEMNtt5d7:
-  - aws_account_id: "471112759938"
-    aws_role_arn: arn:aws:iam::471112759938:role/readonly
-    okta_client_id: 0oag6nzxiwnrEMNtt5d7
+- aws_account_id: "471112759938"
+  aws_role_arn: arn:aws:iam::471112759938:role/readonly
+  okta_client_id: 0oag6nzxiwnrEMNtt5d7
 0oag6nzy1pq2RysiI5d7:
-  - aws_account_id: "422553907334"
-    aws_role_arn: arn:aws:iam::422553907334:role/readonly
-    okta_client_id: 0oag6nzy1pq2RysiI5d7
+- aws_account_id: "422553907334"
+  aws_role_arn: arn:aws:iam::422553907334:role/readonly
+  okta_client_id: 0oag6nzy1pq2RysiI5d7
 0oag6o01gqqkJO5hV5d7:
-  - aws_account_id: "533267185808"
-    aws_role_arn: arn:aws:iam::533267185808:role/poweruser
-    okta_client_id: 0oag6o01gqqkJO5hV5d7
+- aws_account_id: "533267185808"
+  aws_role_arn: arn:aws:iam::533267185808:role/poweruser
+  okta_client_id: 0oag6o01gqqkJO5hV5d7
 0oag6o06xrerNpM3A5d7:
-  - aws_account_id: "829407189049"
-    aws_role_arn: arn:aws:iam::829407189049:role/readonly
-    okta_client_id: 0oag6o06xrerNpM3A5d7
+- aws_account_id: "829407189049"
+  aws_role_arn: arn:aws:iam::829407189049:role/readonly
+  okta_client_id: 0oag6o06xrerNpM3A5d7
 0oag6o0cxvqwxPujf5d7:
-  - aws_account_id: "533267185808"
-    aws_role_arn: arn:aws:iam::533267185808:role/readonly
-    okta_client_id: 0oag6o0cxvqwxPujf5d7
+- aws_account_id: "533267185808"
+  aws_role_arn: arn:aws:iam::533267185808:role/readonly
+  okta_client_id: 0oag6o0cxvqwxPujf5d7
 0oag6o0hnl8EgE0uS5d7:
-  - aws_account_id: "516466186502"
-    aws_role_arn: arn:aws:iam::516466186502:role/readonly
-    okta_client_id: 0oag6o0hnl8EgE0uS5d7
+- aws_account_id: "516466186502"
+  aws_role_arn: arn:aws:iam::516466186502:role/readonly
+  okta_client_id: 0oag6o0hnl8EgE0uS5d7
 0oag6o0icfTOqJW655d7:
-  - aws_account_id: "696384994809"
-    aws_role_arn: arn:aws:iam::696384994809:role/readonly
-    okta_client_id: 0oag6o0icfTOqJW655d7
+- aws_account_id: "696384994809"
+  aws_role_arn: arn:aws:iam::696384994809:role/readonly
+  okta_client_id: 0oag6o0icfTOqJW655d7
 0oag6o0n235nPTJ2C5d7:
-  - aws_account_id: "699936264352"
-    aws_role_arn: arn:aws:iam::699936264352:role/readonly
-    okta_client_id: 0oag6o0n235nPTJ2C5d7
+- aws_account_id: "699936264352"
+  aws_role_arn: arn:aws:iam::699936264352:role/readonly
+  okta_client_id: 0oag6o0n235nPTJ2C5d7
 0oag6o0n2hk6RydVy5d7:
-  - aws_account_id: "654654367136"
-    aws_role_arn: arn:aws:iam::654654367136:role/readonly
-    okta_client_id: 0oag6o0n2hk6RydVy5d7
+- aws_account_id: "654654367136"
+  aws_role_arn: arn:aws:iam::654654367136:role/readonly
+  okta_client_id: 0oag6o0n2hk6RydVy5d7
 0oag6o0tx9aDBtv3B5d7:
-  - aws_account_id: "109067257620"
-    aws_role_arn: arn:aws:iam::109067257620:role/poweruser
-    okta_client_id: 0oag6o0tx9aDBtv3B5d7
+- aws_account_id: "109067257620"
+  aws_role_arn: arn:aws:iam::109067257620:role/poweruser
+  okta_client_id: 0oag6o0tx9aDBtv3B5d7
 0oag6o0xrwnLnjPDu5d7:
-  - aws_account_id: "023695267945"
-    aws_role_arn: arn:aws:iam::023695267945:role/poweruser
-    okta_client_id: 0oag6o0xrwnLnjPDu5d7
-0oag6o71hid0J6SaK5d7:
-  - aws_account_id: "820135055454"
-    aws_role_arn: arn:aws:iam::820135055454:role/readonly
-    okta_client_id: 0oag6o71hid0J6SaK5d7
+- aws_account_id: "023695267945"
+  aws_role_arn: arn:aws:iam::023695267945:role/poweruser
+  okta_client_id: 0oag6o0xrwnLnjPDu5d7
 0oag6o6938PReNHNC5d7:
-  - aws_account_id: "745463180746"
-    aws_role_arn: arn:aws:iam::745463180746:role/poweruser
-    okta_client_id: 0oag6o6938PReNHNC5d7
+- aws_account_id: "745463180746"
+  aws_role_arn: arn:aws:iam::745463180746:role/poweruser
+  okta_client_id: 0oag6o6938PReNHNC5d7
 0oag6o6ujuXMv6sJe5d7:
-  - aws_account_id: "871040364337"
-    aws_role_arn: arn:aws:iam::871040364337:role/readonly
-    okta_client_id: 0oag6o6ujuXMv6sJe5d7
+- aws_account_id: "871040364337"
+  aws_role_arn: arn:aws:iam::871040364337:role/readonly
+  okta_client_id: 0oag6o6ujuXMv6sJe5d7
+0oag6o71hid0J6SaK5d7:
+- aws_account_id: "820135055454"
+  aws_role_arn: arn:aws:iam::820135055454:role/readonly
+  okta_client_id: 0oag6o71hid0J6SaK5d7
 0oagxacb4nS3F3Qp55d7:
-  - aws_account_id: "444275452013"
-    aws_role_arn: arn:aws:iam::444275452013:role/okta-czi-admin
-    okta_client_id: 0oagxacb4nS3F3Qp55d7
-  - aws_account_id: "340591210379"
-    aws_role_arn: arn:aws:iam::340591210379:role/okta-czi-admin
-    okta_client_id: 0oagxacb4nS3F3Qp55d7
+- aws_account_id: "444275452013"
+  aws_role_arn: arn:aws:iam::444275452013:role/okta-czi-admin
+  okta_client_id: 0oagxacb4nS3F3Qp55d7
+- aws_account_id: "340591210379"
+  aws_role_arn: arn:aws:iam::340591210379:role/okta-czi-admin
+  okta_client_id: 0oagxacb4nS3F3Qp55d7
 0oahg1bbsu54Ddo0K5d7:
-  - aws_account_id: "908710317728"
-    aws_role_arn: arn:aws:iam::908710317728:role/readonly
-    okta_client_id: 0oahg1bbsu54Ddo0K5d7
-  - aws_account_id: "868904014114"
-    aws_role_arn: arn:aws:iam::868904014114:role/readonly
-    okta_client_id: 0oahg1bbsu54Ddo0K5d7
+- aws_account_id: "908710317728"
+  aws_role_arn: arn:aws:iam::908710317728:role/readonly
+  okta_client_id: 0oahg1bbsu54Ddo0K5d7
+- aws_account_id: "868904014114"
+  aws_role_arn: arn:aws:iam::868904014114:role/readonly
+  okta_client_id: 0oahg1bbsu54Ddo0K5d7
 0oai3141mma56gMBS5d7:
-  - aws_account_id: "340591210379"
-    aws_role_arn: arn:aws:iam::340591210379:role/readonly
-    okta_client_id: 0oai3141mma56gMBS5d7
+- aws_account_id: "340591210379"
+  aws_role_arn: arn:aws:iam::340591210379:role/readonly
+  okta_client_id: 0oai3141mma56gMBS5d7
 0oai3vce45KnzGH885d7:
-  - aws_account_id: "941037323260"
-    aws_role_arn: arn:aws:iam::941037323260:role/readonly
-    okta_client_id: 0oai3vce45KnzGH885d7
+- aws_account_id: "941037323260"
+  aws_role_arn: arn:aws:iam::941037323260:role/readonly
+  okta_client_id: 0oai3vce45KnzGH885d7
 0oai3vdfuyPRpizCN5d7:
-  - aws_account_id: "941037323260"
-    aws_role_arn: arn:aws:iam::941037323260:role/poweruser
-    okta_client_id: 0oai3vdfuyPRpizCN5d7
+- aws_account_id: "941037323260"
+  aws_role_arn: arn:aws:iam::941037323260:role/poweruser
+  okta_client_id: 0oai3vdfuyPRpizCN5d7
 0oajwmxnj1wNCEzwn5d7:
-  - aws_account_id: "586794448189"
-    aws_role_arn: arn:aws:iam::586794448189:role/poweruser
-    okta_client_id: 0oajwmxnj1wNCEzwn5d7
+- aws_account_id: "586794448189"
+  aws_role_arn: arn:aws:iam::586794448189:role/poweruser
+  okta_client_id: 0oajwmxnj1wNCEzwn5d7
 0oajwmz4k8R1bTO2y5d7:
-  - aws_account_id: "586794448189"
-    aws_role_arn: arn:aws:iam::586794448189:role/readonly
-    okta_client_id: 0oajwmz4k8R1bTO2y5d7
+- aws_account_id: "586794448189"
+  aws_role_arn: arn:aws:iam::586794448189:role/readonly
+  okta_client_id: 0oajwmz4k8R1bTO2y5d7
 0oakmuc0yiRm5I21Z5d7:
-  - aws_account_id: "911167894392"
-    aws_role_arn: arn:aws:iam::911167894392:role/readonly
-    okta_client_id: 0oakmuc0yiRm5I21Z5d7
+- aws_account_id: "911167894392"
+  aws_role_arn: arn:aws:iam::911167894392:role/readonly
+  okta_client_id: 0oakmuc0yiRm5I21Z5d7
 0oakmud1qnQOCuSd75d7:
-  - aws_account_id: "911167894392"
-    aws_role_arn: arn:aws:iam::911167894392:role/poweruser
-    okta_client_id: 0oakmud1qnQOCuSd75d7
+- aws_account_id: "911167894392"
+  aws_role_arn: arn:aws:iam::911167894392:role/poweruser
+  okta_client_id: 0oakmud1qnQOCuSd75d7
 0oaknia9a6o2pqfk95d7:
-  - aws_account_id: "060795925407"
-    aws_role_arn: arn:aws:iam::060795925407:role/readonly
-    okta_client_id: 0oaknia9a6o2pqfk95d7
+- aws_account_id: "060795925407"
+  aws_role_arn: arn:aws:iam::060795925407:role/readonly
+  okta_client_id: 0oaknia9a6o2pqfk95d7
 0oakniasgbf1BU2aV5d7:
-  - aws_account_id: "060795925407"
-    aws_role_arn: arn:aws:iam::060795925407:role/poweruser
-    okta_client_id: 0oakniasgbf1BU2aV5d7
+- aws_account_id: "060795925407"
+  aws_role_arn: arn:aws:iam::060795925407:role/poweruser
+  okta_client_id: 0oakniasgbf1BU2aV5d7
 0oamtjqcrfDykKH0b5d7:
-  - aws_account_id: "277707108111"
-    aws_role_arn: arn:aws:iam::277707108111:role/poweruser
-    okta_client_id: 0oamtjqcrfDykKH0b5d7
+- aws_account_id: "277707108111"
+  aws_role_arn: arn:aws:iam::277707108111:role/poweruser
+  okta_client_id: 0oamtjqcrfDykKH0b5d7
 0oamtjrjyh2vWOQHp5d7:
-  - aws_account_id: "440744247602"
-    aws_role_arn: arn:aws:iam::440744247602:role/poweruser
-    okta_client_id: 0oamtjrjyh2vWOQHp5d7
+- aws_account_id: "440744247602"
+  aws_role_arn: arn:aws:iam::440744247602:role/poweruser
+  okta_client_id: 0oamtjrjyh2vWOQHp5d7
 0oamtjt06xfuVGyWG5d7:
-  - aws_account_id: "277707108111"
-    aws_role_arn: arn:aws:iam::277707108111:role/readonly
-    okta_client_id: 0oamtjt06xfuVGyWG5d7
+- aws_account_id: "277707108111"
+  aws_role_arn: arn:aws:iam::277707108111:role/readonly
+  okta_client_id: 0oamtjt06xfuVGyWG5d7
 0oamtjvx50j9UvpzW5d7:
-  - aws_account_id: "440744247602"
-    aws_role_arn: arn:aws:iam::440744247602:role/readonly
-    okta_client_id: 0oamtjvx50j9UvpzW5d7
+- aws_account_id: "440744247602"
+  aws_role_arn: arn:aws:iam::440744247602:role/readonly
+  okta_client_id: 0oamtjvx50j9UvpzW5d7
 0oamuta7r0Hfplzft5d7:
-  - aws_account_id: "577638397886"
-    aws_role_arn: arn:aws:iam::577638397886:role/poweruser
-    okta_client_id: 0oamuta7r0Hfplzft5d7
-  - aws_account_id: "445567094889"
-    aws_role_arn: arn:aws:iam::445567094889:role/poweruser
-    okta_client_id: 0oamuta7r0Hfplzft5d7
-  - aws_account_id: "440744247602"
-    aws_role_arn: arn:aws:iam::440744247602:role/poweruser
-    okta_client_id: 0oamuta7r0Hfplzft5d7
-  - aws_account_id: "277707108111"
-    aws_role_arn: arn:aws:iam::277707108111:role/poweruser
-    okta_client_id: 0oamuta7r0Hfplzft5d7
+- aws_account_id: "577638397886"
+  aws_role_arn: arn:aws:iam::577638397886:role/poweruser
+  okta_client_id: 0oamuta7r0Hfplzft5d7
+- aws_account_id: "445567094889"
+  aws_role_arn: arn:aws:iam::445567094889:role/poweruser
+  okta_client_id: 0oamuta7r0Hfplzft5d7
+- aws_account_id: "440744247602"
+  aws_role_arn: arn:aws:iam::440744247602:role/poweruser
+  okta_client_id: 0oamuta7r0Hfplzft5d7
+- aws_account_id: "277707108111"
+  aws_role_arn: arn:aws:iam::277707108111:role/poweruser
+  okta_client_id: 0oamuta7r0Hfplzft5d7
 0oandmuyymCGa7Dy35d7:
-  - aws_account_id: "445567094889"
-    aws_role_arn: arn:aws:iam::445567094889:role/poweruser
-    okta_client_id: 0oandmuyymCGa7Dy35d7
+- aws_account_id: "445567094889"
+  aws_role_arn: arn:aws:iam::445567094889:role/poweruser
+  okta_client_id: 0oandmuyymCGa7Dy35d7
 0oandmvq1dtscNTH15d7:
-  - aws_account_id: "445567094889"
-    aws_role_arn: arn:aws:iam::445567094889:role/readonly
-    okta_client_id: 0oandmvq1dtscNTH15d7
+- aws_account_id: "445567094889"
+  aws_role_arn: arn:aws:iam::445567094889:role/readonly
+  okta_client_id: 0oandmvq1dtscNTH15d7
 0oandok96ePtjCMEv5d7:
-  - aws_account_id: "577638397886"
-    aws_role_arn: arn:aws:iam::577638397886:role/readonly
-    okta_client_id: 0oandok96ePtjCMEv5d7
+- aws_account_id: "577638397886"
+  aws_role_arn: arn:aws:iam::577638397886:role/readonly
+  okta_client_id: 0oandok96ePtjCMEv5d7
 0oandokv5lPjv5eYP5d7:
-  - aws_account_id: "577638397886"
-    aws_role_arn: arn:aws:iam::577638397886:role/poweruser
-    okta_client_id: 0oandokv5lPjv5eYP5d7
+- aws_account_id: "577638397886"
+  aws_role_arn: arn:aws:iam::577638397886:role/poweruser
+  okta_client_id: 0oandokv5lPjv5eYP5d7
 0oantw5nydByWr8Vr5d7:
-  - aws_account_id: "913524907765"
-    aws_role_arn: arn:aws:iam::913524907765:role/readonly
-    okta_client_id: 0oantw5nydByWr8Vr5d7
+- aws_account_id: "913524907765"
+  aws_role_arn: arn:aws:iam::913524907765:role/readonly
+  okta_client_id: 0oantw5nydByWr8Vr5d7
 0oantw5x4bd4CtWaX5d7:
-  - aws_account_id: "913524907765"
-    aws_role_arn: arn:aws:iam::913524907765:role/poweruser
-    okta_client_id: 0oantw5x4bd4CtWaX5d7
+- aws_account_id: "913524907765"
+  aws_role_arn: arn:aws:iam::913524907765:role/poweruser
+  okta_client_id: 0oantw5x4bd4CtWaX5d7
 0oantwpyr4aeYHTHG5d7:
-  - aws_account_id: "216989105463"
-    aws_role_arn: arn:aws:iam::216989105463:role/poweruser
-    okta_client_id: 0oantwpyr4aeYHTHG5d7
+- aws_account_id: "216989105463"
+  aws_role_arn: arn:aws:iam::216989105463:role/poweruser
+  okta_client_id: 0oantwpyr4aeYHTHG5d7
 0oantwr9ppluy7tIP5d7:
-  - aws_account_id: "216989105463"
-    aws_role_arn: arn:aws:iam::216989105463:role/readonly
-    okta_client_id: 0oantwr9ppluy7tIP5d7
+- aws_account_id: "216989105463"
+  aws_role_arn: arn:aws:iam::216989105463:role/readonly
+  okta_client_id: 0oantwr9ppluy7tIP5d7
 0oauzedtzBs11op1n5d6:
-  - aws_account_id: "984830177581"
-    aws_role_arn: arn:aws:iam::984830177581:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "977655849919"
-    aws_role_arn: arn:aws:iam::977655849919:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "941037323260"
-    aws_role_arn: arn:aws:iam::941037323260:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "913524907765"
-    aws_role_arn: arn:aws:iam::913524907765:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "911167894392"
-    aws_role_arn: arn:aws:iam::911167894392:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "908710317728"
-    aws_role_arn: arn:aws:iam::908710317728:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "871040364337"
-    aws_role_arn: arn:aws:iam::871040364337:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "868904014114"
-    aws_role_arn: arn:aws:iam::868904014114:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "829407189049"
-    aws_role_arn: arn:aws:iam::829407189049:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "820135055454"
-    aws_role_arn: arn:aws:iam::820135055454:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "787588439240"
-    aws_role_arn: arn:aws:iam::787588439240:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "745463180746"
-    aws_role_arn: arn:aws:iam::745463180746:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "732052188396"
-    aws_role_arn: arn:aws:iam::732052188396:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "724328632434"
-    aws_role_arn: arn:aws:iam::724328632434:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "723754913286"
-    aws_role_arn: arn:aws:iam::723754913286:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "699936264352"
-    aws_role_arn: arn:aws:iam::699936264352:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "696384994809"
-    aws_role_arn: arn:aws:iam::696384994809:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "654654427257"
-    aws_role_arn: arn:aws:iam::654654427257:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "654654367136"
-    aws_role_arn: arn:aws:iam::654654367136:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "648573913056"
-    aws_role_arn: arn:aws:iam::648573913056:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "634134578715"
-    aws_role_arn: arn:aws:iam::634134578715:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "626314663667"
-    aws_role_arn: arn:aws:iam::626314663667:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "612168857605"
-    aws_role_arn: arn:aws:iam::612168857605:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "607813682535"
-    aws_role_arn: arn:aws:iam::607813682535:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "586794448189"
-    aws_role_arn: arn:aws:iam::586794448189:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "577638397886"
-    aws_role_arn: arn:aws:iam::577638397886:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "533267185808"
-    aws_role_arn: arn:aws:iam::533267185808:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "516466186502"
-    aws_role_arn: arn:aws:iam::516466186502:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "489077519657"
-    aws_role_arn: arn:aws:iam::489077519657:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "473004499091"
-    aws_role_arn: arn:aws:iam::473004499091:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "471112759938"
-    aws_role_arn: arn:aws:iam::471112759938:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "445567094889"
-    aws_role_arn: arn:aws:iam::445567094889:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "440744247602"
-    aws_role_arn: arn:aws:iam::440744247602:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "422553907334"
-    aws_role_arn: arn:aws:iam::422553907334:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "416703108729"
-    aws_role_arn: arn:aws:iam::416703108729:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "401986845158"
-    aws_role_arn: arn:aws:iam::401986845158:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "339713142298"
-    aws_role_arn: arn:aws:iam::339713142298:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "277707108111"
-    aws_role_arn: arn:aws:iam::277707108111:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "254379453707"
-    aws_role_arn: arn:aws:iam::254379453707:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "254044266527"
-    aws_role_arn: arn:aws:iam::254044266527:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "248448116955"
-    aws_role_arn: arn:aws:iam::248448116955:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "243100295622"
-    aws_role_arn: arn:aws:iam::243100295622:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "231426846575"
-    aws_role_arn: arn:aws:iam::231426846575:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "216989105463"
-    aws_role_arn: arn:aws:iam::216989105463:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "119435350371"
-    aws_role_arn: arn:aws:iam::119435350371:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "109067257620"
-    aws_role_arn: arn:aws:iam::109067257620:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "060795925407"
-    aws_role_arn: arn:aws:iam::060795925407:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "058264139299"
-    aws_role_arn: arn:aws:iam::058264139299:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "046341869686"
-    aws_role_arn: arn:aws:iam::046341869686:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
-  - aws_account_id: "023695267945"
-    aws_role_arn: arn:aws:iam::023695267945:role/readonly
-    okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "984830177581"
+  aws_role_arn: arn:aws:iam::984830177581:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "977655849919"
+  aws_role_arn: arn:aws:iam::977655849919:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "941037323260"
+  aws_role_arn: arn:aws:iam::941037323260:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "913524907765"
+  aws_role_arn: arn:aws:iam::913524907765:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "911167894392"
+  aws_role_arn: arn:aws:iam::911167894392:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "908710317728"
+  aws_role_arn: arn:aws:iam::908710317728:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "871040364337"
+  aws_role_arn: arn:aws:iam::871040364337:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "868904014114"
+  aws_role_arn: arn:aws:iam::868904014114:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "829407189049"
+  aws_role_arn: arn:aws:iam::829407189049:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "820135055454"
+  aws_role_arn: arn:aws:iam::820135055454:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "787588439240"
+  aws_role_arn: arn:aws:iam::787588439240:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "745463180746"
+  aws_role_arn: arn:aws:iam::745463180746:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "732052188396"
+  aws_role_arn: arn:aws:iam::732052188396:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "724328632434"
+  aws_role_arn: arn:aws:iam::724328632434:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "723754913286"
+  aws_role_arn: arn:aws:iam::723754913286:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "699936264352"
+  aws_role_arn: arn:aws:iam::699936264352:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "696384994809"
+  aws_role_arn: arn:aws:iam::696384994809:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "654654427257"
+  aws_role_arn: arn:aws:iam::654654427257:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "654654367136"
+  aws_role_arn: arn:aws:iam::654654367136:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "648573913056"
+  aws_role_arn: arn:aws:iam::648573913056:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "634134578715"
+  aws_role_arn: arn:aws:iam::634134578715:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "626314663667"
+  aws_role_arn: arn:aws:iam::626314663667:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "612168857605"
+  aws_role_arn: arn:aws:iam::612168857605:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "607813682535"
+  aws_role_arn: arn:aws:iam::607813682535:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "586794448189"
+  aws_role_arn: arn:aws:iam::586794448189:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "577638397886"
+  aws_role_arn: arn:aws:iam::577638397886:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "533267185808"
+  aws_role_arn: arn:aws:iam::533267185808:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "516466186502"
+  aws_role_arn: arn:aws:iam::516466186502:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "489077519657"
+  aws_role_arn: arn:aws:iam::489077519657:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "473004499091"
+  aws_role_arn: arn:aws:iam::473004499091:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "471112759938"
+  aws_role_arn: arn:aws:iam::471112759938:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "445567094889"
+  aws_role_arn: arn:aws:iam::445567094889:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "440744247602"
+  aws_role_arn: arn:aws:iam::440744247602:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "422553907334"
+  aws_role_arn: arn:aws:iam::422553907334:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "416703108729"
+  aws_role_arn: arn:aws:iam::416703108729:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "401986845158"
+  aws_role_arn: arn:aws:iam::401986845158:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "339713142298"
+  aws_role_arn: arn:aws:iam::339713142298:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "277707108111"
+  aws_role_arn: arn:aws:iam::277707108111:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "254379453707"
+  aws_role_arn: arn:aws:iam::254379453707:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "254044266527"
+  aws_role_arn: arn:aws:iam::254044266527:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "248448116955"
+  aws_role_arn: arn:aws:iam::248448116955:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "243100295622"
+  aws_role_arn: arn:aws:iam::243100295622:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "231426846575"
+  aws_role_arn: arn:aws:iam::231426846575:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "216989105463"
+  aws_role_arn: arn:aws:iam::216989105463:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "119435350371"
+  aws_role_arn: arn:aws:iam::119435350371:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "109067257620"
+  aws_role_arn: arn:aws:iam::109067257620:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "060795925407"
+  aws_role_arn: arn:aws:iam::060795925407:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "058264139299"
+  aws_role_arn: arn:aws:iam::058264139299:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "046341869686"
+  aws_role_arn: arn:aws:iam::046341869686:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "023695267945"
+  aws_role_arn: arn:aws:iam::023695267945:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
