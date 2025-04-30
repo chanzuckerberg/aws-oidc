@@ -1,0 +1,12 @@
+- awsaccountid: "401986845158"
+  awsrolearn: arn:aws:iam::401986845158:role/okta-czi-admin
+  oktaclientid: 0oa1n187fpfGwK3k35d7
+- awsaccountid: "401986845158"
+  awsrolearn: arn:aws:iam::401986845158:role/poweruser
+  oktaclientid: 0oa3qf4rw4VgWtxyd5d7
+- awsaccountid: "401986845158"
+  awsrolearn: arn:aws:iam::401986845158:role/readonly
+  oktaclientid: 0oauzedtzBs11op1n5d6
+- awsaccountid: "401986845158"
+  awsrolearn: arn:aws:iam::401986845158:role/readonly
+  oktaclientid: 0oag6nyaebJQrwlmQ5d7
