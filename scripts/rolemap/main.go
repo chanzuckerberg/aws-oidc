@@ -12,9 +12,9 @@ import (
 )
 
 type OIDCRoleMapping struct {
-	AWSAccountID string
-	AWSRoleARN   string
-	OktaClientID string
+	AWSAccountID string `yaml:"aws_account_id"`
+	AWSRoleARN   string `yaml:"aws_role_arn"`
+	OktaClientID string `yaml:"okta_client_id"`
 }
 
 const (

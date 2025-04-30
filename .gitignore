@@ -4,3 +4,4 @@ dist/
 .vscode
 .env
 .envrc
+scripts/rolemap/rolemap.yaml
