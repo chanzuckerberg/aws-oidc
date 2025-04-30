@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/hashicorp/go-tfe"
@@ -144,6 +145,9 @@ func exec(ctx context.Context) error {
 		allMappings = append(allMappings, mappings...)
 	}
 
+	sort.Slice(allMappings, func(i, j int) bool {
+		return allMappings[i].AWSAccountID > allMappings[j].AWSAccountID
+	})
 	b, err := yaml.Marshal(allMappings)
 	if err != nil {
 		return fmt.Errorf("marshalling role mappings to YAML: %w", err)
