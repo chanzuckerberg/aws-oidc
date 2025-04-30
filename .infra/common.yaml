@@ -1,0 +1,26 @@
+###### Generated using `argus bootstrap` command ######
+stack:
+  global:
+    replicaCount: 1
+    autoscaling:
+      enabled: false
+    service:
+      port: 8080
+    nodeSelector:
+      kubernetes.io/arch: arm64
+
+  services:
+    aws-oidc:
+      image:
+        repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+      resources:
+        limits:
+          cpu: 300m
+          memory: 2Gi
+        requests:
+          cpu: 300m
+          memory: 2Gi
+      ingress:
+        paths:
+          - path: /
+            pathType: Prefix

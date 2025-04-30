@@ -1,11 +1,10 @@
+###### Generated using `argus bootstrap` command ######
 version: 2
 updates:
-- package-ecosystem: gomod
-  directory: "/"
-  schedule:
-    interval: daily
-  ignore:
-      # See:
-      # https://github.com/chanzuckerberg/aws-oidc/pull/362
-      # https://github.com/chanzuckerberg/aws-oidc/pull/422
-      - dependency-name: "github.com/zalando/go-keyring"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore: "
