@@ -18,14 +18,11 @@ jobs:
         with:
           go-version-file: ./scripts/rolemap/go.mod
           cache: true
-      - env:
+      - working-directory: ./scripts/rolemap
+        env:
           TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
         run: |
-          cd ./scripts/rolemap
           go run main.go
-          cd - 
-          cp ./scripts/rolemap/rolemap.yaml ./.infra/prod/rolemap/rolemap.yaml
-          cp ./scripts/rolemap/rolemap.yaml ./.infra/rdev/rolemap/rolemap.yaml
       - uses: EndBug/add-and-commit@v9
         with:
           add: -A

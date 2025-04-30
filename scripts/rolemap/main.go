@@ -149,9 +149,11 @@ func exec(ctx context.Context) error {
 		return fmt.Errorf("marshalling role mappings to YAML: %w", err)
 	}
 
-	err = os.WriteFile("rolemap.yaml", b, 0644)
-	if err != nil {
-		return fmt.Errorf("writing role mappings to file: %w", err)
+	for _, env := range []string{"rdev", "prod"} {
+		err = os.WriteFile(fmt.Sprintf("../../.infra/%s/rolemap/rolemap.yaml", env), b, 0644)
+		if err != nil {
+			return fmt.Errorf("writing role mappings to file: %w", err)
+		}
 	}
 
 	return nil
