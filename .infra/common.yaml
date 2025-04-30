@@ -24,3 +24,11 @@ stack:
         paths:
           - path: /
             pathType: Prefix
+      volumes:
+        - name: role-map
+          configMap:
+            name: rolemap
+      volumeMounts:
+        - name: role-map
+          mountPath: /rolemap
+          readOnly: true
