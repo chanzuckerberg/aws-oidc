@@ -3,7 +3,4 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-TO-BE-REPLACED-BY-BUILDER-WORKFLOW
-      env:
-        - name: EXAMPLE_ENV
-          value: "hello world"
+        tag: sha-2ce9568
