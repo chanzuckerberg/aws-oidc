@@ -407,6 +407,10 @@
 - aws_account_id: "471112759938"
   aws_role_arn: arn:aws:iam::471112759938:role/poweruser
   okta_client_id: 0oag6nwzmt0IGUKa15d7
+0oag6nx1nisbJhfMN5d7:
+- aws_account_id: "444275452013"
+  aws_role_arn: arn:aws:iam::444275452013:role/poweruser
+  okta_client_id: 0oag6nx1nisbJhfMN5d7
 0oag6nx7flyc3FJno5d7:
 - aws_account_id: "732052188396"
   aws_role_arn: arn:aws:iam::732052188396:role/readonly
@@ -426,10 +430,6 @@
 - aws_account_id: "340591210379"
   aws_role_arn: arn:aws:iam::340591210379:role/readonly
   okta_client_id: 0oag6nx15rSgLjbHU5d7
-0oag6nx1nisbJhfMN5d7:
-- aws_account_id: "444275452013"
-  aws_role_arn: arn:aws:iam::444275452013:role/poweruser
-  okta_client_id: 0oag6nx1nisbJhfMN5d7
 0oag6nx31gNUSKi0S5d7:
 - aws_account_id: "868904014114"
   aws_role_arn: arn:aws:iam::868904014114:role/readonly
