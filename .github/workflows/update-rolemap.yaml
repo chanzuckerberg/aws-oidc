@@ -16,9 +16,9 @@ jobs:
           token: ${{ steps.generate_token.outputs.token }}
       - uses: actions/setup-go@v5
         with:
-          go-version-file: /scripts/rolemap/go.mod
+          go-version-file: ./scripts/rolemap/go.mod
           cache: true
-      - working-directory: /scripts/rolemap
+      - working-directory: ./scripts/rolemap
         env:
           TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
         run: |
