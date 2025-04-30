@@ -148,7 +148,18 @@ func exec(ctx context.Context) error {
 	sort.Slice(allMappings, func(i, j int) bool {
 		return allMappings[i].AWSAccountID > allMappings[j].AWSAccountID
 	})
-	b, err := yaml.Marshal(allMappings)
+
+	keyedByClientID := map[string][]OIDCRoleMapping{}
+	for _, mapping := range allMappings {
+		_, ok := keyedByClientID[mapping.OktaClientID]
+		if !ok {
+			keyedByClientID[mapping.OktaClientID] = []OIDCRoleMapping{mapping}
+		} else {
+			keyedByClientID[mapping.OktaClientID] = append(keyedByClientID[mapping.OktaClientID], mapping)
+		}
+	}
+
+	b, err := yaml.Marshal(keyedByClientID)
 	if err != nil {
 		return fmt.Errorf("marshalling role mappings to YAML: %w", err)
 	}
