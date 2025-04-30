@@ -23,8 +23,4 @@ RUN apk update && apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/aws-oidc /bin/aws-oidc
 
-ADD https://github.com/segmentio/chamber/releases/download/v2.7.5/chamber-v2.7.5-linux-amd64 /bin/chamber
-RUN chmod +x /bin/chamber
-
-
 CMD ["aws-oidc"]
