@@ -2,6 +2,8 @@ package aws_config_server
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -29,24 +31,23 @@ func createAWSConfig(
 		Profiles: []AWSProfile{},
 	}
 
-	for _, clientID := range userClientIDs {
-		configList := clientMapping.roles[clientID]
-
-		for _, config := range *clientMapping {
-			profile := AWSProfile{
-				ClientID: clientID,
-				RoleARN:  config.RoleARN.String(),
-				AWSAccount: AWSAccount{
-					Name:  config.AccountName,
-					Alias: *config.AccountAlias,
-					ID:    config.RoleARN.AccountID,
-				},
-				IssuerURL: oidcProvider,
-				RoleName:  *config.Role.RoleName,
-			}
-
-			awsConfig.Profiles = append(awsConfig.Profiles, profile)
+	for _, mapping := range *clientMapping {
+		roleARN, err := arn.Parse(mapping.AWSRoleARN)
+		if err != nil {
+			return nil, fmt.Errorf("parsing role ARN: %w", err)
 		}
+		profile := AWSProfile{
+			ClientID: mapping.OktaClientID,
+			RoleARN:  mapping.AWSRoleARN,
+			AWSAccount: AWSAccount{
+				Name:  mapping.AWSAccountAlias,
+				Alias: mapping.AWSAccountAlias,
+				ID:    mapping.AWSAccountID,
+			},
+			IssuerURL: oidcProvider,
+			RoleName:  strings.ReplaceAll(roleARN.Resource, "role/", ""),
+		}
+		awsConfig.Profiles = append(awsConfig.Profiles, profile)
 	}
 
 	return awsConfig, nil

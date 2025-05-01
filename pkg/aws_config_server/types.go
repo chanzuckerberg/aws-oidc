@@ -2,8 +2,6 @@ package aws_config_server
 
 import (
 	"sort"
-
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
 type AWSConfig struct {
@@ -67,11 +65,11 @@ func (a *AWSConfig) GetProfilesForAccount(account AWSAccount) []AWSProfile {
 }
 
 type AWSProfile struct {
-	ClientID   okta.ClientID `json:"client_id,omitempty"`
-	AWSAccount AWSAccount    `json:"aws_account,omitempty"`
-	RoleARN    string        `json:"role_arn,omitempty"`
-	IssuerURL  string        `json:"issuer_url,omitempty"`
-	RoleName   string        `json:"role_name,omitempty"`
+	ClientID   string     `json:"client_id,omitempty"`
+	AWSAccount AWSAccount `json:"aws_account,omitempty"`
+	RoleARN    string     `json:"role_arn,omitempty"`
+	IssuerURL  string     `json:"issuer_url,omitempty"`
+	RoleName   string     `json:"role_name,omitempty"`
 }
 
 type AWSAccount struct {
