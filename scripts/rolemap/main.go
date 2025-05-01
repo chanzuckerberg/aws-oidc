@@ -13,15 +13,18 @@ import (
 )
 
 type OIDCRoleMapping struct {
-	AWSAccountID string `yaml:"aws_account_id"`
-	AWSRoleARN   string `yaml:"aws_role_arn"`
-	OktaClientID string `yaml:"okta_client_id"`
+	AWSAccountID    string `yaml:"aws_account_id"`
+	AWSAccountName  string `yaml:"aws_account_name"`
+	AWSAccountAlias string `yaml:"aws_account_alias"`
+	AWSRoleARN      string `yaml:"aws_role_arn"`
+	OktaClientID    string `yaml:"okta_client_id"`
 }
 
 type OIDCRoleMappingByClientID map[string][]OIDCRoleMapping
 
 const (
 	accountIDOutputName             = "current_account_id"
+	accountAliasOutputName          = "current_account_alias"
 	oktaCZIAdminClientIDsOutputName = "okta-czi-admin_oidc_client_ids"
 	poweruserClientIDsOutputName    = "poweruser_oidc_client_ids"
 	readonlyClientIDsOutputName     = "readonly_oidc_client_ids"
@@ -39,10 +42,13 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 
 	mappings := []OIDCRoleMapping{}
 	var accountID string
+	var accountAlias string
 	for _, output := range currentState.Items {
 		switch output.Name {
 		case accountIDOutputName:
 			accountID = output.Value.(string)
+		case accountAliasOutputName:
+			accountAlias = output.Value.(string)
 		}
 	}
 
@@ -55,9 +61,10 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 					return nil, fmt.Errorf("parsing role ARN: %w", err)
 				}
 				mappings = append(mappings, OIDCRoleMapping{
-					OktaClientID: clientID.(string),
-					AWSAccountID: accountID,
-					AWSRoleARN:   roleARN.String(),
+					OktaClientID:    clientID.(string),
+					AWSAccountID:    accountID,
+					AWSAccountAlias: accountAlias,
+					AWSRoleARN:      roleARN.String(),
 				})
 			}
 		case poweruserClientIDsOutputName:
@@ -67,9 +74,10 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 					return nil, fmt.Errorf("parsing role ARN: %w", err)
 				}
 				mappings = append(mappings, OIDCRoleMapping{
-					OktaClientID: clientID.(string),
-					AWSAccountID: accountID,
-					AWSRoleARN:   roleARN.String(),
+					OktaClientID:    clientID.(string),
+					AWSAccountID:    accountID,
+					AWSAccountAlias: accountAlias,
+					AWSRoleARN:      roleARN.String(),
 				})
 			}
 		case readonlyClientIDsOutputName:
@@ -79,9 +87,10 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 					return nil, fmt.Errorf("parsing role ARN: %w", err)
 				}
 				mappings = append(mappings, OIDCRoleMapping{
-					OktaClientID: clientID.(string),
-					AWSAccountID: accountID,
-					AWSRoleARN:   roleARN.String(),
+					OktaClientID:    clientID.(string),
+					AWSAccountID:    accountID,
+					AWSAccountAlias: accountAlias,
+					AWSRoleARN:      roleARN.String(),
 				})
 			}
 		}
