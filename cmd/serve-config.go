@@ -126,7 +126,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading rolemap.yaml: %w", err)
 	}
-	roleMappings := OIDCRoleMappingByClientID{}
+	roleMappings := okta.OIDCRoleMappingByClientID{}
 	err = yaml.Unmarshal(b, &roleMappings)
 	if err != nil {
 		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)

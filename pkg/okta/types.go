@@ -16,13 +16,13 @@ type OIDCRoleMapping struct {
 }
 
 type ctxKey struct{}
-type OIDCRoleMappingByClientID []OIDCRoleMapping
+type OIDCRoleMappings []OIDCRoleMapping
 
-func FromContext(ctx context.Context) *OIDCRoleMappingByClientID {
-	v, _ := ctx.Value(ctxKey{}).(*OIDCRoleMappingByClientID)
+func FromContext(ctx context.Context) *OIDCRoleMappings {
+	v, _ := ctx.Value(ctxKey{}).(*OIDCRoleMappings)
 	return v
 }
 
-func NewContext(parent context.Context, v *OIDCRoleMappingByClientID) context.Context {
+func NewContext(parent context.Context, v *OIDCRoleMappings) context.Context {
 	return context.WithValue(parent, ctxKey{}, v)
 }

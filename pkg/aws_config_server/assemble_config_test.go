@@ -4,58 +4,22 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/stretchr/testify/require"
 )
 
-func BareRoleARN(roleName string) *arn.ARN {
-	a := &arn.ARN{
-		Resource: roleName,
-	}
-	return a
-}
-
-var testClientMapping = &oidcFederatedRoles{
-	roles: map[okta.ClientID][]accountAndRole{
-		"testClientID1": {
-			{
-				AccountName:  "Account1",
-				AccountAlias: aws.String("Account1"),
-				RoleARN:      BareRoleARN("OIDCFederatedRole1"),
-				Role: &iam.Role{
-					RoleName: aws.String("ValidRole"),
-				},
-			},
-			{
-				AccountName:  "Account2",
-				AccountAlias: aws.String("Account2"),
-				RoleARN:      &arn.ARN{},
-				Role: &iam.Role{
-					RoleName: aws.String("ValidRole"),
-				},
-			},
-			{
-				AccountName:  "Account3",
-				AccountAlias: aws.String("Account3"),
-				RoleARN:      &arn.ARN{},
-				Role: &iam.Role{
-					RoleName: aws.String("ValidRole"),
-				},
-			},
-		},
-		"testClientID2": {
-			{
-				AccountName:  "Account2",
-				AccountAlias: aws.String("Account2"),
-				RoleARN:      &arn.ARN{},
-				Role: &iam.Role{
-					RoleName: aws.String("ValidRole"),
-				},
-			},
-		},
+var testClientMapping = []okta.OIDCRoleMapping{
+	{
+		AWSAccountAlias: "Account1",
+		AWSRoleARN:      "OIDCFederatedRole1",
+	},
+	{
+		AWSAccountAlias: "Account2",
+		AWSRoleARN:      "arn:aws:iam::984830177581:role/readonly",
+	},
+	{
+		AWSAccountAlias: "Account3",
+		AWSRoleARN:      "arn:aws:iam::984830177581:role/readonly",
 	},
 }
 
@@ -63,10 +27,11 @@ func TestCreateAWSConfig(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
 
+	mapping := okta.OIDCRoleMappings(testClientMapping)
 	config, err := createAWSConfig(
 		ctx,
 		"localhost",
-		testClientMapping,
+		&mapping,
 		[]okta.ClientID{"testClientID1", "testClientID2"},
 	)
 	r.NoError(err)

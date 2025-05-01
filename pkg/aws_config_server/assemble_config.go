@@ -24,7 +24,7 @@ type ClientIDToAWSRoles struct {
 func createAWSConfig(
 	ctx context.Context,
 	oidcProvider string,
-	clientMapping *okta.OIDCRoleMappingByClientID,
+	clientMapping *okta.OIDCRoleMappings,
 	userClientIDs []okta.ClientID) (*AWSConfig, error) {
 
 	awsConfig := &AWSConfig{
