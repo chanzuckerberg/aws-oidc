@@ -14,7 +14,6 @@ import (
 
 type OIDCRoleMapping struct {
 	AWSAccountID    string `yaml:"aws_account_id"`
-	AWSAccountName  string `yaml:"aws_account_name"`
 	AWSAccountAlias string `yaml:"aws_account_alias"`
 	AWSRoleARN      string `yaml:"aws_role_arn"`
 	OktaClientID    string `yaml:"okta_client_id"`
