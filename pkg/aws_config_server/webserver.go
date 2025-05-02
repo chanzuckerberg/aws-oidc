@@ -138,7 +138,7 @@ func Index(
 		clientMapping := okta.FromContext(ctx)
 		logrus.Debugf("%s's client mapping: %#v", *email, clientMapping)
 
-		awsConfig, err := createAWSConfig(ctx, awsGenerationParams.OIDCProvider, clientMapping, clientIDs)
+		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMapping)
 		if err != nil {
 			logrus.Errorf("error: unable to get AWS Config File: %s", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)

@@ -52,7 +52,7 @@ func (a *AWSConfig) GetProfilesForAccount(account AWSAccount) []AWSProfile {
 	profiles := []AWSProfile{}
 
 	for _, profile := range a.Profiles {
-		if profile.AWSAccount == account {
+		if profile.AWSAccount.Alias == account.Alias && profile.AWSAccount.Name == account.Name {
 			profiles = append(profiles, profile)
 		}
 	}

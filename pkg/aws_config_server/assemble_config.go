@@ -1,32 +1,16 @@
 package aws_config_server
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	cziAWS "github.com/chanzuckerberg/go-misc/aws"
 )
-
-type ClientIDToAWSRoles struct {
-	clientRoleMapping *oidcFederatedRoles
-	roleARNs          map[string]arn.ARN
-
-	awsSession *session.Session
-	awsClient  *cziAWS.Client
-}
 
 // we send back a json representation of our config that can be consumed by the client
 // using the configure command
-func createAWSConfig(
-	ctx context.Context,
-	oidcProvider string,
-	clientMapping *okta.OIDCRoleMappings,
-	userClientIDs []okta.ClientID) (*AWSConfig, error) {
-
+func createAWSConfig(oidcProvider string, clientMapping *okta.OIDCRoleMappings) (*AWSConfig, error) {
 	awsConfig := &AWSConfig{
 		Profiles: []AWSProfile{},
 	}

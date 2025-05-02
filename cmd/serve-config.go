@@ -7,7 +7,7 @@ import (
 	"os"
 
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
-	CZIOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/chanzuckerberg/go-misc/sets"
 	"github.com/coreos/go-oidc"
 	"github.com/honeycombio/beeline-go"
@@ -69,13 +69,13 @@ func loadAWSEnv() (*AWSRoleEnvironment, error) {
 	return env, nil
 }
 
-func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (CZIOkta.AppResource, error) {
-	oktaConfig := &CZIOkta.OktaClientConfig{
+func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (okta.AppResource, error) {
+	oktaConfig := &okta.OktaClientConfig{
 		ClientID:      oktaClientID,
 		PrivateKeyPEM: privateKey,
 		OrgURL:        orgURL,
 	}
-	client, err := CZIOkta.NewOktaClient(ctx, oktaConfig)
+	client, err := okta.NewOktaClient(ctx, oktaConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to create Okta Client")
 	}
@@ -126,7 +126,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading rolemap.yaml: %w", err)
 	}
-	roleMappings := okta.OIDCRoleMappingByClientID{}
+	roleMappings := okta.OIDCRoleMapping{}
 	err = yaml.Unmarshal(b, &roleMappings)
 	if err != nil {
 		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)
