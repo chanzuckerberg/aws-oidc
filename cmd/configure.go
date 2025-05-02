@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -72,20 +72,20 @@ var configureCmd = &cobra.Command{
 		// TODO(el): should this be configurable?
 		awsConfigPath, err := homedir.Expand("~/.aws/config")
 		if err != nil {
-			return errors.Wrap(err, "Could not parse aws config file path")
+			return fmt.Errorf("Could not parse aws config file path: %w", err)
 		}
 
 		// create .aws dir if not present
 		awsConfigDirPath := filepath.Dir(awsConfigPath)
 		err = os.MkdirAll(awsConfigDirPath, 0775)
 		if err != nil {
-			return errors.Wrap(err, "could not create dir %s")
+			return fmt.Errorf("could not create dir %s: %w", awsConfigPath, err)
 		}
 
 		// LooseLoad ignores the aws config file if missing
 		originalConfig, err := ini.LooseLoad(awsConfigPath)
 		if err != nil {
-			return errors.Wrap(err, "could not open aws config")
+			return fmt.Errorf("could not open aws config: %w", err)
 		}
 
 		// We allow users to print aws config directly to stdout if they want

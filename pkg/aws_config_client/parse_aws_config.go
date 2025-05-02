@@ -2,6 +2,7 @@ package aws_config_client
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"regexp"
 	"strings"
@@ -9,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -36,8 +36,8 @@ type AWSOIDCConfiguration struct {
 }
 
 // HACK(el): This is not the best, but decided to do this to:
-//           - Not add extraneous fields to user's AWS config files
-//           - Not have to maintain a parallel config file
+//   - Not add extraneous fields to user's AWS config files
+//   - Not have to maintain a parallel config file
 func extractCredProcess(command string, regex string) (string, error) {
 	r := regexp.MustCompile(regex)
 	submatches := r.FindStringSubmatch(command)
@@ -89,11 +89,11 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	// load and parse AWS config file
 	awsConfigPath, err := homedir.Expand(awsConfigPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "Could not parse aws config file path")
+		return nil, fmt.Errorf("Could not parse aws config file path: %w", err)
 	}
 	ini, err := ini.Load(awsConfigPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not open aws config")
+		return nil, fmt.Errorf("could not open aws config: %w", err)
 	}
 
 	// grab the section corresponding to our profile
@@ -142,14 +142,14 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	}
 	region, err := section.GetKey("region")
 	if err != nil {
-		logrus.WithError(err).Debug("Error getting region from aws config")
+		slog.Debug("getting region from aws config", "error", err)
 	} else {
 		currentConfig.Region = aws.String(region.String())
 	}
 
 	output, err := section.GetKey("output")
 	if err != nil {
-		logrus.WithError(err).Debug("Error getting output from aws config")
+		slog.Debug("getting output from aws config", "error", err)
 	} else {
 		currentConfig.Output = aws.String(output.String())
 	}

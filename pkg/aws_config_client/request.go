@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
@@ -14,7 +15,6 @@ import (
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/propagation"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 )
 
 func RequestConfig(
@@ -62,10 +62,10 @@ func RequestConfig(
 	body := bytes.NewBuffer(nil)
 	_, err = io.Copy(body, rsp.Body)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not read request body")
+		return nil, fmt.Errorf("could not read request body: %w", err)
 	}
 
-	logrus.Debugf("request body: %s", body.String())
+	slog.Debug(fmt.Sprintf("request body: %s", body.String()))
 
 	config := &server.AWSConfig{}
 	err = json.Unmarshal(body.Bytes(), config)

@@ -55,7 +55,7 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	env := &OktaWebserverEnvironment{}
 	err := envconfig.Process("OKTA", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the okta environment variables")
+		return env, fmt.Errorf("Unable to load all the okta environment variables: %w", err)
 	}
 	return env, nil
 }
@@ -64,7 +64,7 @@ func loadAWSEnv() (*AWSRoleEnvironment, error) {
 	env := &AWSRoleEnvironment{}
 	err := envconfig.Process("AWS", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the aws environment variables")
+		return env, fmt.Errorf("Unable to load all the aws environment variables: %w", err)
 	}
 	return env, nil
 }
@@ -77,7 +77,7 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 	}
 	client, err := okta.NewOktaClient(ctx, oktaConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to create Okta Client")
+		return nil, fmt.Errorf("Unable to create Okta Client: %w", err)
 	}
 	return client.Application, nil
 }
@@ -103,13 +103,13 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 
 	provider, err := oidc.NewProvider(ctx, oktaEnv.ISSUER_URL)
 	if err != nil {
-		return errors.Wrap(err, "Unable to create OIDC provider")
+		return fmt.Errorf("Unable to create OIDC provider: %w", err)
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: oktaEnv.CLIENT_ID})
 
 	oktaAppClient, err := createOktaClientApps(ctx, oktaEnv.ISSUER_URL, oktaEnv.PRIVATE_KEY, oktaEnv.SERVICE_CLIENT_ID)
 	if err != nil {
-		return errors.Wrap(err, "failed to create okta apps")
+		return fmt.Errorf("failed to create okta apps: %w", err)
 	}
 
 	configGenerationParams := webserver.AWSConfigGenerationParams{

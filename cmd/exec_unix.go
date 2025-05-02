@@ -1,9 +1,9 @@
+//go:build linux || darwin
 // +build linux darwin
 
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	osexec "os/exec"
@@ -14,10 +14,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func exec(ctx context.Context, command string, args []string, env []string) error {
+func exec(command string, args []string, env []string) error {
 	argv0, err := osexec.LookPath(command)
 	if err != nil {
-		return errors.Wrap(err, "Error finding command")
+		return fmt.Errorf("Error finding command: %w", err)
 	}
 
 	argv := make([]string, 0, 1+len(args))

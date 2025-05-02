@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -48,7 +47,7 @@ func TestAWSEnvPrecedence(t *testing.T) {
 	// Get the AWS Environment variables
 	envVars := getAWSEnvVars(&sts.AssumeRoleWithWebIdentityOutput{Credentials: dummyCredentials}, awsOIDCConfig)
 	// Running an easy command
-	err = exec(context.Background(), "ls", nil, envVars)
+	err = exec("ls", nil, envVars)
 	r.NoError(err)
 
 	regionVal, present := os.LookupEnv("AWS_REGION")

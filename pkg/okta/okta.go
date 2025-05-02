@@ -30,7 +30,7 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 		okta.WithCache(true),
 	)
 
-	return client, errors.Wrap(err, "error creating Okta client")
+	return client, fmt.Errorf("error creating Okta client: %w", err)
 }
 
 func GetClientIDs(ctx context.Context, userID string, oktaClient AppResource) ([]ClientID, error) {
@@ -64,7 +64,7 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 	for {
 		currentApps, resp, err := client.ListApplications(ctx, &qp)
 		if err != nil {
-			return nil, errors.Wrap(err, "error listing applications")
+			return nil, fmt.Errorf("error listing applications: %w", err)
 		}
 		apps = append(apps, currentApps...)
 
@@ -76,7 +76,7 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 		nextLink := links["next"].String()
 		nextLinkURL, err := url.Parse(nextLink)
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing Link Header next url")
+			return nil, fmt.Errorf("error parsing Link Header next url: %w", err)
 		}
 
 		nextLinkMapping := nextLinkURL.Query()

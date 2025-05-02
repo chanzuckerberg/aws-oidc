@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/go-errors/errors"
 )
 
 type MockPrompt struct {
@@ -23,7 +22,7 @@ func (m *MockPrompt) Select(prompt string, options []string, surveyOptions ...su
 
 	selection, ok := m.inputs[m.inputIdx].(int)
 	if !ok {
-		return -1, errors.Errorf("Expected int input, got %T type for %v value", m.inputs[m.inputIdx], m.inputs[m.inputIdx])
+		return -1, fmt.Errorf("Expected int input, got %T type for %v value", m.inputs[m.inputIdx], m.inputs[m.inputIdx])
 	}
 
 	fmt.Printf("Selection Index: %d, value: %s", selection, options[selection])
@@ -35,7 +34,7 @@ func (m *MockPrompt) Input(prompt string, defaulted string, surveyOptions ...sur
 	fmt.Println("\ninputIdx: ", m.inputIdx)
 	textInput, ok := m.inputs[m.inputIdx].(string)
 	if !ok {
-		return "", errors.Errorf("Expected string input, got %T type for %v value", m.inputs[m.inputIdx], m.inputs[m.inputIdx])
+		return "", fmt.Errorf("Expected string input, got %T type for %v value", m.inputs[m.inputIdx], m.inputs[m.inputIdx])
 	}
 	// if the input is empty, return the default
 	if textInput == "" {
@@ -51,7 +50,7 @@ func (m *MockPrompt) Confirm(prompt string, defaulted bool, surveyOptions ...sur
 	fmt.Println("\ninputIdx: ", m.inputIdx)
 	confirmation, ok := m.inputs[m.inputIdx].(bool)
 	if !ok {
-		return defaulted, errors.Errorf("Expected bool input, got %T type for %v value", m.inputs[m.inputIdx], m.inputs[m.inputIdx])
+		return defaulted, fmt.Errorf("Expected bool input, got %T type for %v value", m.inputs[m.inputIdx], m.inputs[m.inputIdx])
 	}
 
 	fmt.Printf("Confirm value: %v\n", confirmation)

@@ -2,6 +2,7 @@ package aws_config_client
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 )
 
@@ -194,7 +194,7 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 	for {
 		currentProfile, err := c.SurveyProfile()
 		if err == terminal.InterruptErr {
-			logrus.Info("Process Interrupted.")
+			slog.Info("Process Interrupted.")
 			break
 		}
 		if err != nil {
@@ -286,5 +286,5 @@ func (c *completer) Complete(base *ini.File, awsConfigWriter AWSConfigWriter) er
 	}
 
 	_, err = mergedConfig.WriteTo(awsConfigWriter)
-	return errors.Wrapf(err, "Could not write new aws config")
+	return fmt.Errorf("Could not write new aws config: %w", err)
 }
