@@ -10,7 +10,6 @@ import (
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -57,7 +56,7 @@ var execCmd = &cobra.Command{
 func parseArgs(cmd *cobra.Command, args []string) error {
 	dashIndex := cmd.ArgsLenAtDash()
 	if dashIndex == -1 {
-		return errors.New("please separate services and command with '--'.")
+		return fmt.Errorf("please separate services and command with '--'.")
 	}
 	return nil
 }

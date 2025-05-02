@@ -14,7 +14,6 @@ import (
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/propagation"
-	"github.com/pkg/errors"
 )
 
 func RequestConfig(
@@ -32,7 +31,7 @@ func RequestConfig(
 
 	req, err := http.NewRequest(http.MethodGet, configServiceURI, nil)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not create request for %s", configServiceURI)
+		return nil, fmt.Errorf("could not create request for %s: %w", configServiceURI, err)
 	}
 
 	req.Header.Add(
@@ -52,10 +51,10 @@ func RequestConfig(
 
 	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error requesting from %s", configServiceURI)
+		return nil, fmt.Errorf("error requesting from %s: %w", configServiceURI, err)
 	}
 	if rsp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("non %d http status code received: %d", http.StatusOK, rsp.StatusCode)
+		return nil, fmt.Errorf("non %d http status code received: %d", http.StatusOK, rsp.StatusCode)
 	}
 	defer rsp.Body.Close()
 
@@ -70,7 +69,7 @@ func RequestConfig(
 	config := &server.AWSConfig{}
 	err = json.Unmarshal(body.Bytes(), config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not json parse config from %s", configServiceURI)
+		return nil, fmt.Errorf("could not json parse config from %s: %w", configServiceURI, err)
 	}
 
 	return config, nil

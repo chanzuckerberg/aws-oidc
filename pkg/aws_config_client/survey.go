@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/pkg/errors"
 )
 
 type Prompt interface {
@@ -43,7 +42,7 @@ func (s *Survey) Select(prompt string, options []string, surveyOptions ...survey
 			return idx, nil
 		}
 	}
-	return 0, errors.Errorf("selected option (%s) not expected", chosen)
+	return 0, fmt.Errorf("selected option (%s) not expected", chosen)
 }
 
 func (s *Survey) Input(prompt string, defaulted string, surveyOptions ...survey.AskOpt) (string, error) {

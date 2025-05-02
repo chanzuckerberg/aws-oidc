@@ -8,7 +8,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/pkg/errors"
 	"gopkg.in/ini.v1"
 )
 
@@ -59,7 +58,7 @@ func (a *AWSConfigFile) Finalize() error {
 	}
 
 	err = os.Rename(tmpfile.Name(), a.awsConfigPath)
-	return errors.Wrapf(err, "could not move aws config to %s", err)
+	return fmt.Errorf("could not move aws config to %s: %w", a.awsConfigPath, err)
 }
 
 func (a *AWSConfigFile) Write(p []byte) (int, error) {

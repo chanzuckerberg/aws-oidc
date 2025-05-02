@@ -11,7 +11,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
-	"github.com/pkg/errors"
 )
 
 func exec(command string, args []string, env []string) error {
@@ -25,7 +24,12 @@ func exec(command string, args []string, env []string) error {
 	argv = append(argv, args...)
 
 	// Only return if the execution fails.
-	return errors.Wrap(syscall.Exec(argv0, argv, env), "error executing command")
+	err = syscall.Exec(argv0, argv, env)
+	if err != nil {
+		return fmt.Errorf("executing command: %s: %w", command, err)
+	}
+
+	return nil
 }
 
 func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput, awsOIDCConfig *aws_config_client.AWSOIDCConfiguration) []string {

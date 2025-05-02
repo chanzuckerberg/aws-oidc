@@ -12,7 +12,6 @@ import (
 	"github.com/coreos/go-oidc"
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert/yaml"
 )
@@ -87,7 +86,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	defer span.Send()
 
 	if concurrency == 0 {
-		return errors.New("concurrency Limit cannot be 0")
+		return fmt.Errorf("concurrency Limit cannot be 0")
 	}
 
 	// Initialize everything else

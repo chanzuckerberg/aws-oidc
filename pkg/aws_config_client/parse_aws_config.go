@@ -9,7 +9,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -42,7 +41,7 @@ func extractCredProcess(command string, regex string) (string, error) {
 	r := regexp.MustCompile(regex)
 	submatches := r.FindStringSubmatch(command)
 	if len(submatches) != 2 {
-		return "", errors.Errorf("did not find match")
+		return "", fmt.Errorf("did not find match")
 	}
 	return submatches[1], nil
 }
@@ -77,7 +76,7 @@ func resolveProfile(cmd *cobra.Command) (string, error) {
 	if cmd != nil && cmd.Flags().Changed(FlagProfile) {
 		flagProfileValue, err := cmd.Flags().GetString(FlagProfile)
 		if err != nil {
-			return "", errors.Wrapf(err, "could not read command line flag %s", FlagProfile)
+			return "", fmt.Errorf("could not read command line flag %s: %w", FlagProfile, err)
 		}
 		profile = flagProfileValue
 	}
@@ -104,35 +103,27 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	profileSectionName := fmt.Sprintf("profile %s", profileName)
 	section, err := ini.GetSection(profileSectionName)
 	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"could not fetch %s section from aws config",
-			profileSectionName)
+		return nil, fmt.Errorf("could not fetch %s section from aws config: %w", profileSectionName, err)
 	}
 
 	credProcess, err := section.GetKey(AWSConfigSectionCredentialProcess)
 	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"%s not defined for profile %s",
-			AWSConfigSectionCredentialProcess,
-			profileSectionName,
-		)
+		return nil, fmt.Errorf("%s not defined for profile %s: %w", AWSConfigSectionCredentialProcess, profileSectionName, err)
 	}
 
 	credProcessCmd := credProcess.String()
 	credProcessCmd = cleanCredProcessCommand(credProcessCmd)
 	clientID, err := extractCredProcess(credProcessCmd, clientIDRegex)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not extract --client-id from (%s)", credProcessCmd)
+		return nil, fmt.Errorf("could not extract --client-id from (%s): %w", credProcessCmd, err)
 	}
 	issuerURL, err := extractCredProcess(credProcessCmd, issuerURLRegex)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not extract --issuer-url from (%s)", credProcessCmd)
+		return nil, fmt.Errorf("could not extract --issuer-url from (%s): %w", credProcessCmd, err)
 	}
 	roleARN, err := extractCredProcess(credProcessCmd, roleARNRegex)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not extract --aws-role-arn from (%s)", credProcessCmd)
+		return nil, fmt.Errorf("could not extract --aws-role-arn from (%s): %w", credProcessCmd, err)
 	}
 
 	currentConfig := &AWSOIDCConfiguration{

@@ -9,7 +9,6 @@ import (
 	"github.com/okta/okta-sdk-golang/v2/okta"
 	"github.com/okta/okta-sdk-golang/v2/okta/query"
 	"github.com/peterhellberg/link"
-	"github.com/pkg/errors"
 )
 
 // Configuration for an okta client
@@ -93,7 +92,7 @@ func getClientIDsfromApplications(
 		// 		type assertion back to concrete okta.Application
 		app, ok := appInterface.(*okta.Application)
 		if !ok {
-			return nil, errors.New("appInterface not an Application")
+			return nil, fmt.Errorf("appInterface not an Application")
 		}
 		if app.Id != "" {
 			clientIDs = append(clientIDs, ClientID(app.Id))
