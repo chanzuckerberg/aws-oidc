@@ -2,12 +2,11 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 
-	"github.com/evalphobia/logrus_sentry"
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +33,7 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 	env := &SentryEnvironment{}
 	err := envconfig.Process("SENTRY", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the environment variables")
+		return env, fmt.Errorf("Unable to load all the environment variables: %w", err)
 	}
 	return env, nil
 }
@@ -49,7 +48,7 @@ func loadHoneycombEnv() (*HoneycombEnvironment, error) {
 	env := &HoneycombEnvironment{}
 	err := envconfig.Process("HONEYCOMB", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the honeycomb environment variables")
+		return env, fmt.Errorf("Unable to load all the honeycomb environment variables: %w", err)
 	}
 	return env, nil
 }
@@ -65,48 +64,37 @@ var rootCmd = &cobra.Command{
 		// parse flags
 		verbose, err := cmd.Flags().GetBool(flagVerbose)
 		if err != nil {
-			return errors.Wrap(err, "Missing verbose flag")
+			return fmt.Errorf("Missing verbose flag: %w", err)
 		}
 		if verbose {
-			log.SetLevel(log.DebugLevel)
-			log.SetReportCaller(true)
+			slog.SetLogLoggerLevel(slog.LevelDebug)
 		}
 
-		err = configureLogrusHooks()
+		err = configureLogHooks()
 		if err != nil {
-			return errors.Wrap(err, "Unable to configure Logrus Hooks")
+			return fmt.Errorf("Unable to configure log Hooks: %w", err)
 		}
 
 		err = configureHoneycombTelemetry()
 		if err != nil {
-			return errors.Wrap(err, "Unable to set up Honeycomb Telemetry")
+			return fmt.Errorf("Unable to set up Honeycomb Telemetry: %w", err)
 		}
 
 		return nil
 	},
 }
 
-func configureLogrusHooks() error {
+func configureLogHooks() error {
 	sentryEnv, err := loadSentryEnv()
 	if err != nil {
 		return err
 	}
 	// if env var not set, ignore
 	if sentryEnv.DSN == "" {
-		log.Debug("Sentry DSN not set. Skipping Sentry Configuration")
+		slog.Debug("Sentry DSN not set. Skipping Sentry Configuration")
 		return nil
 	}
 
-	sentryHook, err := logrus_sentry.NewSentryHook(sentryEnv.DSN, []log.Level{
-		log.PanicLevel,
-		log.FatalLevel,
-		log.ErrorLevel,
-	})
-	if err != nil {
-		log.Errorf("Error configuring Sentry")
-		return nil
-	}
-	log.AddHook(sentryHook)
 	return nil
 }
 
@@ -117,7 +105,7 @@ func configureHoneycombTelemetry() error {
 	}
 	// if env var not set, ignore
 	if honeycombEnv.SECRET_KEY == "" {
-		log.Debug("Honeycomb Secret Key not set. Skipping Honeycomb Configuration")
+		slog.Debug("Honeycomb Secret Key not set. Skipping Honeycomb Configuration")
 		return nil
 	}
 	beeline.Init(beeline.Config{

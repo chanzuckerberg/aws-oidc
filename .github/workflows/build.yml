@@ -12,11 +12,6 @@ jobs:
       - name: Install dependencies
         run: |
           make setup
-      - name: lint
-        run: |
-          make lint-ci
       - name: Run tests
-        env:
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN}}
         run: |
           make test

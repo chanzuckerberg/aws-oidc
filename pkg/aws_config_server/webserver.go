@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"github.com/honeycombio/beeline-go"
 	"github.com/honeycombio/beeline-go/wrappers/hnyhttprouter"
 	"github.com/julienschmidt/httprouter"
-	"github.com/sirupsen/logrus"
 )
 
 type oidcVerifier interface {
@@ -56,11 +56,10 @@ func stripBearerPrefixFromTokenString(token string) string {
 
 func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-
 		authHeader := r.Header.Get("Authorization")
 		ctx := r.Context()
 		if len(authHeader) <= 0 {
-			logrus.Debugf("error: No Authorization header found.")
+			slog.Debug(`no "Authorization" header found`)
 			http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
 			return
 		}
@@ -68,7 +67,7 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 
 		idToken, err := verifier.Verify(ctx, rawIDToken)
 		if err != nil {
-			logrus.Warnf("error: Unable to verify idToken. %s", err)
+			slog.Error("verifying idToken", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
 			return
 		}
@@ -76,7 +75,7 @@ func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httpro
 		claims := &claims{}
 		err = idToken.Claims(claims)
 		if err != nil {
-			logrus.Errorf("error: Unable to parse email from id token. %s", err)
+			slog.Error("parsing email from id token", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
 			return
 		}
@@ -113,7 +112,7 @@ func Index(
 
 		email := getEmailFromCtx(ctx)
 		if email == nil {
-			logrus.Error("Unable to get email")
+			slog.Error("no email in context")
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
@@ -121,26 +120,26 @@ func Index(
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
-			logrus.Errorf("Unable to get subject ID for %s", *email)
+			slog.Error(fmt.Sprintf("getting subject ID for %s", *email))
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
 		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
 		if err != nil {
-			logrus.Errorf("Unable to get list of ClientIDs for %s: %s", *email, err)
+			slog.Error(fmt.Sprintf("getting list of ClientIDs for %s", *email), "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
-		logrus.Debugf("%s's clientIDs: %s", *email, clientIDs)
+		slog.Debug(fmt.Sprintf("%s's clientIDs: %s", *email, clientIDs))
 
 		clientMapping := okta.FromContext(ctx)
-		logrus.Debugf("%s's client mapping: %#v", *email, clientMapping)
+		slog.Debug(fmt.Sprintf("%s's client mapping: %#v", *email, clientMapping))
 
-		awsConfig, err := createAWSConfig(ctx, awsGenerationParams.OIDCProvider, clientMapping, clientIDs)
+		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMapping)
 		if err != nil {
-			logrus.Errorf("error: unable to get AWS Config File: %s", err)
+			slog.Error("getting AWS Config File", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
@@ -148,7 +147,7 @@ func Index(
 		encoder := json.NewEncoder(w)
 		err = encoder.Encode(awsConfig)
 		if err != nil {
-			logrus.Errorf("error: Unable to write config to http.ResponseWriter: %s", err)
+			slog.Error("writing config to http.ResponseWriter", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}

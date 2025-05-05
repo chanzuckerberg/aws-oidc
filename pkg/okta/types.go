@@ -9,19 +9,20 @@ func (c ClientID) String() string {
 }
 
 type OIDCRoleMapping struct {
-	AWSAccountID string `yaml:"aws_account_id"`
-	AWSRoleARN   string `yaml:"aws_role_arn"`
-	OktaClientID string `yaml:"okta_client_id"`
+	AWSAccountID    string `yaml:"aws_account_id"`
+	AWSAccountAlias string `yaml:"aws_account_alias"`
+	AWSRoleARN      string `yaml:"aws_role_arn"`
+	OktaClientID    string `yaml:"okta_client_id"`
 }
 
 type ctxKey struct{}
-type OIDCRoleMappingByClientID map[string][]OIDCRoleMapping
+type OIDCRoleMappings []OIDCRoleMapping
 
-func FromContext(ctx context.Context) *OIDCRoleMappingByClientID {
-	v, _ := ctx.Value(ctxKey{}).(*OIDCRoleMappingByClientID)
+func FromContext(ctx context.Context) *OIDCRoleMappings {
+	v, _ := ctx.Value(ctxKey{}).(*OIDCRoleMappings)
 	return v
 }
 
-func NewContext(parent context.Context, v *OIDCRoleMappingByClientID) context.Context {
+func NewContext(parent context.Context, v *OIDCRoleMappings) context.Context {
 	return context.WithValue(parent, ctxKey{}, v)
 }

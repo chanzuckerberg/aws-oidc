@@ -7,12 +7,11 @@ import (
 	"os"
 
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
-	CZIOkta "github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/chanzuckerberg/go-misc/sets"
 	"github.com/coreos/go-oidc"
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert/yaml"
 )
@@ -55,7 +54,7 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	env := &OktaWebserverEnvironment{}
 	err := envconfig.Process("OKTA", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the okta environment variables")
+		return env, fmt.Errorf("Unable to load all the okta environment variables: %w", err)
 	}
 	return env, nil
 }
@@ -64,20 +63,20 @@ func loadAWSEnv() (*AWSRoleEnvironment, error) {
 	env := &AWSRoleEnvironment{}
 	err := envconfig.Process("AWS", env)
 	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the aws environment variables")
+		return env, fmt.Errorf("Unable to load all the aws environment variables: %w", err)
 	}
 	return env, nil
 }
 
-func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (CZIOkta.AppResource, error) {
-	oktaConfig := &CZIOkta.OktaClientConfig{
+func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (okta.AppResource, error) {
+	oktaConfig := &okta.OktaClientConfig{
 		ClientID:      oktaClientID,
 		PrivateKeyPEM: privateKey,
 		OrgURL:        orgURL,
 	}
-	client, err := CZIOkta.NewOktaClient(ctx, oktaConfig)
+	client, err := okta.NewOktaClient(ctx, oktaConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to create Okta Client")
+		return nil, fmt.Errorf("Unable to create Okta Client: %w", err)
 	}
 	return client.Application, nil
 }
@@ -87,7 +86,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	defer span.Send()
 
 	if concurrency == 0 {
-		return errors.New("concurrency Limit cannot be 0")
+		return fmt.Errorf("concurrency Limit cannot be 0")
 	}
 
 	// Initialize everything else
@@ -103,13 +102,13 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 
 	provider, err := oidc.NewProvider(ctx, oktaEnv.ISSUER_URL)
 	if err != nil {
-		return errors.Wrap(err, "Unable to create OIDC provider")
+		return fmt.Errorf("Unable to create OIDC provider: %w", err)
 	}
 	verifier := provider.Verifier(&oidc.Config{ClientID: oktaEnv.CLIENT_ID})
 
 	oktaAppClient, err := createOktaClientApps(ctx, oktaEnv.ISSUER_URL, oktaEnv.PRIVATE_KEY, oktaEnv.SERVICE_CLIENT_ID)
 	if err != nil {
-		return errors.Wrap(err, "failed to create okta apps")
+		return fmt.Errorf("failed to create okta apps: %w", err)
 	}
 
 	configGenerationParams := webserver.AWSConfigGenerationParams{
@@ -126,7 +125,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading rolemap.yaml: %w", err)
 	}
-	roleMappings := OIDCRoleMappingByClientID{}
+	roleMappings := okta.OIDCRoleMapping{}
 	err = yaml.Unmarshal(b, &roleMappings)
 	if err != nil {
 		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)

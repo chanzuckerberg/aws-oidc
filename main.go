@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/chanzuckerberg/aws-oidc/cmd"
-	"github.com/sirupsen/logrus"
 )
 
 func exec() error {
@@ -14,6 +14,6 @@ func exec() error {
 func main() {
 	err := exec()
 	if err != nil {
-		logrus.Fatal(err)
+		slog.Error("failed to execute command", "error", err)
 	}
 }

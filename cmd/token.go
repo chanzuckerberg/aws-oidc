@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -56,10 +55,10 @@ var tokenCmd = &cobra.Command{
 
 		data, err := json.Marshal(stdoutToken)
 		if err != nil {
-			return errors.Wrap(err, "could not json marshal oidc token")
+			return fmt.Errorf("could not json marshal oidc token: %w", err)
 		}
 
 		_, err = fmt.Fprintln(os.Stdout, string(data))
-		return errors.Wrap(err, "could not print token to stdout")
+		return fmt.Errorf("could not print token to stdout: %w", err)
 	},
 }

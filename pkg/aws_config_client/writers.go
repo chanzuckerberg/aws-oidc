@@ -8,7 +8,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/pkg/errors"
 	"gopkg.in/ini.v1"
 )
 
@@ -32,7 +31,7 @@ func NewAWSConfigFileWriter(awsConfigPath string) *AWSConfigFile {
 func (a *AWSConfigFile) Finalize() error {
 	tmpfile, err := ioutil.TempFile("", "")
 	if err != nil {
-		return errors.Wrap(err, "could not create temporary file for aws config")
+		return fmt.Errorf("could not create temporary file for aws config: %w", err)
 	}
 
 	defer func() {
@@ -45,21 +44,24 @@ func (a *AWSConfigFile) Finalize() error {
 
 	_, err = io.Copy(tmpfile, a.buffer)
 	if err != nil {
-		return errors.Wrap(err, "could not write contents to temporary aws config")
+		return fmt.Errorf("could not write contents to temporary aws config: %w", err)
 	}
 
 	err = tmpfile.Sync()
 	if err != nil {
-		return errors.Wrap(err, "could not Sync temporary aws credentials file")
+		return fmt.Errorf("could not Sync temporary aws credentials file: %w", err)
 	}
 
 	err = tmpfile.Close()
 	if err != nil {
-		return errors.Wrap(err, "could not close temporary aws credentials file")
+		return fmt.Errorf("could not close temporary aws credentials file: %w", err)
 	}
 
 	err = os.Rename(tmpfile.Name(), a.awsConfigPath)
-	return errors.Wrapf(err, "could not move aws config to %s", err)
+	if err != nil {
+		return fmt.Errorf("could not move aws config to %s: %w", a.awsConfigPath, err)
+	}
+	return nil
 }
 
 func (a *AWSConfigFile) Write(p []byte) (int, error) {
@@ -67,7 +69,8 @@ func (a *AWSConfigFile) Write(p []byte) (int, error) {
 }
 
 // mergeConfig will merge the new config with the existing aws config
-//             giving precedence to the new aws config blocks
+//
+//	giving precedence to the new aws config blocks
 func (a *AWSConfigFile) MergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
 	return mergeAWSConfigs(new, old)
 }
@@ -77,7 +80,8 @@ type AWSConfigSTDOUTWriter struct {
 }
 
 // stdout writer only returns the new config
-//        up to users to figure out how to merge
+//
+//	up to users to figure out how to merge
 func (a *AWSConfigSTDOUTWriter) MergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
 	return new, nil
 }
@@ -107,16 +111,16 @@ func mergeAWSConfigs(new *ini.File, old *ini.File) (*ini.File, error) {
 	newAWSProfileBytes := bytes.NewBuffer(nil)
 	_, err := new.WriteTo(newAWSProfileBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to write AWS Profiles")
+		return nil, fmt.Errorf("Unable to write AWS Profiles: %w", err)
 	}
 	_, err = old.WriteTo(baseBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to incorporate original AWS config file with new config changes")
+		return nil, fmt.Errorf("Unable to incorporate original AWS config file with new config changes: %w", err)
 	}
 
 	mergedConfig, err := ini.Load(baseBytes, newAWSProfileBytes)
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to merge old and new config files")
+		return nil, fmt.Errorf("Unable to merge old and new config files: %w", err)
 	}
 	return mergedConfig, nil
 }

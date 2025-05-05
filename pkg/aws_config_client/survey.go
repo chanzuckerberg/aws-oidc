@@ -1,8 +1,9 @@
 package aws_config_client
 
 import (
+	"fmt"
+
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/pkg/errors"
 )
 
 type Prompt interface {
@@ -30,7 +31,7 @@ func (s *Survey) Select(prompt string, options []string, surveyOptions ...survey
 	)
 
 	if err != nil {
-		return 0, errors.Wrap(err, "error asking user to select")
+		return 0, fmt.Errorf("error asking user to select: %w", err)
 	}
 
 	if len(options) == 1 {
@@ -41,7 +42,7 @@ func (s *Survey) Select(prompt string, options []string, surveyOptions ...survey
 			return idx, nil
 		}
 	}
-	return 0, errors.Errorf("selected option (%s) not expected", chosen)
+	return 0, fmt.Errorf("selected option (%s) not expected", chosen)
 }
 
 func (s *Survey) Input(prompt string, defaulted string, surveyOptions ...survey.AskOpt) (string, error) {
@@ -57,7 +58,7 @@ func (s *Survey) Input(prompt string, defaulted string, surveyOptions ...survey.
 	)
 
 	if err != nil {
-		return "", errors.Wrap(err, "error asking user for input")
+		return "", fmt.Errorf("error asking user for input: %w", err)
 	}
 
 	return input, nil
@@ -76,7 +77,7 @@ func (s *Survey) Confirm(prompt string, defaulted bool, surveyOptions ...survey.
 	)
 
 	if err != nil {
-		return false, errors.Wrap(err, "error asking for confirmation")
+		return false, fmt.Errorf("error asking for confirmation: %w", err)
 	}
 	return answer, nil
 }

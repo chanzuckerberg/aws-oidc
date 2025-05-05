@@ -2,6 +2,7 @@ package getter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -9,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/honeycombio/beeline-go"
-	"github.com/pkg/errors"
 )
 
 func GetAWSAssumeIdentity(
@@ -23,7 +23,7 @@ func GetAWSAssumeIdentity(
 
 	sess, err := session.NewSession()
 	if err != nil {
-		return nil, errors.Wrap(err, "Unable to create AWS session")
+		return nil, fmt.Errorf("Unable to create AWS session: %w", err)
 	}
 
 	stsSession := sts.New(sess)
@@ -36,10 +36,10 @@ func GetAWSAssumeIdentity(
 	}
 	tokenOutput, err := stsSession.AssumeRoleWithWebIdentityWithContext(ctx, input)
 	if err != nil {
-		return nil, errors.Wrap(err, "AWS AssumeRoleWithWebIdentity error")
+		return nil, fmt.Errorf("AWS AssumeRoleWithWebIdentity error: %w", err)
 	}
 	if tokenOutput == nil {
-		return nil, errors.New("nil Token from AWS")
+		return nil, fmt.Errorf("nil Token from AWS")
 	}
 	return tokenOutput, nil
 }

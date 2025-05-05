@@ -12,7 +12,6 @@ import (
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
 	"github.com/honeycombio/beeline-go"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -72,7 +71,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 	output, err := json.MarshalIndent(creds, "", "	")
 	if err != nil {
-		return errors.Wrap(err, "Unable to convert current credentials to json output")
+		return fmt.Errorf("Unable to convert current credentials to json output: %w", err)
 	}
 	fmt.Println(string(output))
 
