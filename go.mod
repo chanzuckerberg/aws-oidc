@@ -9,7 +9,6 @@ require (
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5
-	github.com/chanzuckerberg/go-misc/sets v0.0.0-20250423213358-0dc5b698c7d3
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3
 	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/gorilla/handlers v1.5.2

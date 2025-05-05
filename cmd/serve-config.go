@@ -8,7 +8,6 @@ import (
 
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	"github.com/chanzuckerberg/go-misc/sets"
 	"github.com/coreos/go-oidc"
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
@@ -30,16 +29,9 @@ type AWSRoleEnvironment struct {
 	ORG_ROLE_ARNS    []string `required:"true"`
 }
 
-var concurrency int
-var awsSessionRetries int
-var skipAccountList []string
-
 func init() {
 	rootCmd.AddCommand(serveConfigCmd)
 	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "Port to host the aws config website")
-	serveConfigCmd.Flags().IntVar(&concurrency, "concurrency", 1, "Number of parallel goroutines for account processing")
-	serveConfigCmd.Flags().IntVar(&awsSessionRetries, "aws-retries", 5, "Number of times an AWS svc retries an operation")
-	serveConfigCmd.Flags().StringSliceVar(&skipAccountList, "skip-accts", []string{}, "List of AWS account IDs serve-config should ignore.")
 }
 
 var serveConfigCmd = &cobra.Command{
@@ -76,10 +68,6 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
 	defer span.Send()
 
-	if concurrency == 0 {
-		return fmt.Errorf("concurrency Limit cannot be 0")
-	}
-
 	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()
 	if err != nil {
@@ -99,11 +87,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 
 	configGenerationParams := webserver.AWSConfigGenerationParams{
 		OIDCProvider: oktaEnv.ISSUER_URL,
-		Concurrency:  concurrency,
-		SkipAccounts: sets.StringSet{},
 	}
-
-	configGenerationParams.SkipAccounts.Add(skipAccountList...)
 
 	b, err := os.ReadFile("/rolemap/rolemap.yaml")
 	if err != nil {

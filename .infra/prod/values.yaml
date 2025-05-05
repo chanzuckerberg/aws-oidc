@@ -9,3 +9,7 @@ stack:
           value: aws-config
         - name: OKTA_ISSUER_URL
           value: https://czi-prod.okta.com
+        - name: OKTA_SERVICE_CLIENT_ID
+          value: 0oa2m0fqfwCAASN9K5d7
+        - name: SENTRY_DSN
+          value: https://e57ea33f80f749a6ad79e18f9d89f0b4:a6e11e86eca04415bb47ab499c4fa830@sentry.prod.si.czi.technology/41

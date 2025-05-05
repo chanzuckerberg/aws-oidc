@@ -43,7 +43,7 @@ func GetClientIDs(ctx context.Context, userID string, oktaClient AppResource) ([
 	if err != nil {
 		return nil, err
 	}
-	return getClientIDsfromApplications(ctx, apps)
+	return getClientIDsfromApplications(apps)
 }
 
 type AppResource interface {
@@ -86,9 +86,7 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 	}
 }
 
-func getClientIDsfromApplications(
-	ctx context.Context,
-	appInterfaces []okta.App) ([]ClientID, error) {
+func getClientIDsfromApplications(appInterfaces []okta.App) ([]ClientID, error) {
 	clientIDs := []ClientID{}
 	for _, appInterface := range appInterfaces {
 		// HACK(el): applications returned as interface which is useless...

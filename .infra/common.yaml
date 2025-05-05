@@ -22,12 +22,6 @@ stack:
           memory: 2Gi
       args:
         - "serve-config"
-        - "--concurrency"
-        - "10"
-        - "--aws-retries"
-        - "20"
-        - "--skip-accts"
-        - "513125572197"
       ingress:
         paths:
           - path: /
