@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-f54d107
+        tag: sha-cb9e625
       env:
         - name: OKTA_CLIENT_ID
           value: aws-config
