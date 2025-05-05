@@ -26,6 +26,12 @@ stack:
         paths:
           - path: /
             pathType: Prefix
+      livenessProbe:
+        httpGet:
+          path: /health
+      readinessProbe:
+        httpGet:
+          path: /health
       volumes:
         - name: role-map
           configMap:
