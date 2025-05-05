@@ -16,6 +16,7 @@ FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/gola
 RUN apk update && apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/aws-oidc /bin/aws-oidc
+COPY ./entrypoint.sh /entrypoint.sh
 
 CMD ["serve-config"]
 ENTRYPOINT ["./entrypoint.sh"]
