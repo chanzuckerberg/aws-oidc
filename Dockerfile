@@ -23,4 +23,4 @@ RUN apk update && apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/aws-oidc /bin/aws-oidc
 
-CMD ["aws-oidc"]
+CMD ["aws-oidc", "serve-config", "--web-server-port=8080"]
