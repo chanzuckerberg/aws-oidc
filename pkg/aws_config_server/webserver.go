@@ -173,6 +173,8 @@ func GetRouter(
 	router.GET("/health", Health)
 
 	handler := handlers.CombinedLoggingHandler(os.Stdout, router)
-	handler = handlers.RecoveryHandler()(handler)
+	handler = handlers.RecoveryHandler(
+		handlers.PrintRecoveryStack(true),
+	)(handler)
 	return handler
 }
