@@ -29,7 +29,10 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 		okta.WithCache(true),
 	)
 
-	return client, fmt.Errorf("error creating Okta client: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Okta client: %w", err)
+	}
+	return client, nil
 }
 
 func GetClientIDs(ctx context.Context, userID string, oktaClient AppResource) ([]ClientID, error) {
