@@ -58,7 +58,10 @@ func (a *AWSConfigFile) Finalize() error {
 	}
 
 	err = os.Rename(tmpfile.Name(), a.awsConfigPath)
-	return fmt.Errorf("could not move aws config to %s: %w", a.awsConfigPath, err)
+	if err != nil {
+		return fmt.Errorf("could not move aws config to %s: %w", a.awsConfigPath, err)
+	}
+	return nil
 }
 
 func (a *AWSConfigFile) Write(p []byte) (int, error) {
