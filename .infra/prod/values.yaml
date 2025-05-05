@@ -5,23 +5,7 @@ stack:
       image:
         tag: sha-TO-BE-REPLACED-BY-BUILDER-WORKFLOW
       env:
-        - name: AWS_ORG_ROLE_ARNS
-          value: arn:aws:iam::416703108729:role/aws-config-generation-organizations,arn:aws:iam::950587841421:role/aws-config-generation-organizations
-        - name: AWS_READER_ROLE_NAME
-          value: aws-config-generation-worker
-        - name: AWS_REGION
-          value: us-west-2
-        - name: AWS_ROLE_ARN
-          value: arn:aws:iam::626314663667:role/si-prod-eks-si-prod/si-prod-aws-config-generation
         - name: OKTA_CLIENT_ID
           value: aws-config
         - name: OKTA_ISSUER_URL
           value: https://czi-prod.okta.com
-      arg:
-        - "serve-config"
-        - "--concurrency"
-        - "10"
-        - "--aws-retries"
-        - "20"
-        - "--skip-accts"
-        - "513125572197"
