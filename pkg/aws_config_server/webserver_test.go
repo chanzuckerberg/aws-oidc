@@ -25,10 +25,8 @@ func (idtv *idTokenVerifier) Verify(ctx context.Context, idToken string) (*oidc.
 }
 
 var testAWSConfigGenerationParams = AWSConfigGenerationParams{
-	OIDCProvider:  "validProvider",
-	AWSWorkerRole: "validWorker",
-	AWSOrgRoles:   []string{"arn:aws:iam::AccountNumber1:role/OrgRole1"},
-	Concurrency:   1,
+	OIDCProvider: "validProvider",
+	Concurrency:  1,
 }
 
 type emptyOktaApplications struct{}

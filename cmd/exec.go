@@ -9,22 +9,12 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/spf13/cobra"
 )
 
 type AWSDefaultEnvironment struct {
 	DEFAULT_OUTPUT string
 	DEFAULT_REGION string
-}
-
-func loadAWSDefaultEnv() (*AWSDefaultEnvironment, error) {
-	env := &AWSDefaultEnvironment{}
-	err := envconfig.Process("AWS", env)
-	if err != nil {
-		return env, fmt.Errorf("Unable to load all the aws environment variables: %w", err)
-	}
-	return env, nil
 }
 
 func init() {

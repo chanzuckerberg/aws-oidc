@@ -59,15 +59,6 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	return env, nil
 }
 
-func loadAWSEnv() (*AWSRoleEnvironment, error) {
-	env := &AWSRoleEnvironment{}
-	err := envconfig.Process("AWS", env)
-	if err != nil {
-		return env, fmt.Errorf("Unable to load all the aws environment variables: %w", err)
-	}
-	return env, nil
-}
-
 func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (okta.AppResource, error) {
 	oktaConfig := &okta.OktaClientConfig{
 		ClientID:      oktaClientID,
@@ -95,11 +86,6 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	awsEnv, err := loadAWSEnv()
-	if err != nil {
-		return err
-	}
-
 	provider, err := oidc.NewProvider(ctx, oktaEnv.ISSUER_URL)
 	if err != nil {
 		return fmt.Errorf("Unable to create OIDC provider: %w", err)
@@ -112,11 +98,9 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	}
 
 	configGenerationParams := webserver.AWSConfigGenerationParams{
-		OIDCProvider:  oktaEnv.ISSUER_URL,
-		AWSWorkerRole: awsEnv.READER_ROLE_NAME,
-		AWSOrgRoles:   awsEnv.ORG_ROLE_ARNS,
-		Concurrency:   concurrency,
-		SkipAccounts:  sets.StringSet{},
+		OIDCProvider: oktaEnv.ISSUER_URL,
+		Concurrency:  concurrency,
+		SkipAccounts: sets.StringSet{},
 	}
 
 	configGenerationParams.SkipAccounts.Add(skipAccountList...)

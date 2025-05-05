@@ -33,11 +33,9 @@ type claims struct {
 }
 
 type AWSConfigGenerationParams struct {
-	OIDCProvider  string
-	AWSWorkerRole string
-	AWSOrgRoles   []string
-	Concurrency   int
-	SkipAccounts  sets.StringSet
+	OIDCProvider string
+	Concurrency  int
+	SkipAccounts sets.StringSet
 }
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
