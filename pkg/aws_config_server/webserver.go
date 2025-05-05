@@ -156,6 +156,12 @@ type RouterConfig struct {
 	OktaAppClient       okta.AppResource
 }
 
+type SlogRecoveryLogger slog.Logger
+
+func (l SlogRecoveryLogger) Println(v ...interface{}) {
+	slog.Error(fmt.Sprintf("%v", v))
+}
+
 func GetRouter(
 	ctx context.Context,
 	config *RouterConfig,
@@ -172,9 +178,11 @@ func GetRouter(
 	router.GET("/", handle)
 	router.GET("/health", Health)
 
+	logger := slog.Default()
 	handler := handlers.CombinedLoggingHandler(os.Stdout, router)
 	handler = handlers.RecoveryHandler(
 		handlers.PrintRecoveryStack(true),
+		handlers.RecoveryLogger(SlogRecoveryLogger(*logger)),
 	)(handler)
 	return handler
 }
