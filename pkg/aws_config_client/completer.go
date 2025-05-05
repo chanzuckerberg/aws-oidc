@@ -285,5 +285,9 @@ func (c *completer) Complete(base *ini.File, awsConfigWriter AWSConfigWriter) er
 	}
 
 	_, err = mergedConfig.WriteTo(awsConfigWriter)
-	return fmt.Errorf("Could not write new aws config: %w", err)
+	if err != nil {
+		return fmt.Errorf("Could not write new aws config: %w", err)
+	}
+	return nil
+
 }
