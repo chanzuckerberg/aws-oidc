@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -64,9 +65,15 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 	return client.Application, nil
 }
 
+func initLogger() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+}
+
 func serveConfigRun(cmd *cobra.Command, args []string) error {
 	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
 	defer span.Send()
+	initLogger()
 
 	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()
@@ -93,8 +100,8 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading rolemap.yaml: %w", err)
 	}
-	roleMappings := okta.OIDCRoleMappings{}
-	err = yaml.Unmarshal(b, &roleMappings)
+	clientMappings := &okta.OIDCRoleMappings{}
+	err = yaml.Unmarshal(b, clientMappings)
 	if err != nil {
 		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)
 	}
@@ -102,6 +109,7 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		Verifier:            verifier,
 		AwsGenerationParams: &configGenerationParams,
 		OktaAppClient:       oktaAppClient,
+		ClientMappings:      clientMappings,
 	}
 
 	router := webserver.GetRouter(ctx, routerConfig)

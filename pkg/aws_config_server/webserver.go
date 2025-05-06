@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
@@ -102,6 +101,7 @@ func getSubFromCtx(ctx context.Context) *string {
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
 	oktaClient okta.AppResource,
+	clientMappings *okta.OIDCRoleMappings,
 ) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		ctx := r.Context()
@@ -129,11 +129,7 @@ func Index(
 		}
 
 		slog.Debug(fmt.Sprintf("%s's clientIDs: %s", *email, clientIDs))
-
-		clientMapping := okta.FromContext(ctx)
-		slog.Debug(fmt.Sprintf("%s's client mapping: %#v", *email, clientMapping))
-
-		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMapping)
+		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappings)
 		if err != nil {
 			slog.Error("getting AWS Config File", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
@@ -154,6 +150,7 @@ type RouterConfig struct {
 	Verifier            oidcVerifier
 	AwsGenerationParams *AWSConfigGenerationParams
 	OktaAppClient       okta.AppResource
+	ClientMappings      *okta.OIDCRoleMappings
 }
 
 type SlogRecoveryLogger slog.Logger
@@ -171,6 +168,7 @@ func GetRouter(
 		Index(
 			config.AwsGenerationParams,
 			config.OktaAppClient,
+			config.ClientMappings,
 		),
 		config.Verifier,
 	)
@@ -179,10 +177,9 @@ func GetRouter(
 	router.GET("/health", Health)
 
 	logger := slog.Default()
-	handler := handlers.CombinedLoggingHandler(os.Stdout, router)
-	handler = handlers.RecoveryHandler(
+	handler := handlers.RecoveryHandler(
 		handlers.PrintRecoveryStack(true),
 		handlers.RecoveryLogger(SlogRecoveryLogger(*logger)),
-	)(handler)
+	)(router)
 	return handler
 }
