@@ -12,7 +12,6 @@ require (
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3
 	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/gorilla/handlers v1.5.2
-	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/okta/okta-sdk-golang/v2 v2.20.0
