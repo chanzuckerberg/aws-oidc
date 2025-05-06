@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
@@ -57,10 +58,18 @@ func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
 }
 
+func initLogger() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+}
+
 var rootCmd = &cobra.Command{
 	Use:          "aws-oidc",
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		initLogger()
 		// parse flags
 		verbose, err := cmd.Flags().GetBool(flagVerbose)
 		if err != nil {

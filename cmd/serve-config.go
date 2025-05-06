@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 
@@ -65,17 +64,9 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 	return client.Application, nil
 }
 
-func initLogger() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
-}
-
 func serveConfigRun(cmd *cobra.Command, args []string) error {
 	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
 	defer span.Send()
-	initLogger()
 
 	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()
