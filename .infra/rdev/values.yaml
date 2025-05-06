@@ -3,4 +3,4 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-d7cdfa6
+        tag: sha-61911b9
