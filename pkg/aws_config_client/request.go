@@ -12,8 +12,6 @@ import (
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/util"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
-	"github.com/honeycombio/beeline-go"
-	"github.com/honeycombio/beeline-go/propagation"
 )
 
 func RequestConfig(
@@ -21,9 +19,6 @@ func RequestConfig(
 	token *client.Token,
 	configServiceURI string,
 ) (*server.AWSConfig, error) {
-	ctx, span := beeline.StartSpan(ctx, "get_aws_config")
-	defer span.Send()
-
 	ver, err := util.VersionString()
 	if err != nil {
 		return nil, err
@@ -41,12 +36,6 @@ func RequestConfig(
 	req.Header.Set(
 		"User-Agent",
 		fmt.Sprintf("aws-oidc/%s", ver),
-	)
-
-	span.SerializeHeaders()
-	req.Header.Add(
-		propagation.TracePropagationHTTPHeader,
-		span.SerializeHeaders(),
 	)
 
 	rsp, err := http.DefaultClient.Do(req)

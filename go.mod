@@ -12,7 +12,6 @@ require (
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3
 	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/gorilla/handlers v1.5.2
-	github.com/honeycombio/beeline-go v1.19.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -32,19 +31,15 @@ require (
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
-	github.com/facebookgo/limitgroup v0.0.0-20150612190941-6abd8d71ec01 // indirect
-	github.com/facebookgo/muster v0.0.0-20150708232844-fd3d7953fd52 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/honeycombio/libhoney-go v1.25.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
@@ -56,18 +51,15 @@ require (
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
-	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	github.com/zalando/go-keyring v0.2.6 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
-	google.golang.org/grpc v1.72.0 // indirect
-	gopkg.in/alexcesaro/statsd.v2 v2.0.0 // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 

@@ -9,7 +9,6 @@ import (
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/coreos/go-oidc"
-	"github.com/honeycombio/beeline-go"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert/yaml"
@@ -22,11 +21,6 @@ type OktaWebserverEnvironment struct {
 	SERVICE_CLIENT_ID string `required:"true"`
 	CLIENT_ID         string `required:"true"`
 	ISSUER_URL        string `required:"true"`
-}
-
-type AWSRoleEnvironment struct {
-	READER_ROLE_NAME string   `required:"true"`
-	ORG_ROLE_ARNS    []string `required:"true"`
 }
 
 func init() {
@@ -65,15 +59,12 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 }
 
 func serveConfigRun(cmd *cobra.Command, args []string) error {
-	ctx, span := beeline.StartSpan(cmd.Context(), "serve-config run")
-	defer span.Send()
-
-	// Initialize everything else
 	oktaEnv, err := loadOktaEnv()
 	if err != nil {
 		return err
 	}
 
+	ctx := cmd.Context()
 	provider, err := oidc.NewProvider(ctx, oktaEnv.ISSUER_URL)
 	if err != nil {
 		return fmt.Errorf("Unable to create OIDC provider: %w", err)

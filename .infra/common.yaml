@@ -21,7 +21,8 @@ stack:
           cpu: 300m
           memory: 2Gi
       args:
-        - "serve-config"
+        - serve-config
+        - -v
       ingress:
         paths:
           - path: /

@@ -17,6 +17,6 @@ RUN apk update && apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/aws-oidc /bin/aws-oidc
 COPY ./entrypoint.sh ./entrypoint.sh
-
+COPY ./testrolemap.yaml /rolemap/rolemap.yaml
 CMD ["serve-config"]
 ENTRYPOINT ["./entrypoint.sh"]

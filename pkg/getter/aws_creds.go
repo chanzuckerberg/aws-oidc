@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 	client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
-	"github.com/honeycombio/beeline-go"
 )
 
 func GetAWSAssumeIdentity(
@@ -18,9 +17,6 @@ func GetAWSAssumeIdentity(
 	roleARN string,
 	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	ctx, span := beeline.StartSpan(ctx, "assume_role_with_web_identity")
-	defer span.Send()
-
 	sess, err := session.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create AWS session: %w", err)

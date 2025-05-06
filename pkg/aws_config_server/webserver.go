@@ -11,8 +11,6 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
-	"github.com/honeycombio/beeline-go"
-	"github.com/honeycombio/beeline-go/wrappers/hnyhttprouter"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -113,7 +111,6 @@ func Index(
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-		beeline.AddField(ctx, "email", *email)
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
@@ -129,7 +126,7 @@ func Index(
 			return
 		}
 
-		slog.Debug(fmt.Sprintf("%s's clientIDs: %s", *email, clientIDs))
+		slog.Debug("creating aws config", "email", *email, "clientIDs", clientIDs)
 		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappings)
 		if err != nil {
 			slog.Error("getting AWS Config File", "error", err)
@@ -173,7 +170,6 @@ func GetRouter(
 		),
 		config.Verifier,
 	)
-	handle = hnyhttprouter.Middleware(handle)
 	router.GET("/", handle)
 	router.GET("/health", Health)
 
