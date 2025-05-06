@@ -17,6 +17,7 @@ type OIDCRoleMapping struct {
 
 type ctxKey struct{}
 type OIDCRoleMappings []OIDCRoleMapping
+type OIDCRoleMappingsByKey map[string][]OIDCRoleMapping
 
 func FromContext(ctx context.Context) *OIDCRoleMappings {
 	v, _ := ctx.Value(ctxKey{}).(*OIDCRoleMappings)

@@ -34,7 +34,6 @@ type AWSConfigGenerationParams struct {
 }
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	slog.Info("health check")
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -100,7 +99,7 @@ func getSubFromCtx(ctx context.Context) *string {
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
 	oktaClient okta.AppResource,
-	clientMappings *okta.OIDCRoleMappings,
+	clientMappingsByKey okta.OIDCRoleMappingsByKey,
 ) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		ctx := r.Context()
@@ -126,8 +125,8 @@ func Index(
 			return
 		}
 
-		slog.Debug("creating aws config", "email", *email, "clientIDs", clientIDs)
-		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappings)
+		slog.Debug("creating aws config", "email", *email, "clientIDsLen", len(clientIDs))
+		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappingsByKey, clientIDs)
 		if err != nil {
 			slog.Error("getting AWS Config File", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
@@ -148,7 +147,7 @@ type RouterConfig struct {
 	Verifier            oidcVerifier
 	AwsGenerationParams *AWSConfigGenerationParams
 	OktaAppClient       okta.AppResource
-	ClientMappings      *okta.OIDCRoleMappings
+	ClientMappings      okta.OIDCRoleMappingsByKey
 }
 
 type SlogRecoveryLogger slog.Logger

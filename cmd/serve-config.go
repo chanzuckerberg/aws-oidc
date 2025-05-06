@@ -84,16 +84,25 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading rolemap.yaml: %w", err)
 	}
-	clientMappings := &okta.OIDCRoleMappings{}
-	err = yaml.Unmarshal(b, clientMappings)
+	clientMappings := okta.OIDCRoleMappings{}
+	err = yaml.Unmarshal(b, &clientMappings)
 	if err != nil {
 		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)
+	}
+	clientMappingsByKey := make(okta.OIDCRoleMappingsByKey)
+	for _, mapping := range clientMappings {
+		_, ok := clientMappingsByKey[mapping.OktaClientID]
+		if ok {
+			clientMappingsByKey[mapping.OktaClientID] = append(clientMappingsByKey[mapping.OktaClientID], mapping)
+		} else {
+			clientMappingsByKey[mapping.OktaClientID] = []okta.OIDCRoleMapping{mapping}
+		}
 	}
 	routerConfig := &webserver.RouterConfig{
 		Verifier:            verifier,
 		AwsGenerationParams: &configGenerationParams,
 		OktaAppClient:       oktaAppClient,
-		ClientMappings:      clientMappings,
+		ClientMappings:      clientMappingsByKey,
 	}
 
 	router := webserver.GetRouter(ctx, routerConfig)

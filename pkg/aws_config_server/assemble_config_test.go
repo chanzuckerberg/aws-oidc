@@ -36,17 +36,26 @@ var testClientMapping = []okta.OIDCRoleMapping{
 
 func TestCreateAWSConfig(t *testing.T) {
 	r := require.New(t)
-	mapping := okta.OIDCRoleMappings(testClientMapping)
-	config, err := createAWSConfig("localhost", &mapping)
+	clientMappings := okta.OIDCRoleMappings(testClientMapping)
+	clientMappingsByKey := make(okta.OIDCRoleMappingsByKey)
+	for _, mapping := range clientMappings {
+		_, ok := clientMappingsByKey[mapping.OktaClientID]
+		if ok {
+			clientMappingsByKey[mapping.OktaClientID] = append(clientMappingsByKey[mapping.OktaClientID], mapping)
+		} else {
+			clientMappingsByKey[mapping.OktaClientID] = []okta.OIDCRoleMapping{mapping}
+		}
+	}
+	config, err := createAWSConfig("localhost", clientMappingsByKey, []okta.ClientID{"ClientID1", "ClientID2"})
 	r.NoError(err)
 	r.NotEmpty(config)
 
-	for _, accountName := range []string{"Account1", "Account2", "Account3"} {
+	for _, accountName := range []string{"Account1", "Account2"} {
 		r.True(config.HasAccount(accountName))
 	}
-	r.ElementsMatch(config.GetRoleNames(), []string{"poweruser", "readonly", "OIDCFederatedRole1"})
+	r.ElementsMatch(config.GetRoleNames(), []string{"readonly", "OIDCFederatedRole1"})
 	r.Len(config.GetProfilesForAccount(AWSAccount{
 		Name:  "Account2",
 		Alias: "Account2",
-	}), 2)
+	}), 1)
 }
