@@ -36,6 +36,7 @@ type AWSConfigGenerationParams struct {
 }
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	slog.Info("health check")
 	w.WriteHeader(http.StatusOK)
 }
 
