@@ -66,7 +66,9 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 }
 
 func initLogger() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 	slog.SetDefault(logger)
 }
 
