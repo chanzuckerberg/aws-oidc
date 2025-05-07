@@ -7,6 +7,10 @@ on:
 jobs:
   release-please:
     runs-on: ARM64
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: read
     steps:
       - name: Generate token
         id: generate_token
