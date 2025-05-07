@@ -6,7 +6,7 @@ on:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: ARM64
     steps:
       - name: Generate token
         id: generate_token
@@ -21,6 +21,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-west-2
+          role-to-assume: arn:aws:iam::533267185808:role/gh_actions_core_platform_infra_prod_eks
+          role-session-name: AWSOIDCContainerBuilder
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
