@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.6](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.5...v0.30.6) (2025-05-07)
+
+
+### Bug Fixes
+
+* permissions to write to homebrew repo ([bd50070](https://github.com/chanzuckerberg/aws-oidc/commit/bd5007023fdf64993ad4cd55dc0bf6359832b1e1))
+
 ## [0.30.5](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.4...v0.30.5) (2025-05-07)
 
 
