@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.7](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.6...v0.30.7) (2025-05-07)
+
+
+### Bug Fixes
+
+* nil error check ([eade713](https://github.com/chanzuckerberg/aws-oidc/commit/eade713c5a15e9ce9f044c385441c2d5852e8a5c))
+
 ## [0.30.6](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.5...v0.30.6) (2025-05-07)
 
 
