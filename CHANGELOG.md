@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.1...v0.30.2) (2025-05-07)
+
+
+### Bug Fixes
+
+* missing permissions ([39d034c](https://github.com/chanzuckerberg/aws-oidc/commit/39d034c0a29027a01e8e3620a6f087272f77aea9))
+
 ## [0.30.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.0...v0.30.1) (2025-05-07)
 
 
