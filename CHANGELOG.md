@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.5](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.4...v0.30.5) (2025-05-07)
+
+
+### Bug Fixes
+
+* wrong goreleaser file ([b579e26](https://github.com/chanzuckerberg/aws-oidc/commit/b579e26b3533d43c9d414d03841c9a6141abc016))
+
+
+### Misc
+
+* update resources; remove outdated sentry ([647e5ad](https://github.com/chanzuckerberg/aws-oidc/commit/647e5adf913575291b96adab15031743560b28c8))
+
 ## [0.30.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.3...v0.30.4) (2025-05-07)
 
 
