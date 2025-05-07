@@ -1,0 +1,28 @@
+###### Generated using `argus bootstrap` command ######
+name: Create/update prod stack
+
+on:
+  release:
+    types: [published]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  create-stack:
+    runs-on: ARM64
+    permissions:
+      id-token: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Create/update prod stack
+        id: upsert
+        uses: chanzuckerberg/argus-artifacts/ci/packages/create-stack@v0
+        with:
+          appName: aws-oidc
+          envName: prod
+          waitForDeploymentSeconds: 300
+
+      - name: Notify
+        run: echo "Stack stable at ${{steps.upsert.outputs.baseURL}}"

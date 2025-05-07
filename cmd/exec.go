@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -8,23 +9,12 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
 type AWSDefaultEnvironment struct {
 	DEFAULT_OUTPUT string
 	DEFAULT_REGION string
-}
-
-func loadAWSDefaultEnv() (*AWSDefaultEnvironment, error) {
-	env := &AWSDefaultEnvironment{}
-	err := envconfig.Process("AWS", env)
-	if err != nil {
-		return env, errors.Wrap(err, "Unable to load all the aws environment variables")
-	}
-	return env, nil
 }
 
 func init() {
@@ -56,7 +46,7 @@ var execCmd = &cobra.Command{
 func parseArgs(cmd *cobra.Command, args []string) error {
 	dashIndex := cmd.ArgsLenAtDash()
 	if dashIndex == -1 {
-		return errors.New("please separate services and command with '--'.")
+		return fmt.Errorf("please separate services and command with '--'.")
 	}
 	return nil
 }
@@ -82,7 +72,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 		oidc_client.SetSuccessMessage(successMessage),
 	)
 	if err != nil {
-		return errors.Wrap(err, "Unable to obtain token from clientID and issuerURL")
+		return fmt.Errorf("Unable to obtain token from clientID and issuerURL: %w", err)
 	}
 
 	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
@@ -91,7 +81,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 		awsOIDCConfig.RoleARN,
 		sessionDuration)
 	if err != nil {
-		return errors.Wrap(err, "Unable to extract right token output from AWS Assume Web identity")
+		return fmt.Errorf("Unable to extract right token output from AWS Assume Web identity: %w", err)
 	}
 
 	envVars := append(
@@ -99,5 +89,5 @@ func execRun(cmd *cobra.Command, args []string) error {
 		os.Environ()...,
 	)
 
-	return exec(ctx, command, commandArgs, envVars)
+	return exec(command, commandArgs, envVars)
 }

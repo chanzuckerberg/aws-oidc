@@ -11,8 +11,6 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
-	"github.com/honeycombio/beeline-go"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -72,7 +70,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 	output, err := json.MarshalIndent(creds, "", "	")
 	if err != nil {
-		return errors.Wrap(err, "Unable to convert current credentials to json output")
+		return fmt.Errorf("Unable to convert current credentials to json output: %w", err)
 	}
 	fmt.Println(string(output))
 
@@ -84,9 +82,6 @@ func assumeRole(
 	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
 	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	ctx, span := beeline.StartSpan(ctx, "assumeAWSRole")
-	defer span.Send()
-
 	token, err := getOIDCToken(ctx, awsOIDCConfig)
 	if err != nil {
 		return nil, err
@@ -104,9 +99,6 @@ func getOIDCToken(
 	ctx context.Context,
 	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
 ) (*oidc_client.Token, error) {
-	ctx, span := beeline.StartSpan(ctx, "get_oidc_token")
-	defer span.Send()
-
 	return oidc_impl.GetToken(
 		ctx,
 		awsOIDCConfig.ClientID,

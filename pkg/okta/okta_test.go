@@ -41,7 +41,6 @@ func (oktaApp *oktaApplicationsWithNilResponse) ListApplications(ctx context.Con
 }
 
 func TestGetClientIDs(t *testing.T) {
-	ctx := context.Background()
 	r := require.New(t)
 	appInterfaces := []okta.App{
 		&okta.Application{
@@ -51,14 +50,13 @@ func TestGetClientIDs(t *testing.T) {
 			Id: "id2",
 		},
 	}
-	clientIDs, err := getClientIDsfromApplications(ctx, appInterfaces)
+	clientIDs, err := getClientIDsfromApplications(appInterfaces)
 	r.NoError(err)
 	r.Equal(clientIDs, []ClientID{"id1", "id2"})
 }
 
 // We're making an effort to exclude apps without a clientID
 func TestMalformedOktaApps(t *testing.T) {
-	ctx := context.Background()
 	r := require.New(t)
 
 	appInterfacesNoId := []okta.App{
@@ -69,7 +67,7 @@ func TestMalformedOktaApps(t *testing.T) {
 			Label: "label2",
 		},
 	}
-	clientIDs, err := getClientIDsfromApplications(ctx, appInterfacesNoId)
+	clientIDs, err := getClientIDsfromApplications(appInterfacesNoId)
 	r.NoError(err)
 	r.Empty(clientIDs)
 }

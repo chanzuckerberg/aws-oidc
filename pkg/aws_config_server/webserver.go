@@ -4,18 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	"github.com/chanzuckerberg/go-misc/sets"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
-	"github.com/honeycombio/beeline-go"
-	"github.com/honeycombio/beeline-go/wrappers/hnyhttprouter"
-	"github.com/julienschmidt/httprouter"
-	"github.com/sirupsen/logrus"
 )
 
 type oidcVerifier interface {
@@ -33,15 +28,8 @@ type claims struct {
 }
 
 type AWSConfigGenerationParams struct {
-	OIDCProvider  string
-	AWSWorkerRole string
-	AWSOrgRoles   []string
-	Concurrency   int
-	SkipAccounts  sets.StringSet
-}
-
-func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	w.WriteHeader(http.StatusOK)
+	OIDCProvider string
+	Concurrency  int
 }
 
 // From https://github.com/dgrijalva/jwt-go/blob/master/request/oauth2.go
@@ -54,38 +42,47 @@ func stripBearerPrefixFromTokenString(token string) string {
 	return token
 }
 
-func requireAuthentication(next httprouter.Handle, verifier oidcVerifier) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+type AuthMiddleware struct {
+	handler  http.Handler
+	verifier oidcVerifier
+}
 
-		authHeader := r.Header.Get("Authorization")
-		ctx := r.Context()
-		if len(authHeader) <= 0 {
-			logrus.Debugf("error: No Authorization header found.")
-			http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
-			return
-		}
-		rawIDToken := stripBearerPrefixFromTokenString(authHeader)
-
-		idToken, err := verifier.Verify(ctx, rawIDToken)
-		if err != nil {
-			logrus.Warnf("error: Unable to verify idToken. %s", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
-			return
-		}
-
-		claims := &claims{}
-		err = idToken.Claims(claims)
-		if err != nil {
-			logrus.Errorf("error: Unable to parse email from id token. %s", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
-			return
-		}
-		ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
-		ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
-		rWithValues := r.WithContext(ctxWithValues)
-
-		next(w, rWithValues, ps)
+func NewAuthMiddleware(handler http.Handler, verifier oidcVerifier) *AuthMiddleware {
+	return &AuthMiddleware{
+		handler:  handler,
+		verifier: verifier,
 	}
+}
+
+func (a *AuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	ctx := r.Context()
+	if len(authHeader) <= 0 {
+		slog.Debug(`no "Authorization" header found`)
+		http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
+		return
+	}
+	rawIDToken := stripBearerPrefixFromTokenString(authHeader)
+
+	idToken, err := a.verifier.Verify(ctx, rawIDToken)
+	if err != nil {
+		slog.Error("verifying idToken", "error", err)
+		http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
+		return
+	}
+
+	claims := &claims{}
+	err = idToken.Claims(claims)
+	if err != nil {
+		slog.Error("parsing email from id token", "error", err)
+		http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
+		return
+	}
+	ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
+	ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
+	rWithValues := r.WithContext(ctxWithValues)
+
+	a.handler.ServeHTTP(w, rWithValues)
 }
 
 func getEmailFromCtx(ctx context.Context) *string {
@@ -106,48 +103,37 @@ func getSubFromCtx(ctx context.Context) *string {
 
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
-	cachedClientIDtoProfiles *CachedGetClientIDToProfiles,
 	oktaClient okta.AppResource,
-) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	clientMappingsByKey okta.OIDCRoleMappingsByKey,
+) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		email := getEmailFromCtx(ctx)
 		if email == nil {
-			logrus.Error("Unable to get email")
+			slog.Error("no email in context")
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-		beeline.AddField(ctx, "email", *email)
 
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
-			logrus.Errorf("Unable to get subject ID for %s", *email)
+			slog.Error(fmt.Sprintf("getting subject ID for %s", *email))
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
 		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
 		if err != nil {
-			logrus.Errorf("Unable to get list of ClientIDs for %s: %s", *email, err)
+			slog.Error(fmt.Sprintf("getting list of ClientIDs for %s", *email), "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
-		logrus.Debugf("%s's clientIDs: %s", *email, clientIDs)
-
-		clientMapping, err := cachedClientIDtoProfiles.Get(ctx)
+		slog.Debug("creating aws config", "email", *email, "clientIDsLen", len(clientIDs))
+		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappingsByKey, clientIDs)
 		if err != nil {
-			logrus.Errorf("error: Unable to create mapping from clientID to roleARNs: %s", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
-			return
-		}
-
-		logrus.Debugf("%s's client mapping: %#v", *email, clientMapping)
-
-		awsConfig, err := createAWSConfig(ctx, awsGenerationParams.OIDCProvider, clientMapping, clientIDs)
-		if err != nil {
-			logrus.Errorf("error: unable to get AWS Config File: %s", err)
+			slog.Error("getting AWS Config File", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
@@ -155,38 +141,46 @@ func Index(
 		encoder := json.NewEncoder(w)
 		err = encoder.Encode(awsConfig)
 		if err != nil {
-			logrus.Errorf("error: Unable to write config to http.ResponseWriter: %s", err)
+			slog.Error("writing config to http.ResponseWriter", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-	}
+	})
 }
 
 type RouterConfig struct {
-	Verifier              oidcVerifier
-	AwsGenerationParams   *AWSConfigGenerationParams
-	OktaAppClient         okta.AppResource
-	GetClientIDToProfiles *CachedGetClientIDToProfiles
+	Verifier            oidcVerifier
+	AwsGenerationParams *AWSConfigGenerationParams
+	OktaAppClient       okta.AppResource
+	ClientMappings      okta.OIDCRoleMappingsByKey
+}
+
+type SlogRecoveryLogger slog.Logger
+
+func (l SlogRecoveryLogger) Println(v ...interface{}) {
+	slog.Error(fmt.Sprintf("%v", v))
 }
 
 func GetRouter(
 	ctx context.Context,
 	config *RouterConfig,
 ) http.Handler {
-	router := httprouter.New()
-	handle := requireAuthentication(
-		Index(
-			config.AwsGenerationParams,
-			config.GetClientIDToProfiles,
-			config.OktaAppClient,
-		),
-		config.Verifier,
-	)
-	handle = hnyhttprouter.Middleware(handle)
-	router.GET("/", handle)
-	router.GET("/health", Health)
+	mux := http.NewServeMux()
+	handle := NewAuthMiddleware(Index(
+		config.AwsGenerationParams,
+		config.OktaAppClient,
+		config.ClientMappings,
+	), config.Verifier)
 
-	handler := handlers.CombinedLoggingHandler(os.Stdout, router)
-	handler = handlers.RecoveryHandler()(handler)
+	mux.Handle("/", handle)
+	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	logger := slog.Default()
+	handler := handlers.RecoveryHandler(
+		handlers.PrintRecoveryStack(true),
+		handlers.RecoveryLogger(SlogRecoveryLogger(*logger)),
+	)(mux)
 	return handler
 }

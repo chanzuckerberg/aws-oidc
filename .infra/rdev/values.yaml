@@ -1,0 +1,6 @@
+###### Generated using `argus bootstrap` command ######
+stack:
+  services:
+    aws-oidc:
+      image:
+        tag: sha-ab6ca63

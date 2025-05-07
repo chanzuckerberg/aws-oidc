@@ -1,7 +1,0 @@
-apiVersion: v2
-name: aws-oidc
-description: AWS Config Generation
-website: https://github.com/chanzuckerberg/aws-oidc
-type: application
-version: 0.1.0
-appVersion: v0.19.0

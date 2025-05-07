@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +18,7 @@ var keygenCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pub, err := oidc_impl.GenerateRSAKey()
 		if err != nil {
-			return errors.Wrap(err, "Unable to generate RSA key")
+			return fmt.Errorf("Unable to generate RSA key: %w", err)
 		}
 
 		b, err := pub.MarshalJSON()

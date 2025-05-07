@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/honeycombio/beeline-go"
 	"github.com/okta/okta-sdk-golang/v2/okta"
 	"github.com/okta/okta-sdk-golang/v2/okta/query"
 	"github.com/peterhellberg/link"
-	"github.com/pkg/errors"
 )
 
 // Configuration for an okta client
@@ -30,18 +28,18 @@ func NewOktaClient(ctx context.Context, conf *OktaClientConfig) (*okta.Client, e
 		okta.WithCache(true),
 	)
 
-	return client, errors.Wrap(err, "error creating Okta client")
+	if err != nil {
+		return nil, fmt.Errorf("error creating Okta client: %w", err)
+	}
+	return client, nil
 }
 
 func GetClientIDs(ctx context.Context, userID string, oktaClient AppResource) ([]ClientID, error) {
-	ctx, span := beeline.StartSpan(ctx, "okta_get_client_ids")
-	defer span.Send()
-
 	apps, err := paginateListApplications(ctx, userID, oktaClient)
 	if err != nil {
 		return nil, err
 	}
-	return getClientIDsfromApplications(ctx, apps)
+	return getClientIDsfromApplications(apps)
 }
 
 type AppResource interface {
@@ -52,9 +50,6 @@ type AppResource interface {
 }
 
 func paginateListApplications(ctx context.Context, userID string, client AppResource) ([]okta.App, error) {
-	ctx, span := beeline.StartSpan(ctx, "okta_list_applications")
-	defer span.Send()
-
 	var apps []okta.App
 
 	qp := query.Params{
@@ -64,7 +59,7 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 	for {
 		currentApps, resp, err := client.ListApplications(ctx, &qp)
 		if err != nil {
-			return nil, errors.Wrap(err, "error listing applications")
+			return nil, fmt.Errorf("error listing applications: %w", err)
 		}
 		apps = append(apps, currentApps...)
 
@@ -76,7 +71,7 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 		nextLink := links["next"].String()
 		nextLinkURL, err := url.Parse(nextLink)
 		if err != nil {
-			return nil, errors.Wrap(err, "error parsing Link Header next url")
+			return nil, fmt.Errorf("error parsing Link Header next url: %w", err)
 		}
 
 		nextLinkMapping := nextLinkURL.Query()
@@ -84,16 +79,14 @@ func paginateListApplications(ctx context.Context, userID string, client AppReso
 	}
 }
 
-func getClientIDsfromApplications(
-	ctx context.Context,
-	appInterfaces []okta.App) ([]ClientID, error) {
+func getClientIDsfromApplications(appInterfaces []okta.App) ([]ClientID, error) {
 	clientIDs := []ClientID{}
 	for _, appInterface := range appInterfaces {
 		// HACK(el): applications returned as interface which is useless...
 		// 		type assertion back to concrete okta.Application
 		app, ok := appInterface.(*okta.Application)
 		if !ok {
-			return nil, errors.New("appInterface not an Application")
+			return nil, fmt.Errorf("appInterface not an Application")
 		}
 		if app.Id != "" {
 			clientIDs = append(clientIDs, ClientID(app.Id))

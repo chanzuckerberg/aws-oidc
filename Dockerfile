@@ -1,30 +1,22 @@
-# First stage: build the executable
-FROM golang:1.21 AS builder
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.23-alpine AS builder
 
-# Enable Go modules
-ENV GO111MODULE=on CGO_ENABLED=0 GOOS=linux
-
-# Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Copy the source from the current directory to the Working Directory inside the container
 COPY cmd cmd
 COPY go.mod go.sum main.go ./
 COPY pkg pkg
 
-# Build the Go app
-RUN go build -o aws-oidc .
+ARG PLATFORM=arm64
+ARG RELEASE_VERSION
+ARG GITHUB_SHA
+RUN --mount=type=cache,mode=0755,target=/go/pkg/mod CGO_CFLAGS="-D_LARGEFILE64_SOURCE" CGO_ENABLED=0 GO111MODULE=on GOOS=linux GOARCH=${PLATFORM} go build -o aws-oidc
 
-# Final stage: the running container
-FROM alpine:latest AS final
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.23-alpine AS prod
 
-# Install SSL root certificates
 RUN apk update && apk --no-cache add ca-certificates curl
 
 COPY --from=builder /app/aws-oidc /bin/aws-oidc
+COPY ./entrypoint.sh ./entrypoint.sh
 
-ADD https://github.com/segmentio/chamber/releases/download/v2.7.5/chamber-v2.7.5-linux-amd64 /bin/chamber
-RUN chmod +x /bin/chamber
-
-
-CMD ["aws-oidc"]
+CMD ["serve-config"]
+ENTRYPOINT ["./entrypoint.sh"]

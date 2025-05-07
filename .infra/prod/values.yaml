@@ -1,0 +1,9 @@
+###### Generated using `argus bootstrap` command ######
+stack:
+  services:
+    aws-oidc:
+      image:
+        tag: sha-TO-BE-REPLACED-BY-BUILDER-WORKFLOW
+      ingress:
+        rules:
+          - host: aws-oidc.prod-central.prod.czi.team

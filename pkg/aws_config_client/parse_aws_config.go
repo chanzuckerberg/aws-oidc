@@ -2,29 +2,38 @@ package aws_config_client
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
 
+var (
+	homeDir              = "~"
+	DefaultAWSConfigPath = filepath.Join(homeDir, ".aws", "config")
+)
+
+func init() {
+	var err error
+	homeDir, err = os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	DefaultAWSConfigPath = filepath.Join(homeDir, ".aws", "config")
+}
+
 const (
-	clientIDRegex  = "--client-id=(?P<ClientID>\\S+)"
-	issuerURLRegex = "--issuer-url=(?P<IssuerURL>\\S+)"
-	roleARNRegex   = "--aws-role-arn=(?P<RoleARN>\\S+)"
-
-	FlagProfile = "profile"
-
-	defaultAWSProfile    = "default"
-	DefaultAWSConfigPath = "~/.aws/config"
-
-	envAWSProfile = "AWS_PROFILE"
+	clientIDRegex     = "--client-id=(?P<ClientID>\\S+)"
+	issuerURLRegex    = "--issuer-url=(?P<IssuerURL>\\S+)"
+	roleARNRegex      = "--aws-role-arn=(?P<RoleARN>\\S+)"
+	FlagProfile       = "profile"
+	defaultAWSProfile = "default"
+	envAWSProfile     = "AWS_PROFILE"
 )
 
 type AWSOIDCConfiguration struct {
@@ -36,13 +45,13 @@ type AWSOIDCConfiguration struct {
 }
 
 // HACK(el): This is not the best, but decided to do this to:
-//           - Not add extraneous fields to user's AWS config files
-//           - Not have to maintain a parallel config file
+//   - Not add extraneous fields to user's AWS config files
+//   - Not have to maintain a parallel config file
 func extractCredProcess(command string, regex string) (string, error) {
 	r := regexp.MustCompile(regex)
 	submatches := r.FindStringSubmatch(command)
 	if len(submatches) != 2 {
-		return "", errors.Errorf("did not find match")
+		return "", fmt.Errorf("did not find match")
 	}
 	return submatches[1], nil
 }
@@ -77,7 +86,7 @@ func resolveProfile(cmd *cobra.Command) (string, error) {
 	if cmd != nil && cmd.Flags().Changed(FlagProfile) {
 		flagProfileValue, err := cmd.Flags().GetString(FlagProfile)
 		if err != nil {
-			return "", errors.Wrapf(err, "could not read command line flag %s", FlagProfile)
+			return "", fmt.Errorf("could not read command line flag %s: %w", FlagProfile, err)
 		}
 		profile = flagProfileValue
 	}
@@ -86,14 +95,9 @@ func resolveProfile(cmd *cobra.Command) (string, error) {
 }
 
 func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOIDCConfiguration, error) {
-	// load and parse AWS config file
-	awsConfigPath, err := homedir.Expand(awsConfigPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "Could not parse aws config file path")
-	}
 	ini, err := ini.Load(awsConfigPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not open aws config")
+		return nil, fmt.Errorf("could not open aws config: %w", err)
 	}
 
 	// grab the section corresponding to our profile
@@ -104,35 +108,27 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	profileSectionName := fmt.Sprintf("profile %s", profileName)
 	section, err := ini.GetSection(profileSectionName)
 	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"could not fetch %s section from aws config",
-			profileSectionName)
+		return nil, fmt.Errorf("could not fetch %s section from aws config: %w", profileSectionName, err)
 	}
 
 	credProcess, err := section.GetKey(AWSConfigSectionCredentialProcess)
 	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"%s not defined for profile %s",
-			AWSConfigSectionCredentialProcess,
-			profileSectionName,
-		)
+		return nil, fmt.Errorf("%s not defined for profile %s: %w", AWSConfigSectionCredentialProcess, profileSectionName, err)
 	}
 
 	credProcessCmd := credProcess.String()
 	credProcessCmd = cleanCredProcessCommand(credProcessCmd)
 	clientID, err := extractCredProcess(credProcessCmd, clientIDRegex)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not extract --client-id from (%s)", credProcessCmd)
+		return nil, fmt.Errorf("could not extract --client-id from (%s): %w", credProcessCmd, err)
 	}
 	issuerURL, err := extractCredProcess(credProcessCmd, issuerURLRegex)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not extract --issuer-url from (%s)", credProcessCmd)
+		return nil, fmt.Errorf("could not extract --issuer-url from (%s): %w", credProcessCmd, err)
 	}
 	roleARN, err := extractCredProcess(credProcessCmd, roleARNRegex)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not extract --aws-role-arn from (%s)", credProcessCmd)
+		return nil, fmt.Errorf("could not extract --aws-role-arn from (%s): %w", credProcessCmd, err)
 	}
 
 	currentConfig := &AWSOIDCConfiguration{
@@ -142,14 +138,14 @@ func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOID
 	}
 	region, err := section.GetKey("region")
 	if err != nil {
-		logrus.WithError(err).Debug("Error getting region from aws config")
+		slog.Debug("getting region from aws config", "error", err)
 	} else {
 		currentConfig.Region = aws.String(region.String())
 	}
 
 	output, err := section.GetKey("output")
 	if err != nil {
-		logrus.WithError(err).Debug("Error getting output from aws config")
+		slog.Debug("getting output from aws config", "error", err)
 	} else {
 		currentConfig.Output = aws.String(output.String())
 	}

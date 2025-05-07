@@ -2,14 +2,13 @@ package aws_config_client
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 )
 
@@ -60,12 +59,12 @@ func (c *completer) getRoleOptions(profiles []server.AWSProfile) []string {
 func (c *completer) awsProfileNameValidator(input interface{}) error {
 	inputString, ok := input.(string)
 	if !ok {
-		return errors.New("input not a string")
+		return fmt.Errorf("input not a string")
 	}
 	valid := regexp.MustCompile("^[a-zA-Z0-9_-]+$")
 	ok = valid.MatchString(inputString)
 	if !ok {
-		return errors.Errorf("Input (%s) not a valid AWS profile name", inputString)
+		return fmt.Errorf("Input (%s) not a valid AWS profile name", inputString)
 	}
 	return nil
 }
@@ -194,7 +193,7 @@ func (c *completer) SurveyProfiles() ([]*AWSNamedProfile, error) {
 	for {
 		currentProfile, err := c.SurveyProfile()
 		if err == terminal.InterruptErr {
-			logrus.Info("Process Interrupted.")
+			slog.Info("Process Interrupted.")
 			break
 		}
 		if err != nil {
@@ -249,7 +248,7 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 		out.DeleteSection(profileSection)
 		section, err := out.NewSection(profileSection)
 		if err != nil {
-			return nil, errors.Wrapf(err, "Unable to create %s section in AWS Config", profileSection)
+			return nil, fmt.Errorf("creating %s section in AWS Config: %w", profileSection, err)
 		}
 		section.Key(AWSConfigSectionOutput).SetValue("json")
 		section.Key(AWSConfigSectionCredentialProcess).SetValue(credsProcessValue)
@@ -260,7 +259,7 @@ func (c *completer) assembleAWSConfig(region string, profiles []*AWSNamedProfile
 
 func (c *completer) Complete(base *ini.File, awsConfigWriter AWSConfigWriter) error {
 	if len(c.awsConfig.Profiles) == 0 {
-		return errors.Errorf("You are not authorized for any AWS roles. Please contact your AWS administrator if this is a mistake")
+		return fmt.Errorf("You are not authorized for any AWS roles. Please contact your AWS administrator if this is a mistake")
 	}
 
 	// ask for a region, assume all profiles configured with this region
@@ -286,5 +285,9 @@ func (c *completer) Complete(base *ini.File, awsConfigWriter AWSConfigWriter) er
 	}
 
 	_, err = mergedConfig.WriteTo(awsConfigWriter)
-	return errors.Wrapf(err, "Could not write new aws config")
+	if err != nil {
+		return fmt.Errorf("Could not write new aws config: %w", err)
+	}
+	return nil
+
 }

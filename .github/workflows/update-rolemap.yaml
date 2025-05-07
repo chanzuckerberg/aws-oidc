@@ -1,0 +1,30 @@
+name: Update rolemap
+on: push
+
+jobs:
+  update-rolemap:
+    runs-on: ARM64
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CZI_GITHUB_HELPER_APP_ID }}
+          private-key: ${{ secrets.CZI_GITHUB_HELPER_PK }}
+      - uses: actions/checkout@v3
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ./scripts/rolemap/go.mod
+          cache: true
+      - working-directory: ./scripts/rolemap
+        env:
+          TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
+        run: |
+          go run main.go
+      - uses: EndBug/add-and-commit@v9
+        with:
+          add: -A
+          message: |
+            commit from ci -- ran update-rolemap and pushed

@@ -19,7 +19,6 @@ setup: # setup development dependencies
 	export GO111MODULE=on
 	go install github.com/goreleaser/goreleaser@v1.5.0
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0
-	curl -sfL https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh| sh -s -- v0.9.14
 	curl -sfL https://raw.githubusercontent.com/chanzuckerberg/bff/main/download.sh | sh
 .PHONY: setup
 
@@ -58,10 +57,6 @@ update:
 lint:
 	golangci-lint run -E whitespace --exclude-use-default
 .PHONY: lint
-
-lint-ci: ## run the fast go linters
-	./bin/reviewdog -conf .reviewdog.yml  -reporter=github-pr-review
-.PHONY: lint-ci
 
 release: ## run a release
 	bff bump
