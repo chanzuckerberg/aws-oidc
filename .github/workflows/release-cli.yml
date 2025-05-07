@@ -6,7 +6,7 @@ on:
 
 jobs:
   release-please:
-    runs-on: ARM64
+    runs-on: arm64-privileged
     permissions:
       id-token: write
       contents: read
