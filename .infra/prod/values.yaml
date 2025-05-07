@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-15feff2
+        tag: sha-c31e5cf
       ingress:
         rules:
           - host: aws-oidc.prod-central.prod.czi.team

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.2...v0.30.3) (2025-05-07)
+
+
+### Bug Fixes
+
+* need a privileged runner ([a3a9bc1](https://github.com/chanzuckerberg/aws-oidc/commit/a3a9bc1bc333edb1d70901cf583094fdc107c72a))
+
 ## [0.30.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.1...v0.30.2) (2025-05-07)
 
 
