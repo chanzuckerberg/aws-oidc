@@ -59,6 +59,9 @@ var tokenCmd = &cobra.Command{
 		}
 
 		_, err = fmt.Fprintln(os.Stdout, string(data))
-		return fmt.Errorf("could not print token to stdout: %w", err)
+		if err != nil {
+			return fmt.Errorf("could not print token to stdout: %w", err)
+		}
+		return nil
 	},
 }
