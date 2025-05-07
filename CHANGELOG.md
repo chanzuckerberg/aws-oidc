@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.0...v0.30.1) (2025-05-07)
+
+
+### Bug Fixes
+
+* release-cli needs aws creds to build ([#1115](https://github.com/chanzuckerberg/aws-oidc/issues/1115)) ([1d4c798](https://github.com/chanzuckerberg/aws-oidc/commit/1d4c798be0614d20a1aebc2a713622ec69ff59c3))
+
 ## [0.30.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.29.0...v0.30.0) (2025-05-07)
 
 
