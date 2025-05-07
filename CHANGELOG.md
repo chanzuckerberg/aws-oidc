@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.3...v0.30.4) (2025-05-07)
+
+
+### Bug Fixes
+
+* don't build docker as part of release-ci ([8fe4ed8](https://github.com/chanzuckerberg/aws-oidc/commit/8fe4ed8da0f327f927bc8c32461c91451ae089e3))
+
 ## [0.30.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.2...v0.30.3) (2025-05-07)
 
 
