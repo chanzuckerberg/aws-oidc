@@ -9,18 +9,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - '-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true'
-
-dockers:
-  - dockerfile: Dockerfile
-    image_templates:
-      - docker.pkg.github.com/chanzuckerberg/aws-oidc/aws-oidc:{{.ShortCommit}}
-    extra_files:
-      - cmd
-      - pkg
-      - go.mod
-      - go.sum
-      - main.go
+      - "-w -s -X github.com/chanzuckerberg/aws-oidc/pkg/util.GitSha={{.Commit}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Version={{.Version}} -X github.com/chanzuckerberg/aws-oidc/pkg/util.Dirty=false -X github.com/chanzuckerberg/aws-oidc/pkg/util.Release=true"
 
 nfpms:
   - vendor: Chan Zuckerberg Initiative, LLC
@@ -37,7 +26,7 @@ release:
 
 brews:
   - description: "A command line utility tool to help generate AWS STS credentials from an OIDC application."
-    name : "aws-oidc-rc"
+    name: "aws-oidc-rc"
     repository:
       owner: chanzuckerberg
       name: homebrew-tap
