@@ -13,7 +13,6 @@ require (
 	github.com/coreos/go-oidc v2.3.0+incompatible
 	github.com/gorilla/handlers v1.5.2
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/okta/okta-sdk-golang/v2 v2.20.0
 	github.com/peterhellberg/link v1.2.0
 	github.com/spf13/cobra v1.9.1
@@ -42,6 +41,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/nightlyone/lockfile v1.0.0 // indirect
 	github.com/patrickmn/go-cache v0.0.0-20180815053127-5633e0862627 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect

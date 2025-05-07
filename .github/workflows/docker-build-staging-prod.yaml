@@ -1,11 +1,11 @@
 ###### Generated using `argus bootstrap` command ######
-name: Docker Image Build - staging/prod
+name: Docker Image Build - prod
 
 on:
   - push
 
 jobs:
-  staging_prod_argus_builder:
+  prod_argus_builder:
     uses: chanzuckerberg/github-actions/.github/workflows/argus-docker-build.yaml@v6
     secrets: inherit
     with:

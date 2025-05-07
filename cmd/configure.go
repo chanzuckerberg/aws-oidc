@@ -8,7 +8,6 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
 	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
@@ -69,11 +68,11 @@ var configureCmd = &cobra.Command{
 			defaultRoleName,
 		)
 
-		// TODO(el): should this be configurable?
-		awsConfigPath, err := homedir.Expand("~/.aws/config")
+		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("Could not parse aws config file path: %w", err)
+			return fmt.Errorf("getting home dir: %w", err)
 		}
+		awsConfigPath := filepath.Join(homeDir, ".aws", "config")
 
 		// create .aws dir if not present
 		awsConfigDirPath := filepath.Dir(awsConfigPath)

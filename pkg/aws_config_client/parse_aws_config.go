@@ -4,26 +4,36 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"gopkg.in/ini.v1"
 )
 
+var (
+	homeDir              = "~"
+	DefaultAWSConfigPath = filepath.Join(homeDir, ".aws", "config")
+)
+
+func init() {
+	var err error
+	homeDir, err = os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	DefaultAWSConfigPath = filepath.Join(homeDir, ".aws", "config")
+}
+
 const (
-	clientIDRegex  = "--client-id=(?P<ClientID>\\S+)"
-	issuerURLRegex = "--issuer-url=(?P<IssuerURL>\\S+)"
-	roleARNRegex   = "--aws-role-arn=(?P<RoleARN>\\S+)"
-
-	FlagProfile = "profile"
-
-	defaultAWSProfile    = "default"
-	DefaultAWSConfigPath = "~/.aws/config"
-
-	envAWSProfile = "AWS_PROFILE"
+	clientIDRegex     = "--client-id=(?P<ClientID>\\S+)"
+	issuerURLRegex    = "--issuer-url=(?P<IssuerURL>\\S+)"
+	roleARNRegex      = "--aws-role-arn=(?P<RoleARN>\\S+)"
+	FlagProfile       = "profile"
+	defaultAWSProfile = "default"
+	envAWSProfile     = "AWS_PROFILE"
 )
 
 type AWSOIDCConfiguration struct {
@@ -85,11 +95,6 @@ func resolveProfile(cmd *cobra.Command) (string, error) {
 }
 
 func FetchParamsFromAWSConfig(cmd *cobra.Command, awsConfigPath string) (*AWSOIDCConfiguration, error) {
-	// load and parse AWS config file
-	awsConfigPath, err := homedir.Expand(awsConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("Could not parse aws config file path: %w", err)
-	}
 	ini, err := ini.Load(awsConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not open aws config: %w", err)
