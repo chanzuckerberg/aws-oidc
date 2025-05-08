@@ -2,6 +2,7 @@
 stack:
   services:
     aws-oidc:
+      replicaCount: 3
       image:
         tag: sha-d68cadb
       ingress:
