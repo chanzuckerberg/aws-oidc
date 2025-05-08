@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.8](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.7...v0.30.8) (2025-05-08)
+
+
+### Bug Fixes
+
+* have 3 pods running in prod ([#1125](https://github.com/chanzuckerberg/aws-oidc/issues/1125)) ([b6d01d0](https://github.com/chanzuckerberg/aws-oidc/commit/b6d01d041f73e37b39e17c8e537714c0b0e5111d))
+
+
+### Misc
+
+* update stack helm chart version for rdev ([#1124](https://github.com/chanzuckerberg/aws-oidc/issues/1124)) ([a128166](https://github.com/chanzuckerberg/aws-oidc/commit/a128166a1f0ccc3ab360ab3a02f8164e245f336d))
+
 ## [0.30.7](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.6...v0.30.7) (2025-05-07)
 
 
