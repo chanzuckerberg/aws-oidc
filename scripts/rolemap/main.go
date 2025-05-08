@@ -156,7 +156,10 @@ func exec(ctx context.Context) error {
 	}
 
 	sort.Slice(allMappings, func(i, j int) bool {
-		return allMappings[i].AWSAccountID > allMappings[j].AWSAccountID
+		if allMappings[i].AWSAccountID != allMappings[j].AWSAccountID {
+			return allMappings[i].AWSAccountID > allMappings[j].AWSAccountID
+		}
+		return allMappings[i].OktaClientID > allMappings[j].OktaClientID
 	})
 
 	b, err := yaml.Marshal(allMappings)
