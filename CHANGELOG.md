@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.9](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.8...v0.30.9) (2025-05-08)
+
+
+### Misc
+
+* update stack helm chart version for prod ([#1123](https://github.com/chanzuckerberg/aws-oidc/issues/1123)) ([dbf8093](https://github.com/chanzuckerberg/aws-oidc/commit/dbf809358210569324dc036acd2100b56a55ea9b))
+
 ## [0.30.8](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.7...v0.30.8) (2025-05-08)
 
 
