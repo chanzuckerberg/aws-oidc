@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.30.9](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.8...v0.30.9) (2025-06-03)
+
+
+### Misc
+
+* CCIE-4332 use GH_ACTIONS_HELPER_* ([#1128](https://github.com/chanzuckerberg/aws-oidc/issues/1128)) ([6df7c68](https://github.com/chanzuckerberg/aws-oidc/commit/6df7c6886bb0f640432e82a0b730331aa910f8d7))
+* update stack helm chart version for prod ([#1123](https://github.com/chanzuckerberg/aws-oidc/issues/1123)) ([dbf8093](https://github.com/chanzuckerberg/aws-oidc/commit/dbf809358210569324dc036acd2100b56a55ea9b))
+
 ## [0.30.8](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.7...v0.30.8) (2025-05-08)
 
 
