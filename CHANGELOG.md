@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.10](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.9...v0.30.10) (2025-10-07)
+
+
+### Misc
+
+* CCIE-4984 conform to open sourcing guidelines ([#1133](https://github.com/chanzuckerberg/aws-oidc/issues/1133)) ([1588193](https://github.com/chanzuckerberg/aws-oidc/commit/1588193a42ea8985ae7a899702a07f9c46520559))
+
 ## [0.30.9](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.8...v0.30.9) (2025-06-03)
 
 
