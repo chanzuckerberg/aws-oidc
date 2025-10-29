@@ -4,7 +4,7 @@ stack:
     aws-oidc:
       replicaCount: 3
       image:
-        tag: sha-e5d8687
+        tag: sha-70b777c
       ingress:
         rules:
           - host: aws-oidc.prod-central.prod.czi.team
