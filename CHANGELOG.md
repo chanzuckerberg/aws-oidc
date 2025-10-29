@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.11](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.10...v0.30.11) (2025-10-29)
+
+
+### Bug Fixes
+
+* update roles ([#1138](https://github.com/chanzuckerberg/aws-oidc/issues/1138)) ([24a50e8](https://github.com/chanzuckerberg/aws-oidc/commit/24a50e880df976abd3a8892ba8b18cf01a9783ba))
+
 ## [0.30.10](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.9...v0.30.10) (2025-10-07)
 
 
