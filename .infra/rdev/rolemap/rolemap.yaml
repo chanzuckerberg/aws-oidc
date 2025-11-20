@@ -248,11 +248,11 @@
   okta_client_id: 0oauzedtzBs11op1n5d6
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
-  aws_role_arn: arn:aws:iam::724328632434:role/readonly
+  aws_role_arn: arn:aws:iam::724328632434:role/poweruser
   okta_client_id: 0oag6nx7gtNyZyPnp5d7
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
-  aws_role_arn: arn:aws:iam::724328632434:role/poweruser
+  aws_role_arn: arn:aws:iam::724328632434:role/readonly
   okta_client_id: 0oag6nx7gtNyZyPnp5d7
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
