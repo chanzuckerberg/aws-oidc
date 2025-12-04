@@ -4,19 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/spf13/cobra"
 )
+
+var deviceCodeFlow bool
 
 func init() {
 	tokenCmd.Flags().StringVar(&clientID, "client-id", "", "client_id generated from the OIDC application")
 	tokenCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
+	tokenCmd.Flags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 	tokenCmd.MarkFlagRequired("client-id")  // nolint:errcheck
 	tokenCmd.MarkFlagRequired("issuer-url") // nolint:errcheck
 
@@ -35,25 +36,6 @@ type stdoutToken struct {
 	Expiry      time.Time `json:"expiry,omitempty"`
 }
 
-// Get provider claims to discover endpoints
-var providerClaims struct {
-	DeviceAuthEndpoint  string   `json:"device_authorization_endpoint"`
-	TokenEndpoint       string   `json:"token_endpoint"`
-	GrantTypesSupported []string `json:"grant_types_supported"`
-}
-
-func useDeviceCodeFlow() bool {
-	fmt.Fprintln(os.Stderr, "Device code flow is supported by this provider.")
-	fmt.Fprintf(os.Stderr, "Use device code flow? [y/N]: ")
-	var response string
-	fmt.Scanln(&response)
-	if response == "y" || response == "Y" {
-		return true
-	}
-
-	return false
-}
-
 var tokenCmd = &cobra.Command{
 	Use:           "token",
 	Short:         "token prints the oidc tokens to stdout in json format",
@@ -64,18 +46,11 @@ var tokenCmd = &cobra.Command{
 		}
 
 		ctx := cmd.Context()
-		provider, err := oidc.NewProvider(ctx, issuerURL)
-		if err != nil {
-			return fmt.Errorf("creating oidc provider: %w", err)
-		}
-
-		if err := provider.Claims(&providerClaims); err != nil {
-			return fmt.Errorf("getting provider claims: %w", err)
-		}
 
 		var token *client.Token
-		if slices.Contains(providerClaims.GrantTypesSupported, "urn:ietf:params:oauth:grant-type:device_code") && useDeviceCodeFlow() {
-			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "refresh", "offline_access"})
+		var err error
+		if deviceCodeFlow {
+			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "offline_access"})
 			if err != nil {
 				return fmt.Errorf("getting device grant token: %w", err)
 			}
