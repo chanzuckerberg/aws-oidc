@@ -8,6 +8,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251204002315-13be65f3fc62
 	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3
 	github.com/coreos/go-oidc v2.3.0+incompatible
@@ -21,16 +22,19 @@ require (
 )
 
 require (
+	al.essio.dev/pkg/shellescape v1.6.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20250423213358-0dc5b698c7d3 // indirect
-	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250423213358-0dc5b698c7d3 // indirect
+	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20250725153648-47b0707ca4b9 // indirect
+	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250725155314-6a5b915d3532 // indirect
+	github.com/coreos/go-oidc/v3 v3.14.1 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -52,7 +56,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/zalando/go-keyring v0.2.6 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/oauth2 v0.29.0 // indirect
+	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
@@ -63,8 +67,8 @@ require (
 )
 
 // breaking change for mac keychains
-exclude github.com/zalando/go-keyring v0.2.0
+// exclude github.com/zalando/go-keyring v0.2.0
 
-exclude github.com/zalando/go-keyring v0.2.1
+// exclude github.com/zalando/go-keyring v0.2.1
 
-replace github.com/zalando/go-keyring => github.com/zalando/go-keyring v0.1.1
+// replace github.com/zalando/go-keyring => github.com/zalando/go-keyring v0.1.1
