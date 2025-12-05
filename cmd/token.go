@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
-	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/storage"
 
 	"github.com/spf13/cobra"
 )
@@ -33,20 +31,6 @@ type stdoutToken struct {
 	IDToken     string    `json:"id_token,omitempty"`
 	AccessToken string    `json:"access_token,omitempty"`
 	Expiry      time.Time `json:"expiry,omitempty"`
-}
-
-func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) error {
-	storage, err := storage.GetOIDC(clientID, issuerURL)
-	if err != nil {
-		return fmt.Errorf("getting oidc token storage: %w", err)
-	}
-
-	err = storage.Delete(ctx)
-	if err != nil {
-		return fmt.Errorf("deleting token from storage: %w", err)
-	}
-
-	return nil
 }
 
 var tokenCmd = &cobra.Command{

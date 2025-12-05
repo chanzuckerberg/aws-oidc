@@ -16,8 +16,6 @@ github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK3
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251205185105-a7fcd21b73ed h1:V2VQ/pvEp9cfTow4l37zrTBwJ+gPME94V8PKOLOehSU=
 github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251205185105-a7fcd21b73ed/go.mod h1:xdVJJi/1L6aPGLKK1sg6mzP6fWMd/5+g43jWKnRHFxs=
-github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5 h1:DjCNt2+LstHrZ24VW+99lRt0y6to0EQ+j7zhDThNrms=
-github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5/go.mod h1:ogMmcHO1nKTzDGrdogtWS4StwZFLZ+COEyiEaxg++cw=
 github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e h1:OjzWZAPclse+e+MCQBI/3t3GE8iqTd1h/MvHzRMVZBs=
 github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e/go.mod h1:b9dYrz3Z7wNqSnvbxJUaPuAeTu9xRbKdiaMy2Ptx70E=
 github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250725155314-6a5b915d3532 h1:UPFpuaQ5B2Sy2CsIuBIlS64mdATelo4qqkxrYRherm0=
@@ -182,8 +180,6 @@ gopkg.in/go-jose/go-jose.v2 v2.6.3 h1:nt80fvSDlhKWQgSWyHyy5CfmlQr+asih51R8PTWNKK
 gopkg.in/go-jose/go-jose.v2 v2.6.3/go.mod h1:zzZDPkNNw/c9IE7Z9jr11mBZQhKQTMzoEEIoEdZlFBI=
 gopkg.in/ini.v1 v1.67.0 h1:Dgnx+6+nfE+IfzjUEISNeydPJh9AXNNsWbGP9KzCsOA=
 gopkg.in/ini.v1 v1.67.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
-gopkg.in/square/go-jose.v2 v2.6.0 h1:NGk74WTnPKBNUhNzQX7PYcTLUjoq7mzKk2OKbvwk2iI=
-gopkg.in/square/go-jose.v2 v2.6.0/go.mod h1:M9dMgbHiYLoDGQrXy7OpJDJWiKiU//h+vD76mk0e1AI=
 gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.4.0 h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=
 gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/storage"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/spf13/cobra"
 )
@@ -56,6 +57,20 @@ func initLogger(verbose bool) {
 		Level: level,
 	}))
 	slog.SetDefault(logger)
+}
+
+func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) error {
+	storage, err := storage.GetOIDC(clientID, issuerURL)
+	if err != nil {
+		return fmt.Errorf("getting oidc token storage: %w", err)
+	}
+
+	err = storage.Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("deleting token from storage: %w", err)
+	}
+
+	return nil
 }
 
 var rootCmd = &cobra.Command{
