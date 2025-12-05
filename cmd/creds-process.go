@@ -11,6 +11,7 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/coreos/go-oidc"
 	"github.com/spf13/cobra"
 )
 
@@ -102,7 +103,12 @@ func getOIDCToken(
 	var token *client.Token
 	var err error
 	if deviceCodeFlow {
-		token, err = cli.GetDeviceGrantToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL, []string{"openid", "profile", "offline_access"})
+		token, err = cli.GetDeviceGrantToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL, []string{
+			oidc.ScopeOfflineAccess,
+			oidc.ScopeOpenID,
+			"profile",
+			"groups",
+		})
 		if err != nil {
 			return nil, fmt.Errorf("getting device grant token: %w", err)
 		}
