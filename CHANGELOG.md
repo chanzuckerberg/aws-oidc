@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.31.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.11...v0.31.0) (2025-12-05)
+
+
+### Features
+
+* add device auth flow to aws-oidc ([#1143](https://github.com/chanzuckerberg/aws-oidc/issues/1143)) ([5084f7a](https://github.com/chanzuckerberg/aws-oidc/commit/5084f7ae25f674810f7281675681cbcdac2f1481))
+
+
+### Misc
+
+* bump golang.org/x/crypto from 0.37.0 to 0.45.0 ([#1140](https://github.com/chanzuckerberg/aws-oidc/issues/1140)) ([32e1fd2](https://github.com/chanzuckerberg/aws-oidc/commit/32e1fd28394f523c72efa924973e717282d0ed05))
+* Remove imaging-dev from rolemap ([#1142](https://github.com/chanzuckerberg/aws-oidc/issues/1142)) ([22dc2d9](https://github.com/chanzuckerberg/aws-oidc/commit/22dc2d9d731503b53a3baa67a8bd64c7e2771578))
+
 ## [0.30.11](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.10...v0.30.11) (2025-10-29)
 
 
