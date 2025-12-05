@@ -65,8 +65,6 @@ require (
 )
 
 // breaking change for mac keychains
-// exclude github.com/zalando/go-keyring v0.2.0
+exclude github.com/zalando/go-keyring v0.2.0
 
-// exclude github.com/zalando/go-keyring v0.2.1
-
-// replace github.com/zalando/go-keyring => github.com/zalando/go-keyring v0.1.1
+exclude github.com/zalando/go-keyring v0.2.1
