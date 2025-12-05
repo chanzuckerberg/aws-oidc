@@ -45,7 +45,7 @@ var deviceCodeFlow bool
 func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
-	rootCmd.Flags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
+	rootCmd.PersistentFlags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 }
 
 func initLogger(verbose bool) {
