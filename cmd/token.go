@@ -28,9 +28,10 @@ const (
 type stdoutToken struct {
 	Version int `json:"version,omitempty"`
 
-	IDToken     string    `json:"id_token,omitempty"`
-	AccessToken string    `json:"access_token,omitempty"`
-	Expiry      time.Time `json:"expiry,omitempty"`
+	IDToken      string    `json:"id_token,omitempty"`
+	AccessToken  string    `json:"access_token,omitempty"`
+	RefreshToken string    `json:"refresh_token,omitempty"`
+	Expiry       time.Time `json:"expiry,omitempty"`
 }
 
 var tokenCmd = &cobra.Command{
@@ -61,6 +62,7 @@ var tokenCmd = &cobra.Command{
 
 		stdoutToken.AccessToken = token.AccessToken
 		stdoutToken.IDToken = token.IDToken
+		stdoutToken.RefreshToken = token.RefreshToken
 		stdoutToken.Expiry = token.Expiry
 
 		data, err := json.Marshal(stdoutToken)
