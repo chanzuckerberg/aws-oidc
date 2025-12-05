@@ -15,8 +15,9 @@ var issuerURL string
 var roleARN string
 
 const (
-	flagVerbose    = "verbose"
-	successMessage = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
+	flagVerbose             = "verbose"
+	flagFlushOIDCTokenCache = "flush-oidc-token-cache"
+	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
 	<code>$ aws --profile &lt;profile-name&gt; &lt;command&gt;</code><br/>
@@ -33,13 +34,14 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 	env := &SentryEnvironment{}
 	err := envconfig.Process("SENTRY", env)
 	if err != nil {
-		return env, fmt.Errorf("Unable to load all the environment variables: %w", err)
+		return env, fmt.Errorf("loading all the environment variables: %w", err)
 	}
 	return env, nil
 }
 
 func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
+	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
 }
 
 func initLogger(verbose bool) {
@@ -60,8 +62,20 @@ var rootCmd = &cobra.Command{
 		// parse flags
 		verbose, err := cmd.Flags().GetBool(flagVerbose)
 		if err != nil {
-			return fmt.Errorf("Missing verbose flag: %w", err)
+			return fmt.Errorf("missing verbose flag: %w", err)
 		}
+		flushOIDCTokenCache, err := cmd.Flags().GetBool(flagFlushOIDCTokenCache)
+		if err != nil {
+			return fmt.Errorf("missing flush-oidc-token-cache flag: %w", err)
+		}
+		if flushOIDCTokenCache {
+			err = flushOIDCTokenCacheFn(cmd.Context(), clientID, issuerURL)
+			if err != nil {
+				return fmt.Errorf("flushing oidc token cache: %w", err)
+			}
+			return nil
+		}
+
 		initLogger(verbose)
 
 		sentryEnv, err := loadSentryEnv()
@@ -71,7 +85,6 @@ var rootCmd = &cobra.Command{
 		// if env var not set, ignore
 		if sentryEnv.DSN == "" {
 			slog.Debug("Sentry DSN not set. Skipping Sentry Configuration")
-			return nil
 		}
 
 		return nil

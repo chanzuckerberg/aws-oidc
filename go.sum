@@ -14,12 +14,12 @@ github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEe
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
-github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251204002315-13be65f3fc62 h1:pqXxz5FazHSCqaytvxiFgs+QL0E0h/AbzDA481xT9mA=
-github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251204002315-13be65f3fc62/go.mod h1:u4jRIlfwzL7P30Qw+L6Dozx5z6BVE5fvblK3W/l/6/E=
+github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251205185105-a7fcd21b73ed h1:V2VQ/pvEp9cfTow4l37zrTBwJ+gPME94V8PKOLOehSU=
+github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251205185105-a7fcd21b73ed/go.mod h1:xdVJJi/1L6aPGLKK1sg6mzP6fWMd/5+g43jWKnRHFxs=
 github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5 h1:DjCNt2+LstHrZ24VW+99lRt0y6to0EQ+j7zhDThNrms=
 github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5/go.mod h1:ogMmcHO1nKTzDGrdogtWS4StwZFLZ+COEyiEaxg++cw=
-github.com/chanzuckerberg/go-misc/osutil v0.0.0-20250725153648-47b0707ca4b9 h1:wOewox8Nrh1DdQyCl8QNijHGjFgcuzHP5FMRWPBYvMU=
-github.com/chanzuckerberg/go-misc/osutil v0.0.0-20250725153648-47b0707ca4b9/go.mod h1:b9dYrz3Z7wNqSnvbxJUaPuAeTu9xRbKdiaMy2Ptx70E=
+github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e h1:OjzWZAPclse+e+MCQBI/3t3GE8iqTd1h/MvHzRMVZBs=
+github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e/go.mod h1:b9dYrz3Z7wNqSnvbxJUaPuAeTu9xRbKdiaMy2Ptx70E=
 github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250725155314-6a5b915d3532 h1:UPFpuaQ5B2Sy2CsIuBIlS64mdATelo4qqkxrYRherm0=
 github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250725155314-6a5b915d3532/go.mod h1:nQ2BEqUFvRx3U9Jw/KV80sIOZvQIFsNwgwXZEfbrTSc=
 github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3 h1:ggNuzMlrRBdeCUe/MuuCUUs1AF4zPb6+uVidYBoMM+s=

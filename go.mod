@@ -8,7 +8,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251204002315-13be65f3fc62
+	github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251205185105-a7fcd21b73ed
 	github.com/chanzuckerberg/go-misc/oidc_cli v0.0.0-20241218181938-e245ce8d3ba5
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3
 	github.com/coreos/go-oidc v2.3.0+incompatible
@@ -26,7 +26,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
-	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20250725153648-47b0707ca4b9 // indirect
+	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e // indirect
 	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250725155314-6a5b915d3532 // indirect
 	github.com/coreos/go-oidc/v3 v3.14.1 // indirect
 	github.com/creack/pty v1.1.24 // indirect

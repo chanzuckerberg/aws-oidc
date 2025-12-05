@@ -15,13 +15,11 @@ import (
 )
 
 var deviceCodeFlow bool
-var flushOIDCTokenCache bool
 
 func init() {
 	tokenCmd.Flags().StringVar(&clientID, "client-id", "", "client_id generated from the OIDC application")
 	tokenCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
 	tokenCmd.Flags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
-	tokenCmd.Flags().BoolVar(&flushOIDCTokenCache, "flush-oidc-token-cache", false, "Flush the OIDC token cache")
 	tokenCmd.MarkFlagRequired("client-id")  // nolint:errcheck
 	tokenCmd.MarkFlagRequired("issuer-url") // nolint:errcheck
 
@@ -67,13 +65,7 @@ var tokenCmd = &cobra.Command{
 
 		var token *client.Token
 		var err error
-		if flushOIDCTokenCache {
-			err = flushOIDCTokenCacheFn(ctx, clientID, issuerURL)
-			if err != nil {
-				return fmt.Errorf("flushing oidc token cache: %w", err)
-			}
-			return nil
-		}
+
 		if deviceCodeFlow {
 			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "offline_access"})
 			if err != nil {
