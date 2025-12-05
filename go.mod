@@ -6,17 +6,17 @@ toolchain go1.24.1
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
-	github.com/aws/aws-sdk-go v1.55.7
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251205185105-a7fcd21b73ed
-	github.com/chanzuckerberg/go-misc/ver v0.0.0-20250423213358-0dc5b698c7d3
-	github.com/coreos/go-oidc v2.3.0+incompatible
+	github.com/chanzuckerberg/go-misc/ver v0.0.0-20251117200159-d2a50dbfd31c
+	github.com/coreos/go-oidc v2.4.0+incompatible
 	github.com/gorilla/handlers v1.5.2
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/okta/okta-sdk-golang/v2 v2.20.0
 	github.com/peterhellberg/link v1.2.0
-	github.com/spf13/cobra v1.9.1
-	github.com/stretchr/testify v1.10.0
+	github.com/spf13/cobra v1.10.2
+	github.com/stretchr/testify v1.11.1
 	gopkg.in/ini.v1 v1.67.0
 )
 
@@ -26,15 +26,15 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e // indirect
-	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20250725155314-6a5b915d3532 // indirect
-	github.com/coreos/go-oidc/v3 v3.14.1 // indirect
+	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20251117200159-d2a50dbfd31c // indirect
+	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
 	github.com/creack/pty v1.1.24 // indirect
-	github.com/danieljoos/wincred v1.2.2 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
-	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/godbus/dbus/v5 v5.2.0 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -52,10 +52,10 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/pquerna/cachecontrol v0.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/zalando/go-keyring v0.2.6 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/oauth2 v0.30.0 // indirect
+	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
