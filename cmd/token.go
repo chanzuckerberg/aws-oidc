@@ -75,7 +75,7 @@ var tokenCmd = &cobra.Command{
 
 		var token *client.Token
 		if slices.Contains(providerClaims.GrantTypesSupported, "urn:ietf:params:oauth:grant-type:device_code") && useDeviceCodeFlow() {
-			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "refresh", "offline_access"})
+			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "offline_access"})
 			if err != nil {
 				return fmt.Errorf("getting device grant token: %w", err)
 			}
