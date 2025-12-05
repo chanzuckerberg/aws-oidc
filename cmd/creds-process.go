@@ -9,8 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
-	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
-	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/coreos/go-oidc"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +71,7 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 	output, err := json.MarshalIndent(creds, "", "	")
 	if err != nil {
-		return fmt.Errorf("Unable to convert current credentials to json output: %w", err)
+		return fmt.Errorf("converting current credentials to json output: %w", err)
 	}
 	fmt.Println(string(output))
 
@@ -98,11 +99,24 @@ func assumeRole(
 func getOIDCToken(
 	ctx context.Context,
 	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
-) (*oidc_client.Token, error) {
-	return oidc_impl.GetToken(
-		ctx,
-		awsOIDCConfig.ClientID,
-		awsOIDCConfig.IssuerURL,
-		oidc_client.SetSuccessMessage(successMessage),
-	)
+) (*client.Token, error) {
+	var token *client.Token
+	var err error
+	if deviceCodeFlow {
+		token, err = cli.GetDeviceGrantToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL, []string{
+			oidc.ScopeOfflineAccess,
+			oidc.ScopeOpenID,
+			"profile",
+			"groups",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("getting device grant token: %w", err)
+		}
+	} else {
+		token, err = cli.GetToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL)
+		if err != nil {
+			return nil, fmt.Errorf("getting authorization grant token: %w", err)
+		}
+	}
+	return token, nil
 }

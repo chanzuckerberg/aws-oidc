@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/spf13/cobra"
 )
 
@@ -16,9 +16,9 @@ var keygenCmd = &cobra.Command{
 	Short:         "create a new rsa key for authenticating to Okta API",
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		pub, err := oidc_impl.GenerateRSAKey()
+		pub, err := cli.GenerateRSAKey()
 		if err != nil {
-			return fmt.Errorf("Unable to generate RSA key: %w", err)
+			return fmt.Errorf("generating RSA key: %w", err)
 		}
 
 		b, err := pub.MarshalJSON()

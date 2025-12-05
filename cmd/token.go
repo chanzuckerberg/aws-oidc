@@ -6,7 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+
 	"github.com/spf13/cobra"
 )
 
@@ -40,13 +42,21 @@ var tokenCmd = &cobra.Command{
 			Version: stdoutTokenVersion,
 		}
 
-		token, err := oidc_impl.GetToken(
-			cmd.Context(),
-			clientID,
-			issuerURL,
-		)
-		if err != nil {
-			return err
+		ctx := cmd.Context()
+
+		var token *client.Token
+		var err error
+
+		if deviceCodeFlow {
+			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "offline_access"})
+			if err != nil {
+				return fmt.Errorf("getting device grant token: %w", err)
+			}
+		} else {
+			token, err = cli.GetToken(ctx, clientID, issuerURL)
+			if err != nil {
+				return err
+			}
 		}
 
 		stdoutToken.AccessToken = token.AccessToken

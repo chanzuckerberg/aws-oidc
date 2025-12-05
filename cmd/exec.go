@@ -7,8 +7,8 @@ import (
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
-	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl"
-	oidc_client "github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/client"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
+	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
 	"github.com/spf13/cobra"
 )
 
@@ -65,14 +65,14 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	token, err := oidc_impl.GetToken(
+	token, err := cli.GetToken(
 		ctx,
 		awsOIDCConfig.ClientID,
 		awsOIDCConfig.IssuerURL,
-		oidc_client.SetSuccessMessage(successMessage),
+		client.SetSuccessMessage(successMessage),
 	)
 	if err != nil {
-		return fmt.Errorf("Unable to obtain token from clientID and issuerURL: %w", err)
+		return fmt.Errorf("obtaining token from clientID and issuerURL: %w", err)
 	}
 
 	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
@@ -81,7 +81,7 @@ func execRun(cmd *cobra.Command, args []string) error {
 		awsOIDCConfig.RoleARN,
 		sessionDuration)
 	if err != nil {
-		return fmt.Errorf("Unable to extract right token output from AWS Assume Web identity: %w", err)
+		return fmt.Errorf("extracting token output from AWS Assume Web identity: %w", err)
 	}
 
 	envVars := append(
