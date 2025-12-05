@@ -16,13 +16,10 @@ import (
 
 const credProcessVersion = 1
 
-var credsProcessDeviceCodeFlow bool
-
 func init() {
 	credProcessCmd.Flags().StringVar(&clientID, "client-id", "", "CLIENT_ID generated from the OIDC application")
 	credProcessCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
 	credProcessCmd.Flags().StringVar(&roleARN, "aws-role-arn", "", "ARN value of role to assume")
-	credProcessCmd.Flags().BoolVar(&credsProcessDeviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 	credProcessCmd.MarkFlagRequired("client-id")    // nolint:errcheck
 	credProcessCmd.MarkFlagRequired("issuer-url")   // nolint:errcheck
 	credProcessCmd.MarkFlagRequired("aws-role-arn") // nolint:errcheck
@@ -104,7 +101,7 @@ func getOIDCToken(
 ) (*client.Token, error) {
 	var token *client.Token
 	var err error
-	if credsProcessDeviceCodeFlow {
+	if deviceCodeFlow {
 		token, err = cli.GetDeviceGrantToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL, []string{"openid", "profile", "offline_access"})
 		if err != nil {
 			return nil, fmt.Errorf("getting device grant token: %w", err)

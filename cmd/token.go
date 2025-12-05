@@ -14,12 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var deviceCodeFlow bool
-
 func init() {
 	tokenCmd.Flags().StringVar(&clientID, "client-id", "", "client_id generated from the OIDC application")
 	tokenCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
-	tokenCmd.Flags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 	tokenCmd.MarkFlagRequired("client-id")  // nolint:errcheck
 	tokenCmd.MarkFlagRequired("issuer-url") // nolint:errcheck
 

@@ -39,9 +39,12 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 	return env, nil
 }
 
+var deviceCodeFlow bool
+
 func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
+	rootCmd.Flags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 }
 
 func initLogger(verbose bool) {
@@ -59,7 +62,6 @@ var rootCmd = &cobra.Command{
 	Use:          "aws-oidc",
 	SilenceUsage: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// parse flags
 		verbose, err := cmd.Flags().GetBool(flagVerbose)
 		if err != nil {
 			return fmt.Errorf("missing verbose flag: %w", err)
