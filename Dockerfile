@@ -1,4 +1,4 @@
-FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.23-alpine AS builder
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ ARG RELEASE_VERSION
 ARG GITHUB_SHA
 RUN --mount=type=cache,mode=0755,target=/go/pkg/mod CGO_CFLAGS="-D_LARGEFILE64_SOURCE" CGO_ENABLED=0 GO111MODULE=on GOOS=linux GOARCH=${PLATFORM} go build -o aws-oidc
 
-FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.23-alpine AS prod
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/golang:1.24-alpine AS prod
 
 RUN apk update && apk --no-cache add ca-certificates curl
 
