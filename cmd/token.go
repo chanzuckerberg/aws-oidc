@@ -1,22 +1,27 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc_cli/oidc_impl/storage"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/spf13/cobra"
 )
+
+var deviceCodeFlow bool
+var flushOIDCTokenCache bool
 
 func init() {
 	tokenCmd.Flags().StringVar(&clientID, "client-id", "", "client_id generated from the OIDC application")
 	tokenCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
+	tokenCmd.Flags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
+	tokenCmd.Flags().BoolVar(&flushOIDCTokenCache, "flush-oidc-token-cache", false, "Flush the OIDC token cache")
 	tokenCmd.MarkFlagRequired("client-id")  // nolint:errcheck
 	tokenCmd.MarkFlagRequired("issuer-url") // nolint:errcheck
 
@@ -35,23 +40,18 @@ type stdoutToken struct {
 	Expiry      time.Time `json:"expiry,omitempty"`
 }
 
-// Get provider claims to discover endpoints
-var providerClaims struct {
-	DeviceAuthEndpoint  string   `json:"device_authorization_endpoint"`
-	TokenEndpoint       string   `json:"token_endpoint"`
-	GrantTypesSupported []string `json:"grant_types_supported"`
-}
-
-func useDeviceCodeFlow() bool {
-	fmt.Fprintln(os.Stderr, "Device code flow is supported by this provider.")
-	fmt.Fprintf(os.Stderr, "Use device code flow? [y/N]: ")
-	var response string
-	fmt.Scanln(&response)
-	if response == "y" || response == "Y" {
-		return true
+func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) error {
+	storage, err := storage.GetOIDC(clientID, issuerURL)
+	if err != nil {
+		return fmt.Errorf("getting oidc token storage: %w", err)
 	}
 
-	return false
+	err = storage.Delete(ctx)
+	if err != nil {
+		return fmt.Errorf("deleting token from storage: %w", err)
+	}
+
+	return nil
 }
 
 var tokenCmd = &cobra.Command{
@@ -64,17 +64,17 @@ var tokenCmd = &cobra.Command{
 		}
 
 		ctx := cmd.Context()
-		provider, err := oidc.NewProvider(ctx, issuerURL)
-		if err != nil {
-			return fmt.Errorf("creating oidc provider: %w", err)
-		}
-
-		if err := provider.Claims(&providerClaims); err != nil {
-			return fmt.Errorf("getting provider claims: %w", err)
-		}
 
 		var token *client.Token
-		if slices.Contains(providerClaims.GrantTypesSupported, "urn:ietf:params:oauth:grant-type:device_code") && useDeviceCodeFlow() {
+		var err error
+		if flushOIDCTokenCache {
+			err = flushOIDCTokenCacheFn(ctx, clientID, issuerURL)
+			if err != nil {
+				return fmt.Errorf("flushing oidc token cache: %w", err)
+			}
+			return nil
+		}
+		if deviceCodeFlow {
 			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "offline_access"})
 			if err != nil {
 				return fmt.Errorf("getting device grant token: %w", err)

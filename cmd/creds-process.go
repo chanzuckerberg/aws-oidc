@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -12,16 +11,18 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
-	"github.com/coreos/go-oidc"
 	"github.com/spf13/cobra"
 )
 
 const credProcessVersion = 1
 
+var credsProcessDeviceCodeFlow bool
+
 func init() {
 	credProcessCmd.Flags().StringVar(&clientID, "client-id", "", "CLIENT_ID generated from the OIDC application")
 	credProcessCmd.Flags().StringVar(&issuerURL, "issuer-url", "", "The URL that hosts the OIDC identity provider")
 	credProcessCmd.Flags().StringVar(&roleARN, "aws-role-arn", "", "ARN value of role to assume")
+	credProcessCmd.Flags().BoolVar(&credsProcessDeviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 	credProcessCmd.MarkFlagRequired("client-id")    // nolint:errcheck
 	credProcessCmd.MarkFlagRequired("issuer-url")   // nolint:errcheck
 	credProcessCmd.MarkFlagRequired("aws-role-arn") // nolint:errcheck
@@ -101,17 +102,9 @@ func getOIDCToken(
 	ctx context.Context,
 	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
 ) (*client.Token, error) {
-	provider, err := oidc.NewProvider(ctx, awsOIDCConfig.IssuerURL)
-	if err != nil {
-		return nil, fmt.Errorf("creating oidc provider: %w", err)
-	}
-
-	if err := provider.Claims(&providerClaims); err != nil {
-		return nil, fmt.Errorf("getting provider claims: %w", err)
-	}
-
 	var token *client.Token
-	if slices.Contains(providerClaims.GrantTypesSupported, "urn:ietf:params:oauth:grant-type:device_code") {
+	var err error
+	if credsProcessDeviceCodeFlow {
 		token, err = cli.GetDeviceGrantToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL, []string{"openid", "profile", "offline_access"})
 		if err != nil {
 			return nil, fmt.Errorf("getting device grant token: %w", err)
