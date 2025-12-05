@@ -764,11 +764,11 @@
   okta_client_id: 0oag6nv2enWwYZwvv5d7
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
-  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
+  aws_role_arn: arn:aws:iam::254379453707:role/readonly
   okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
-  aws_role_arn: arn:aws:iam::254379453707:role/readonly
+  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
   okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
