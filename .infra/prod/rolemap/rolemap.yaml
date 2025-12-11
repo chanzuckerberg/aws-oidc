@@ -110,30 +110,6 @@
   aws_account_alias: czi-sec
   aws_role_arn: arn:aws:iam::871040364337:role/okta-czi-admin
   okta_client_id: 0oa1n187fpfGwK3k35d7
-- aws_account_id: "868904014114"
-  aws_account_alias: sci-imaging-public
-  aws_role_arn: arn:aws:iam::868904014114:role/readonly
-  okta_client_id: 0oauzedtzBs11op1n5d6
-- aws_account_id: "868904014114"
-  aws_account_alias: sci-imaging-public
-  aws_role_arn: arn:aws:iam::868904014114:role/readonly
-  okta_client_id: 0oahg1bbsu54Ddo0K5d7
-- aws_account_id: "868904014114"
-  aws_account_alias: sci-imaging-public
-  aws_role_arn: arn:aws:iam::868904014114:role/readonly
-  okta_client_id: 0oag6nx31gNUSKi0S5d7
-- aws_account_id: "868904014114"
-  aws_account_alias: sci-imaging-public
-  aws_role_arn: arn:aws:iam::868904014114:role/poweruser
-  okta_client_id: 0oag6nw11zQJsui9a5d7
-- aws_account_id: "868904014114"
-  aws_account_alias: sci-imaging-public
-  aws_role_arn: arn:aws:iam::868904014114:role/poweruser
-  okta_client_id: 0oa1slgkmncchvGvb5d7
-- aws_account_id: "868904014114"
-  aws_account_alias: sci-imaging-public
-  aws_role_arn: arn:aws:iam::868904014114:role/okta-czi-admin
-  okta_client_id: 0oa1n187fpfGwK3k35d7
 - aws_account_id: "867538088280"
   aws_account_alias: ""
   aws_role_arn: arn:aws:iam::867538088280:role/readonly
@@ -232,11 +208,11 @@
   okta_client_id: 0oauzedtzBs11op1n5d6
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
-  aws_role_arn: arn:aws:iam::724328632434:role/readonly
+  aws_role_arn: arn:aws:iam::724328632434:role/poweruser
   okta_client_id: 0oag6nx7gtNyZyPnp5d7
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
-  aws_role_arn: arn:aws:iam::724328632434:role/poweruser
+  aws_role_arn: arn:aws:iam::724328632434:role/readonly
   okta_client_id: 0oag6nx7gtNyZyPnp5d7
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
@@ -245,26 +221,6 @@
 - aws_account_id: "724328632434"
   aws_account_alias: czi-logs
   aws_role_arn: arn:aws:iam::724328632434:role/okta-czi-admin
-  okta_client_id: 0oa1n187fpfGwK3k35d7
-- aws_account_id: "723754913286"
-  aws_account_alias: czi-images
-  aws_role_arn: arn:aws:iam::723754913286:role/readonly
-  okta_client_id: 0oauzedtzBs11op1n5d6
-- aws_account_id: "723754913286"
-  aws_account_alias: czi-images
-  aws_role_arn: arn:aws:iam::723754913286:role/poweruser
-  okta_client_id: 0oag6nygkicBf9OKZ5d7
-- aws_account_id: "723754913286"
-  aws_account_alias: czi-images
-  aws_role_arn: arn:aws:iam::723754913286:role/readonly
-  okta_client_id: 0oag6nxln7V17q8Ap5d7
-- aws_account_id: "723754913286"
-  aws_account_alias: czi-images
-  aws_role_arn: arn:aws:iam::723754913286:role/poweruser
-  okta_client_id: 0oa3ee16gdemVFDrd5d7
-- aws_account_id: "723754913286"
-  aws_account_alias: czi-images
-  aws_role_arn: arn:aws:iam::723754913286:role/okta-czi-admin
   okta_client_id: 0oa1n187fpfGwK3k35d7
 - aws_account_id: "699936264352"
   aws_account_alias: single-cell-dev
@@ -384,11 +340,11 @@
   okta_client_id: 0oauzedtzBs11op1n5d6
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
-  aws_role_arn: arn:aws:iam::591406941557:role/poweruser
+  aws_role_arn: arn:aws:iam::591406941557:role/readonly
   okta_client_id: 0oai316g0nwQg8nrm5d7
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
-  aws_role_arn: arn:aws:iam::591406941557:role/readonly
+  aws_role_arn: arn:aws:iam::591406941557:role/poweruser
   okta_client_id: 0oai316g0nwQg8nrm5d7
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
@@ -405,22 +361,6 @@
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
   aws_role_arn: arn:aws:iam::591406941557:role/okta-czi-admin
-  okta_client_id: 0oa1n187fpfGwK3k35d7
-- aws_account_id: "586794448189"
-  aws_account_alias: czi-learning-and-development
-  aws_role_arn: arn:aws:iam::586794448189:role/readonly
-  okta_client_id: 0oauzedtzBs11op1n5d6
-- aws_account_id: "586794448189"
-  aws_account_alias: czi-learning-and-development
-  aws_role_arn: arn:aws:iam::586794448189:role/readonly
-  okta_client_id: 0oajwmz4k8R1bTO2y5d7
-- aws_account_id: "586794448189"
-  aws_account_alias: czi-learning-and-development
-  aws_role_arn: arn:aws:iam::586794448189:role/poweruser
-  okta_client_id: 0oajwmxnj1wNCEzwn5d7
-- aws_account_id: "586794448189"
-  aws_account_alias: czi-learning-and-development
-  aws_role_arn: arn:aws:iam::586794448189:role/okta-czi-admin
   okta_client_id: 0oa1n187fpfGwK3k35d7
 - aws_account_id: "577638397886"
   aws_account_alias: sci-data-prod
@@ -748,11 +688,11 @@
   okta_client_id: 0oag6nv2enWwYZwvv5d7
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
-  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
+  aws_role_arn: arn:aws:iam::254379453707:role/readonly
   okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
-  aws_role_arn: arn:aws:iam::254379453707:role/readonly
+  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
   okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
@@ -928,11 +868,11 @@
   okta_client_id: 0oag6nxyd1ZlIENRs5d7
 - aws_account_id: "046341869686"
   aws_account_alias: edu-platform-staging
-  aws_role_arn: arn:aws:iam::046341869686:role/readonly
+  aws_role_arn: arn:aws:iam::046341869686:role/poweruser
   okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 - aws_account_id: "046341869686"
   aws_account_alias: edu-platform-staging
-  aws_role_arn: arn:aws:iam::046341869686:role/poweruser
+  aws_role_arn: arn:aws:iam::046341869686:role/readonly
   okta_client_id: 0oadp1fwi1I1f3Wxm5d7
 - aws_account_id: "046341869686"
   aws_account_alias: edu-platform-staging
