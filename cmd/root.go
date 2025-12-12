@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -66,7 +67,7 @@ func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) erro
 	}
 
 	err = storage.Delete(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("deleting token from storage: %w", err)
 	}
 
