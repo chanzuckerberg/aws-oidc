@@ -9,9 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
-	"github.com/coreos/go-oidc"
 	"github.com/spf13/cobra"
 )
 
@@ -83,7 +80,7 @@ func assumeRole(
 	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
 	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	token, err := getOIDCToken(ctx, awsOIDCConfig)
+	token, err := execGetToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL)
 	if err != nil {
 		return nil, err
 	}
@@ -94,29 +91,4 @@ func assumeRole(
 		awsOIDCConfig.RoleARN,
 		sessionDuration,
 	)
-}
-
-func getOIDCToken(
-	ctx context.Context,
-	awsOIDCConfig *aws_config_client.AWSOIDCConfiguration,
-) (*client.Token, error) {
-	var token *client.Token
-	var err error
-	if deviceCodeFlow {
-		token, err = cli.GetDeviceGrantToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL, []string{
-			oidc.ScopeOfflineAccess,
-			oidc.ScopeOpenID,
-			"profile",
-			"groups",
-		})
-		if err != nil {
-			return nil, fmt.Errorf("getting device grant token: %w", err)
-		}
-	} else {
-		token, err = cli.GetToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL)
-		if err != nil {
-			return nil, fmt.Errorf("getting authorization grant token: %w", err)
-		}
-	}
-	return token, nil
 }

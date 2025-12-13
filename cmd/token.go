@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
 	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/coreos/go-oidc"
 
 	"github.com/spf13/cobra"
 )
@@ -44,19 +46,9 @@ var tokenCmd = &cobra.Command{
 
 		ctx := cmd.Context()
 
-		var token *client.Token
-		var err error
-
-		if deviceCodeFlow {
-			token, err = cli.GetDeviceGrantToken(ctx, clientID, issuerURL, []string{"openid", "profile", "offline_access"})
-			if err != nil {
-				return fmt.Errorf("getting device grant token: %w", err)
-			}
-		} else {
-			token, err = cli.GetToken(ctx, clientID, issuerURL)
-			if err != nil {
-				return err
-			}
+		token, err := execGetToken(ctx, clientID, issuerURL)
+		if err != nil {
+			return fmt.Errorf("getting oidc token: %w", err)
 		}
 
 		stdoutToken.AccessToken = token.AccessToken
@@ -74,4 +66,42 @@ var tokenCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Token, error) {
+	options := []client.OIDCClientOption{}
+	if deviceCodeFlow {
+		authenticator := client.NewDeviceGrantAuthenticator()
+		options = append(options,
+			client.WithDeviceGrantAuthenticator(authenticator),
+			client.WithScopes([]string{
+				oidc.ScopeOfflineAccess,
+				oidc.ScopeOpenID,
+				"profile",
+				"groups",
+			}),
+		)
+	} else {
+		authenticator, err := client.NewAuthorizationGrantAuthenticator(
+			ctx,
+			client.DefaultAuthorizationGrantConfig,
+			client.WithSuccessMessage(successMessage),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating authorization grant authenticator: %w", err)
+		}
+
+		options = append(options, client.WithAuthzGrantAuthenticator(authenticator))
+	}
+
+	token, err := cli.GetToken(
+		ctx,
+		clientID,
+		issuerURL,
+		options...,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("obtaining token from clientID and issuerURL: %w", err)
+	}
+	return token, nil
 }

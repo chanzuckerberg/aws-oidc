@@ -7,8 +7,6 @@ import (
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
 	"github.com/spf13/cobra"
 )
 
@@ -65,14 +63,9 @@ func execRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	token, err := cli.GetToken(
-		ctx,
-		awsOIDCConfig.ClientID,
-		awsOIDCConfig.IssuerURL,
-		client.SetSuccessMessage(successMessage),
-	)
+	token, err := execGetToken(ctx, awsOIDCConfig.ClientID, awsOIDCConfig.IssuerURL)
 	if err != nil {
-		return fmt.Errorf("obtaining token from clientID and issuerURL: %w", err)
+		return fmt.Errorf("getting oidc token: %w", err)
 	}
 
 	assumeRoleOutput, err := getter.GetAWSAssumeIdentity(
