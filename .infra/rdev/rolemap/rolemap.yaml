@@ -654,6 +654,22 @@
   aws_account_alias: virtual-cells-prod
   aws_role_arn: arn:aws:iam::339713142298:role/okta-czi-admin
   okta_client_id: 0oa1n187fpfGwK3k35d7
+- aws_account_id: "296291258737"
+  aws_account_alias: czi-sec-hackathon
+  aws_role_arn: arn:aws:iam::296291258737:role/readonly
+  okta_client_id: 0oauzedtzBs11op1n5d6
+- aws_account_id: "296291258737"
+  aws_account_alias: czi-sec-hackathon
+  aws_role_arn: arn:aws:iam::296291258737:role/poweruser
+  okta_client_id: 0oapv8zpnlxmXDaqF5d7
+- aws_account_id: "296291258737"
+  aws_account_alias: czi-sec-hackathon
+  aws_role_arn: arn:aws:iam::296291258737:role/readonly
+  okta_client_id: 0oapv8zca2F0LA1dw5d7
+- aws_account_id: "296291258737"
+  aws_account_alias: czi-sec-hackathon
+  aws_role_arn: arn:aws:iam::296291258737:role/okta-czi-admin
+  okta_client_id: 0oa1n187fpfGwK3k35d7
 - aws_account_id: "277707108111"
   aws_account_alias: sci-data-staging
   aws_role_arn: arn:aws:iam::277707108111:role/readonly
