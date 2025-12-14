@@ -82,16 +82,13 @@ func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Toke
 			}),
 		)
 	} else {
-		authenticator, err := client.NewAuthorizationGrantAuthenticator(
-			ctx,
-			client.DefaultAuthorizationGrantConfig,
-			client.WithSuccessMessage(successMessage),
+		options = append(options,
+			client.WithAuthzGrantAuthenticator(
+				client.DefaultAuthorizationGrantConfig,
+				client.WithSuccessMessage(successMessage),
+			),
+			client.WithScopes(client.DefaultScopes),
 		)
-		if err != nil {
-			return nil, fmt.Errorf("creating authorization grant authenticator: %w", err)
-		}
-
-		options = append(options, client.WithAuthzGrantAuthenticator(authenticator))
 	}
 
 	token, err := cli.GetToken(

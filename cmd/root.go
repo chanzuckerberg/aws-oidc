@@ -90,7 +90,6 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("flushing oidc token cache: %w", err)
 			}
-			return nil
 		}
 
 		initLogger(verbose)
