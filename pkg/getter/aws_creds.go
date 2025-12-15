@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/client"
 )
 
 func GetAWSAssumeIdentity(

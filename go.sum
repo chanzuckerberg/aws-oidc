@@ -14,8 +14,8 @@ github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEe
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
-github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251214173608-f2d7b8704a33 h1:+3h4a7CAMz4cGOVx4nsq/L84ZEqZhbYjruM8NwqAbYM=
-github.com/chanzuckerberg/go-misc/oidc/v4 v4.0.0-20251214173608-f2d7b8704a33/go.mod h1:TCfwoWoUOYVbwQZzZlFC1bBPAY7N0OZYhLADqhAbRvo=
+github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20251215154400-03c9c096c82b h1:y23xtaaX3MHIJpMBC5zzFsBVr7F7Smy6N4NAfn9lld0=
+github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20251215154400-03c9c096c82b/go.mod h1:kYLgh18YstwdB4xlTF0/67C/2pbzxAKQ6sCj5TNYKvs=
 github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e h1:OjzWZAPclse+e+MCQBI/3t3GE8iqTd1h/MvHzRMVZBs=
 github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e/go.mod h1:b9dYrz3Z7wNqSnvbxJUaPuAeTu9xRbKdiaMy2Ptx70E=
 github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20251117200159-d2a50dbfd31c h1:zWlexFp48FDCnhi1Spk0xjmhR4l9RNj0HzPs8HOiqgs=

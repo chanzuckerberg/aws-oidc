@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/storage"
+	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/storage"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/spf13/cobra"
 )

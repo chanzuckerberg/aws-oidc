@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc/v5/cli"
+	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/client"
 	"github.com/coreos/go-oidc"
 
 	"github.com/spf13/cobra"

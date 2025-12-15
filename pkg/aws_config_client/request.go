@@ -11,7 +11,7 @@ import (
 
 	server "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/util"
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli/client"
+	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/client"
 )
 
 func RequestConfig(
