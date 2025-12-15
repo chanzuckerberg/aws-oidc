@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/chanzuckerberg/go-misc/oidc/v4/cli"
+	"github.com/chanzuckerberg/go-misc/oidc/v5/cli"
 	"github.com/spf13/cobra"
 )
 
