@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.0...v0.31.1) (2025-12-15)
+
+
+### Bug Fixes
+
+* bump go-misc oidc package which keeps the refresh token for file storage caches ([#1147](https://github.com/chanzuckerberg/aws-oidc/issues/1147)) ([f4b9dbe](https://github.com/chanzuckerberg/aws-oidc/commit/f4b9dbe47ca840083add64c08cf59fd0cd572d96))
+
 ## [0.31.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.30.11...v0.31.0) (2025-12-05)
 
 
