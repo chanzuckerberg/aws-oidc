@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.1...v0.31.2) (2025-12-23)
+
+
+### Misc
+
+* configure helm dependency updater workflow ([#1149](https://github.com/chanzuckerberg/aws-oidc/issues/1149)) ([dc9d181](https://github.com/chanzuckerberg/aws-oidc/commit/dc9d181a89a817be123adb70fae65744106a0ee0))
+
 ## [0.31.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.0...v0.31.1) (2025-12-15)
 
 
