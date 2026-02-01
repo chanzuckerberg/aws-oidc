@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/storage"
 	"github.com/kelseyhightower/envconfig"
@@ -18,6 +20,7 @@ var roleARN string
 const (
 	flagVerbose             = "verbose"
 	flagFlushOIDCTokenCache = "flush-oidc-token-cache"
+	flagLogFile             = "log-file"
 	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
@@ -41,22 +44,58 @@ func loadSentryEnv() (*SentryEnvironment, error) {
 }
 
 var deviceCodeFlow bool
+var logCloser func() error = func() error { return nil }
+
+func getDefaultLogFile() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "/tmp/aws-oidc.log"
+	}
+	return filepath.Join(homeDir, ".aws-oidc", "logs", "aws-oidc.log")
+}
 
 func init() {
 	rootCmd.PersistentFlags().BoolP(flagVerbose, "v", false, "Use this to enable verbose mode")
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
 	rootCmd.PersistentFlags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
+	rootCmd.PersistentFlags().String(flagLogFile, "", "Path to a log file to write logs to (in addition to stderr when verbose)")
 }
 
-func initLogger(verbose bool) {
+func initLogger(verbose bool, logFile string) (func() error, error) {
 	level := slog.LevelInfo
 	if verbose {
 		level = slog.LevelDebug
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+
+	var writers []io.Writer = []io.Writer{
+		os.Stderr,
+	}
+
+	if logFile == "" {
+		logFile = getDefaultLogFile()
+	}
+
+	logDir := filepath.Dir(logFile)
+	err := os.MkdirAll(logDir, 0755)
+	if err != nil {
+		return nil, fmt.Errorf("creating log directory: %w", err)
+	}
+
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return nil, fmt.Errorf("opening log file: %w", err)
+	}
+	writers = append(writers, f)
+	closer := func() error {
+		return f.Close()
+	}
+
+	writer := io.MultiWriter(writers...)
+	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
 		Level: level,
 	}))
 	slog.SetDefault(logger)
+	return closer, nil
 }
 
 func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) error {
@@ -85,6 +124,10 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("missing flush-oidc-token-cache flag: %w", err)
 		}
+		logFile, err := cmd.Flags().GetString(flagLogFile)
+		if err != nil {
+			return fmt.Errorf("missing log-file flag: %w", err)
+		}
 		if flushOIDCTokenCache {
 			err = flushOIDCTokenCacheFn(cmd.Context(), clientID, issuerURL)
 			if err != nil {
@@ -92,7 +135,10 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		initLogger(verbose)
+		logCloser, err = initLogger(verbose, logFile)
+		if err != nil {
+			return fmt.Errorf("initializing logger: %w", err)
+		}
 
 		sentryEnv, err := loadSentryEnv()
 		if err != nil {
@@ -108,5 +154,13 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute(ctx context.Context) error {
-	return rootCmd.ExecuteContext(ctx)
+	cmd, err := rootCmd.ExecuteContextC(ctx)
+	if err != nil {
+		slog.Error(fmt.Sprintf("%s failed: %v", cmd.CommandPath(), err))
+	}
+	closeErr := logCloser()
+	if closeErr != nil {
+		fmt.Fprintf(os.Stderr, "closing log file: %v\n", closeErr)
+	}
+	return err
 }
