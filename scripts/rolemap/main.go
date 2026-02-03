@@ -146,6 +146,12 @@ func exec(ctx context.Context) error {
 
 	allMappings := []OIDCRoleMapping{}
 	for _, workspace := range workspaces {
+		// Skip specific workspaces
+		if workspace.Name == "accounts-es-prod" {
+			slog.Info("skipping workspace", "name", workspace.Name)
+			continue
+		}
+
 		mappings, err := workspaceRoleMappings(ctx, client, workspace.ID)
 		if err != nil {
 			return fmt.Errorf("getting role mappings for workspace %s: %w", workspace.Name, err)
