@@ -12,7 +12,8 @@ func ResetEnv(origEnv []string) error {
 		// Environment variables on Windows can begin with =
 		// https://blogs.msdn.com/b/oldnewthing/archive/2010/05/06/10008132.aspx
 		i := strings.Index(pair[1:], "=") + 1
-		if err := os.Setenv(pair[:i], pair[i+1:]); err != nil {
+		err := os.Setenv(pair[:i], pair[i+1:])
+		if err != nil {
 			return fmt.Errorf("Setenv(%q, %q) failed during reset: %v", pair[:i], pair[i+1:], err)
 		}
 	}

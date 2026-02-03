@@ -8,7 +8,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260201162929-ed9d815e676f
+	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260203213123-0da804d19d04
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20251117200159-d2a50dbfd31c
 	github.com/coreos/go-oidc v2.4.0+incompatible
 	github.com/gorilla/handlers v1.5.2
@@ -44,7 +44,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/nightlyone/lockfile v1.0.0 // indirect
 	github.com/patrickmn/go-cache v0.0.0-20180815053127-5633e0862627 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
