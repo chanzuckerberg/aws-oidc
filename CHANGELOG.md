@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.2...v0.32.0) (2026-02-04)
+
+
+### Features
+
+* better retry logic ([#1152](https://github.com/chanzuckerberg/aws-oidc/issues/1152)) ([919b5c6](https://github.com/chanzuckerberg/aws-oidc/commit/919b5c66a6eb217a20a39d6e059acb7d4c9e5c43))
+
 ## [0.31.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.1...v0.31.2) (2026-02-04)
 
 
