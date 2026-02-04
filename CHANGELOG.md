@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.31.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.1...v0.31.2) (2026-02-04)
+
+
+### Bug Fixes
+
+* add logging configuration and gracefully handle cases without an id_token  ([#1151](https://github.com/chanzuckerberg/aws-oidc/issues/1151)) ([e3ad7e0](https://github.com/chanzuckerberg/aws-oidc/commit/e3ad7e022b246210f8cf139968132b693c36eb8a))
+
+
+### Misc
+
+* configure helm dependency updater workflow ([#1149](https://github.com/chanzuckerberg/aws-oidc/issues/1149)) ([dc9d181](https://github.com/chanzuckerberg/aws-oidc/commit/dc9d181a89a817be123adb70fae65744106a0ee0))
+
 ## [0.31.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.0...v0.31.1) (2025-12-15)
 
 
