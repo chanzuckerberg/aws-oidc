@@ -78,7 +78,7 @@ func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Toke
 				oidc.ScopeOfflineAccess,
 				oidc.ScopeOpenID,
 				"profile",
-				"groups",
+				"email",
 			}),
 		)
 	} else {
@@ -91,14 +91,41 @@ func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Toke
 		)
 	}
 
+	// For device code flow, redirect stderr to /dev/tty so auth prompts
+	// are visible while keeping stderr available for error messages
+	var restoreStderr func() = func() {}
+	if deviceCodeFlow {
+		restoreStderr = redirectStderrToTTY()
+	}
+	defer restoreStderr()
+
 	token, err := cli.GetToken(
 		ctx,
 		clientID,
 		issuerURL,
 		options...,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("obtaining token from clientID and issuerURL: %w", err)
 	}
 	return token, nil
+}
+
+// redirectStderrToTTY redirects stderr to /dev/tty for interactive prompts
+// and returns a function to restore the original stderr
+func redirectStderrToTTY() func() {
+	tty, err := os.OpenFile("/dev/tty", os.O_WRONLY, 0)
+	if err != nil {
+		// If we can't open /dev/tty, just return a no-op
+		return func() {}
+	}
+
+	originalStderr := os.Stderr
+	os.Stderr = tty
+
+	return func() {
+		os.Stderr = originalStderr
+		tty.Close()
+	}
 }

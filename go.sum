@@ -14,8 +14,8 @@ github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEe
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
-github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20251215154400-03c9c096c82b h1:y23xtaaX3MHIJpMBC5zzFsBVr7F7Smy6N4NAfn9lld0=
-github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20251215154400-03c9c096c82b/go.mod h1:kYLgh18YstwdB4xlTF0/67C/2pbzxAKQ6sCj5TNYKvs=
+github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260203234856-e0ee7e512d04 h1:4KTtk98rPPS8n8saHeJM7XIFLicX4+whynJX5xoozYE=
+github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260203234856-e0ee7e512d04/go.mod h1:AfVdOHF7f8VyJkdx6g/Tkgi34PnC/6mrS3TOpPGoJiQ=
 github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e h1:OjzWZAPclse+e+MCQBI/3t3GE8iqTd1h/MvHzRMVZBs=
 github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e/go.mod h1:b9dYrz3Z7wNqSnvbxJUaPuAeTu9xRbKdiaMy2Ptx70E=
 github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20251117200159-d2a50dbfd31c h1:zWlexFp48FDCnhi1Spk0xjmhR4l9RNj0HzPs8HOiqgs=
@@ -83,8 +83,6 @@ github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d h1:5PJl274Y63IEHC+7izoQE9x6ikvDFZS2mDVS3drnohI=
 github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
-github.com/mitchellh/go-homedir v1.1.0 h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=
-github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
 github.com/nightlyone/lockfile v1.0.0/go.mod h1:rywoIealpdNse2r832aiD9jRk8ErCatROs6LzC841CI=
 github.com/okta/okta-sdk-golang/v2 v2.20.0 h1:EDKM+uOPfihOMNwgHMdno+NAsIfyXkVnoFAYVPay0YU=
