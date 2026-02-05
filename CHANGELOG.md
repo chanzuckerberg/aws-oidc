@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.0...v0.32.1) (2026-02-05)
+
+
+### Bug Fixes
+
+* TOCOTU ([#1154](https://github.com/chanzuckerberg/aws-oidc/issues/1154)) ([2725df5](https://github.com/chanzuckerberg/aws-oidc/commit/2725df53ddb0a64b741c192dc5ccf6e2f79e16e0))
+
 ## [0.32.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.31.2...v0.32.0) (2026-02-04)
 
 
