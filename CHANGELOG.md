@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.1...v0.32.2) (2026-02-10)
+
+
+### Bug Fixes
+
+* consolidate the token expiration checks ([#1156](https://github.com/chanzuckerberg/aws-oidc/issues/1156)) ([de6cb81](https://github.com/chanzuckerberg/aws-oidc/commit/de6cb81b6416887943922b277f67bfd4741ebfb6))
+
 ## [0.32.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.0...v0.32.1) (2026-02-05)
 
 
