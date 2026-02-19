@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.2...v0.32.3) (2026-02-19)
+
+
+### Bug Fixes
+
+* bump go-misc/oidc to v5.1.4 for atomic file writes ([#1158](https://github.com/chanzuckerberg/aws-oidc/issues/1158)) ([ac00b31](https://github.com/chanzuckerberg/aws-oidc/commit/ac00b31348e01c80ea9f4388175133377fa67016))
+
 ## [0.32.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.1...v0.32.2) (2026-02-10)
 
 
