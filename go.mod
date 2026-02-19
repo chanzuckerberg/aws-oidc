@@ -8,7 +8,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260209230815-a6d5100fa893
+	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260219185328-331316a37c21
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20251117200159-d2a50dbfd31c
 	github.com/coreos/go-oidc v2.4.0+incompatible
 	github.com/gorilla/handlers v1.5.2
