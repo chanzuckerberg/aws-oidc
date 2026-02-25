@@ -8,7 +8,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260219185328-331316a37c21
+	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260225214753-5077e140a1cd
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20251117200159-d2a50dbfd31c
 	github.com/coreos/go-oidc v2.4.0+incompatible
 	github.com/gorilla/handlers v1.5.2
@@ -31,6 +31,7 @@ require (
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/dustinkirkland/golang-petname v0.0.0-20260215035315-f0c533e9ce9b // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
@@ -41,6 +42,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect

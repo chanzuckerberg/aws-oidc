@@ -14,6 +14,7 @@ var (
 	issuerURL      string
 	roleARN        string
 	deviceCodeFlow bool
+	nodeLocalCache string
 	logCloser      func() error = func() error { return nil }
 )
 
@@ -21,6 +22,8 @@ const (
 	flagVerbose             = "verbose"
 	flagFlushOIDCTokenCache = "flush-oidc-token-cache"
 	flagLogFile             = "log-file"
+	flagNodeLocalCache      = "node-local-cache"
+	envNodeLocalCache       = "AWS_OIDC_NODE_LOCAL_CACHE"
 	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
@@ -35,6 +38,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
 	rootCmd.PersistentFlags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
 	rootCmd.PersistentFlags().String(flagLogFile, "", "Path to a log file to write logs to (in addition to stderr when verbose)")
+	rootCmd.PersistentFlags().StringVar(&nodeLocalCache, flagNodeLocalCache, os.Getenv(envNodeLocalCache),
+		"Directory on node-local disk for OIDC token cache (use in distributed/NFS environments). "+
+			"Can also be set via "+envNodeLocalCache)
 }
 
 func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) error {

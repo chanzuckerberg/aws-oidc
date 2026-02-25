@@ -67,6 +67,28 @@ docker run -it --env-file <(aws-oidc env --profile <your aws profile>) amazon/aw
 ### version
 Prints the version of aws-oidc to stdout.
 
+## Distributed / NFS Environments
+
+In environments where many hosts share a home directory over NFS (e.g. HPC clusters, shared compute nodes), the default OIDC token cache at `~/.cache/oidc-cli/` can cause problems:
+
+- `O_APPEND` writes are not atomic on NFS, so concurrent processes on different hosts can overwrite each other's data.
+- `flock`-based file locking is unreliable across NFS clients.
+- Atomic `rename` may not be safe across NFS server frontends.
+
+Use the `--node-local-cache` flag to store the OIDC token cache and lock files on node-local disk instead. The value should be a directory that is **not** on an NFS mount (e.g. `/tmp/oidc-cache` or a path on a local SSD):
+
+``` bash
+$ aws-oidc creds-process --node-local-cache /tmp/oidc-cache \
+    --issuer-url=<issuer url> --client-id=<client ID> --aws-role-arn=<role ARN>
+```
+
+``` bash
+$ aws-oidc exec --node-local-cache /tmp/oidc-cache --profile <your profile> -- aws sts get-caller-identity
+```
+
+On first use, the local cache is bootstrapped by copying the existing token from the default (NFS) cache. All subsequent reads, writes, and lock operations use the local directory, avoiding cross-host contention entirely.
+
+This flag is available on all subcommands (`token`, `exec`, `creds-process`, `configure`).
 
 # More docs
 See [docs](docs) for more docs.

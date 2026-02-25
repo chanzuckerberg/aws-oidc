@@ -69,10 +69,10 @@ var tokenCmd = &cobra.Command{
 }
 
 func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Token, error) {
-	options := []client.OIDCClientOption{}
+	var clientOpts []client.OIDCClientOption
 	if deviceCodeFlow {
 		authenticator := client.NewDeviceGrantAuthenticator()
-		options = append(options,
+		clientOpts = append(clientOpts,
 			client.WithDeviceGrantAuthenticator(authenticator),
 			client.WithScopes([]string{
 				oidc.ScopeOfflineAccess,
@@ -82,7 +82,7 @@ func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Toke
 			}),
 		)
 	} else {
-		options = append(options,
+		clientOpts = append(clientOpts,
 			client.WithAuthzGrantAuthenticator(
 				client.DefaultAuthorizationGrantConfig,
 				client.WithSuccessMessage(successMessage),
@@ -103,7 +103,8 @@ func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Toke
 		ctx,
 		clientID,
 		issuerURL,
-		options...,
+		cli.WithClientOptions(clientOpts...),
+		cli.WithLocalCacheDir(nodeLocalCache),
 	)
 
 	if err != nil {

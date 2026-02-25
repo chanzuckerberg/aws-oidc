@@ -55,7 +55,16 @@ func getDefaultLogFile() string {
 	if err != nil {
 		return "/tmp/aws-oidc.log"
 	}
-	return filepath.Join(homeDir, ".aws-oidc", "logs", "aws-oidc.log")
+
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "unknown"
+	}
+
+	return filepath.Join(
+		homeDir, ".aws-oidc", "logs",
+		fmt.Sprintf("aws-oidc.%s.log", hostname),
+	)
 }
 
 func initLogger(verbosity int, logFile string) (func() error, error) {
