@@ -75,16 +75,25 @@ In environments where many hosts share a home directory over NFS (e.g. HPC clust
 - `flock`-based file locking is unreliable across NFS clients.
 - Atomic `rename` may not be safe across NFS server frontends.
 
-Use the `--node-local-cache` flag to store the OIDC token cache and lock files on node-local disk instead. The value should be a directory that is **not** on an NFS mount (e.g. `/tmp/oidc-cache` or a path on a local SSD):
+Use the `--node-local-cache` flag (or the `AWS_OIDC_NODE_LOCAL_CACHE` environment variable) to store the OIDC token cache and lock files on node-local disk instead. The value should be a directory that is **not** on an NFS mount and **unique per user** (e.g. `/tmp/oidc-cache-$(id -u)` or a path on a local SSD):
 
 ``` bash
-$ aws-oidc creds-process --node-local-cache /tmp/oidc-cache \
+$ aws-oidc creds-process --node-local-cache "/tmp/oidc-cache-$(id -u)" \
     --issuer-url=<issuer url> --client-id=<client ID> --aws-role-arn=<role ARN>
 ```
 
+Or equivalently, via the environment variable:
+
 ``` bash
-$ aws-oidc exec --node-local-cache /tmp/oidc-cache --profile <your profile> -- aws sts get-caller-identity
+$ export AWS_OIDC_NODE_LOCAL_CACHE="/tmp/oidc-cache-$(id -u)"
+$ aws-oidc creds-process --issuer-url=<issuer url> --client-id=<client ID> --aws-role-arn=<role ARN>
 ```
+
+``` bash
+$ aws-oidc exec --node-local-cache "/tmp/oidc-cache-$(id -u)" --profile <your profile> -- aws sts get-caller-identity
+```
+
+The environment variable is useful for setting this once in your shell profile (e.g. `.bashrc`, `.zshrc`) so every invocation uses node-local storage automatically. If both the flag and the environment variable are set, the flag takes precedence.
 
 On first use, the local cache is bootstrapped by copying the existing token from the default (NFS) cache. All subsequent reads, writes, and lock operations use the local directory, avoiding cross-host contention entirely.
 
