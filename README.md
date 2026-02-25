@@ -64,6 +64,27 @@ Env is primarily here to assist when running docker locally. It requires your `~
 docker run -it --env-file <(aws-oidc env --profile <your aws profile>) amazon/aws-cli sts get-caller-identity
 ```
 
+### token
+Prints the OIDC tokens to stdout in JSON format. Useful for debugging or piping into other tools.
+``` bash
+$ aws-oidc token --issuer-url=<issuer url> --client-id=<client ID>
+{"version":1,"id_token":"...","access_token":"...","expiry":"2026-02-25T15:38:01Z"}
+```
+
+### check-token-valid
+Checks whether the cached OIDC token is present and valid. Prints `valid` or `invalid` to stdout and exits with a non-zero status if the token is missing or expired. This does **not** trigger a refresh flow.
+``` bash
+$ aws-oidc check-token-valid --issuer-url=<issuer url> --client-id=<client ID>
+valid
+```
+
+### check-refresh-ttl
+Prints the remaining time-to-live of the cached refresh token by calling the issuer's introspection endpoint. Useful for monitoring when a user will need to re-authenticate.
+``` bash
+$ aws-oidc check-refresh-ttl --issuer-url=<issuer url> --client-id=<client ID>
+2159h59m57.088655s
+```
+
 ### version
 Prints the version of aws-oidc to stdout.
 
@@ -97,7 +118,7 @@ The environment variable is useful for setting this once in your shell profile (
 
 On first use, the local cache is bootstrapped by copying the existing token from the default (NFS) cache. All subsequent reads, writes, and lock operations use the local directory, avoiding cross-host contention entirely.
 
-This flag is available on all subcommands (`token`, `exec`, `creds-process`, `configure`).
+This flag is available on all subcommands (`token`, `exec`, `creds-process`, `configure`, `check-token-valid`, `check-refresh-ttl`).
 
 # More docs
 See [docs](docs) for more docs.
