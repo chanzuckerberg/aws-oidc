@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.34.0...v0.34.1) (2026-02-26)
+
+
+### Bug Fixes
+
+* install gh in runner ([#1166](https://github.com/chanzuckerberg/aws-oidc/issues/1166)) ([c6e77ee](https://github.com/chanzuckerberg/aws-oidc/commit/c6e77eeab41f8af1a8f8a52e36385926daa7a7ca))
+
 ## [0.34.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.33.0...v0.34.0) (2026-02-26)
 
 
