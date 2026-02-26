@@ -83,6 +83,12 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		if nodeLocalCache != "" {
+			if err := os.MkdirAll(nodeLocalCache, 0o700); err != nil {
+				return fmt.Errorf("creating node-local cache directory: %w", err)
+			}
+		}
+
 		logCloser, err = initLogger(verbosity, logFile)
 		if err != nil {
 			return fmt.Errorf("initializing logger: %w", err)
