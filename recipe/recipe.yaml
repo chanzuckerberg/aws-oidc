@@ -1,0 +1,36 @@
+context:
+  version: "0.33.0" # x-release-please-version
+
+package:
+  name: aws-oidc
+  version: ${{ version }}
+
+source:
+  - if: linux and x86_64
+    then:
+      url: https://github.com/chanzuckerberg/aws-oidc/releases/download/v${{ version }}/aws-oidc_${{ version }}_linux_amd64.tar.gz
+      sha256: 55225a37bdeaf2b3eb76870ae0905d484dc9bbd3998e5ecae9879dcb609e439b
+  - if: linux and aarch64
+    then:
+      url: https://github.com/chanzuckerberg/aws-oidc/releases/download/v${{ version }}/aws-oidc_${{ version }}_linux_arm64.tar.gz
+      sha256: e9fd6a7427f134910ef5764fefbb4d0c9a97da10c9390c7e8c20317d8ee74dc4
+  - if: osx and arm64
+    then:
+      url: https://github.com/chanzuckerberg/aws-oidc/releases/download/v${{ version }}/aws-oidc_${{ version }}_darwin_arm64.tar.gz
+      sha256: f9d0e0ef7e7aed21e5d673dd9b0468019f7969d4166b73f7d2342fbe12bb7782
+  - if: osx and x86_64
+    then:
+      url: https://github.com/chanzuckerberg/aws-oidc/releases/download/v${{ version }}/aws-oidc_${{ version }}_darwin_amd64.tar.gz
+      sha256: 4e99ab633b1555287dc3662bca39742293927c06832d2ab73f54fd6e7309b3ed
+
+build:
+  number: 0
+  script:
+    - if: unix
+      then:
+        - mkdir -p $PREFIX/bin
+        - install -m 755 aws-oidc $PREFIX/bin/aws-oidc
+
+test:
+  commands:
+    - aws-oidc version
