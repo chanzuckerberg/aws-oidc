@@ -30,6 +30,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
 
+      - name: Install gh CLI
+        uses: jaxxstorm/action-install-gh-release@v2
+        with:
+          repo: cli/cli
+
       - name: Update recipe checksums
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
@@ -37,7 +42,7 @@ jobs:
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
 
-          gh release download "v${VERSION}" --pattern "*_checksums.txt" --dir /tmp
+          gh release download "v${VERSION}" --repo "${{ github.repository }}" --pattern "*_checksums.txt" --dir /tmp
 
           python3 - "${VERSION}" <<'PYEOF'
           import re, sys
