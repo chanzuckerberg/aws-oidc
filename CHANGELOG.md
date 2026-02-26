@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.33.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.3...v0.33.0) (2026-02-26)
+
+
+### Features
+
+* add node-local cache, token inspection subcommands, and per-host logging ([#1162](https://github.com/chanzuckerberg/aws-oidc/issues/1162)) ([672f3c3](https://github.com/chanzuckerberg/aws-oidc/commit/672f3c33203716bb2399bc3b1c16d730428aa74c))
+* sync root token if newer refresh token ([#1163](https://github.com/chanzuckerberg/aws-oidc/issues/1163)) ([ed27104](https://github.com/chanzuckerberg/aws-oidc/commit/ed27104974acf4e972ed698b1360e71ca44fd26e))
+
+
+### Misc
+
+* bump goreleaser/goreleaser-action from 6 to 7 ([#1160](https://github.com/chanzuckerberg/aws-oidc/issues/1160)) ([825ec2e](https://github.com/chanzuckerberg/aws-oidc/commit/825ec2e559ec18718759b3264005d482d0d4a4dd))
+
 ## [0.32.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.2...v0.32.3) (2026-02-19)
 
 
