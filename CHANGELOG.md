@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.33.0...v0.34.0) (2026-02-26)
+
+
+### Features
+
+* allow users to install with pixi ([#1164](https://github.com/chanzuckerberg/aws-oidc/issues/1164)) ([fefb6e6](https://github.com/chanzuckerberg/aws-oidc/commit/fefb6e6137e46a9672c5536b3ac4895352e4a6c6))
+
 ## [0.33.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.32.3...v0.33.0) (2026-02-26)
 
 
