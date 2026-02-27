@@ -99,12 +99,13 @@ func execGetToken(ctx context.Context, clientID, issuerURL string) (*client.Toke
 	}
 	defer restoreStderr()
 
+	path := getNodeLocalCachePath(nodeLocalCache)
 	token, err := cli.GetToken(
 		ctx,
 		clientID,
 		issuerURL,
 		cli.WithClientOptions(clientOpts...),
-		cli.WithLocalCacheDir(nodeLocalCache),
+		cli.WithLocalCacheDir(path),
 	)
 
 	if err != nil {

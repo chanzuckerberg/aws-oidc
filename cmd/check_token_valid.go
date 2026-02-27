@@ -24,11 +24,12 @@ var checkTokenValidCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
+		path := getNodeLocalCachePath(nodeLocalCache)
 		err := cli.CheckTokenIsValid(
 			ctx,
 			clientID,
 			issuerURL,
-			cli.WithLocalCacheDir(nodeLocalCache),
+			cli.WithLocalCacheDir(path),
 		)
 		if err != nil {
 			fmt.Fprintln(os.Stdout, "invalid")
