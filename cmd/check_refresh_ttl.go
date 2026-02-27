@@ -19,6 +19,9 @@ func init() {
 }
 
 func getNodeLocalCachePath(provided string) string {
+	if provided == "" {
+		return ""
+	}
 	hostname, err := os.Hostname()
 	if err != nil {
 		return filepath.Join(provided, fmt.Sprintf("%d", os.Getuid()))
