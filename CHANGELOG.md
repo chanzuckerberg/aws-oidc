@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.35.1...v0.35.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* **cache:** handle empty node-local-cache path producing relative lockfile path ([#1174](https://github.com/chanzuckerberg/aws-oidc/issues/1174)) ([66cda7b](https://github.com/chanzuckerberg/aws-oidc/commit/66cda7b5f2d324613de197831390b0165d4570c0))
+
 ## [0.35.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.35.0...v0.35.1) (2026-02-27)
 
 
