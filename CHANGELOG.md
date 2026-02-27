@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.34.2...v0.35.0) (2026-02-27)
+
+
+### Features
+
+* **pixi:** simplify pixi recipe and release workflow ([#1170](https://github.com/chanzuckerberg/aws-oidc/issues/1170)) ([cd59c69](https://github.com/chanzuckerberg/aws-oidc/commit/cd59c6911867d0caf1154cfc02441631c4e01327))
+
 ## [0.34.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.34.1...v0.34.2) (2026-02-27)
 
 
