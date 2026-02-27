@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.34.1...v0.34.2) (2026-02-27)
+
+
+### Bug Fixes
+
+* wrong tag for install gh ([#1168](https://github.com/chanzuckerberg/aws-oidc/issues/1168)) ([538cd5d](https://github.com/chanzuckerberg/aws-oidc/commit/538cd5d9159f7645224c325a3821d8771f739d60))
+
 ## [0.34.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.34.0...v0.34.1) (2026-02-26)
 
 
