@@ -1,11 +1,10 @@
 [package]
 name = "aws-oidc"
-version = "0.34.1" # x-release-please-version
+version = "0.35.0" # x-release-please-version
 description = "CLI tool for generating temporary AWS STS credentials from an OIDC application"
 license = "MIT"
 homepage = "https://github.com/chanzuckerberg/aws-oidc"
 repository = "https://github.com/chanzuckerberg/aws-oidc"
 
 [package.build]
-backend = { name = "pixi-build-rattler-build", version = "*" }
-channels = ["https://prefix.dev/pixi-build-backends", "https://prefix.dev/conda-forge"]
+backend = { name = "pixi-build-rattler-build", version = "*", channels = ["https://prefix.dev/pixi-build-backends", "https://prefix.dev/conda-forge"] }
