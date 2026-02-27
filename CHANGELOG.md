@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.35.0...v0.35.1) (2026-02-27)
+
+
+### Misc
+
+* update GitHub Actions workflows and improve local cache path  ([#1172](https://github.com/chanzuckerberg/aws-oidc/issues/1172)) ([0ff5963](https://github.com/chanzuckerberg/aws-oidc/commit/0ff59638b989fb85c3b50e665020276f5b201bdd))
+
 ## [0.35.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.34.2...v0.35.0) (2026-02-27)
 
 
