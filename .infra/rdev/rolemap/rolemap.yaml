@@ -568,11 +568,11 @@
   okta_client_id: 0oag6nv2vaqRcQ9DD5d7
 - aws_account_id: "416703108729"
   aws_account_alias: czi-id
-  aws_role_arn: arn:aws:iam::416703108729:role/poweruser
+  aws_role_arn: arn:aws:iam::416703108729:role/readonly
   okta_client_id: 0oa3ee16gdemVFDrd5d7
 - aws_account_id: "416703108729"
   aws_account_alias: czi-id
-  aws_role_arn: arn:aws:iam::416703108729:role/readonly
+  aws_role_arn: arn:aws:iam::416703108729:role/poweruser
   okta_client_id: 0oa3ee16gdemVFDrd5d7
 - aws_account_id: "416703108729"
   aws_account_alias: czi-id
