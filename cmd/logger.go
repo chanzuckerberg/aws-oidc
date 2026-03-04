@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -74,12 +73,7 @@ type lokiHandler struct {
 	jsonHandler slog.Handler
 }
 
-func newLokiHandler(pushURL, hostname, credentialPath string, level slog.Level) (*lokiHandler, error) {
-	username, password, err := readBasicAuthCredentials(credentialPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading Loki credentials: %w", err)
-	}
-
+func newLokiHandler(pushURL, hostname, username, password string, level slog.Level) (*lokiHandler, error) {
 	userAgent := "aws-oidc"
 	if v, err := util.VersionString(); err == nil && v != "" {
 		userAgent = "aws-oidc/" + v
@@ -154,30 +148,41 @@ func (h *lokiHandler) Flush() error {
 	return nil
 }
 
-// readBasicAuthCredentials reads a file containing a base64-encoded "username:password" and returns the two parts.
-func readBasicAuthCredentials(path string) (username, password string, err error) {
+// resolveBasicAuthCredentials returns username and password from env value (base64 username:password) if non-empty, else by reading the file at path.
+func resolveBasicAuthCredentials(path, envValue string) (username, password string, err error) {
+	if envValue != "" {
+		return parseBasicAuthCredentials(envValue)
+	}
+	if path == "" {
+		return "", "", fmt.Errorf("no credentials: set %s or provide a credentials path", envLogLokiCredentials)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("reading credentials file: %w", err)
 	}
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(data)))
+	return parseBasicAuthCredentials(strings.TrimSpace(string(data)))
+}
+
+// parseBasicAuthCredentials decodes a base64-encoded "username:password" and returns the two parts.
+func parseBasicAuthCredentials(base64Value string) (username, password string, err error) {
+	decoded, err := base64.StdEncoding.DecodeString(base64Value)
 	if err != nil {
-		return "", "", fmt.Errorf("credential file must be base64-encoded: %w", err)
+		return "", "", fmt.Errorf("credentials must be base64-encoded username:password: %w", err)
 	}
 	line := string(decoded)
 	idx := strings.Index(line, ":")
 	if idx == -1 {
-		return "", "", fmt.Errorf("credential file must contain username:password on one line")
+		return "", "", fmt.Errorf("credentials must decode to username:password")
 	}
 	username = strings.TrimSpace(line[:idx])
 	password = strings.TrimSpace(line[idx+1:])
 	if username == "" || password == "" {
-		return "", "", fmt.Errorf("credential file must contain non-empty username and password")
+		return "", "", fmt.Errorf("username and password must be non-empty")
 	}
 	return username, password, nil
 }
 
-func initLogger(verbosity int, logLokiURL, logLokiCredentials string) (func() error, error) {
+func initLogger(verbosity int, logLokiURL, logLokiCredentialsPath, logLokiCredentialsFromEnv string) (func() error, error) {
 	// Default: WARN, -v: INFO, -vv: DEBUG
 	stderrLevel := slog.LevelWarn
 	switch {
@@ -194,12 +199,15 @@ func initLogger(verbosity int, logLokiURL, logLokiCredentials string) (func() er
 	handlers := []slog.Handler{stderrHandler}
 
 	var loki *lokiHandler
-	if logLokiURL != "" {
+	username, password, err := resolveBasicAuthCredentials(logLokiCredentialsPath, logLokiCredentialsFromEnv)
+	if err != nil {
+		return nil, fmt.Errorf("Loki credentials: %w", err)
+	}
+	if logLokiURL != "" && username != "" && password != "" {
 		baseURL := strings.TrimSuffix(logLokiURL, "/")
 		hostname, _ := os.Hostname()
-		hostname = sanitizeFilename(hostname)
 		var err error
-		loki, err = newLokiHandler(baseURL, hostname, logLokiCredentials, slog.LevelDebug)
+		loki, err = newLokiHandler(baseURL, hostname, username, password, slog.LevelDebug)
 		if err != nil {
 			return nil, fmt.Errorf("initializing Loki handler: %w", err)
 		}
@@ -216,18 +224,4 @@ func initLogger(verbosity int, logLokiURL, logLokiCredentials string) (func() er
 		return nil
 	}
 	return closer, nil
-}
-
-func sanitizeFilename(s string) string {
-	s = filepath.Base(s)
-	s = strings.Map(func(r rune) rune {
-		if r == '/' || r == '\\' || r == '\x00' {
-			return '-'
-		}
-		return r
-	}, s)
-	if s == "" || s == "." || s == ".." {
-		return "unknown"
-	}
-	return strings.ToLower(s)
 }

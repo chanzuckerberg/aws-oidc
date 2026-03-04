@@ -23,12 +23,12 @@ const (
 	flagVerbose                = "verbose"
 	flagFlushOIDCTokenCache    = "flush-oidc-token-cache"
 	flagLogLokiURL             = "log-loki-url"
-	flagLogLokiCredentials     = "log-loki-credentials"
+	flagLogLokiCredentialsPath = "log-loki-credentials-path"
 	flagNodeLocalCache         = "node-local-cache"
 	envNodeLocalCache          = "AWS_OIDC_NODE_LOCAL_CACHE"
 	envLogLokiURL              = "AWS_OIDC_LOG_LOKI_URL"
-	envLogLokiCredentials     = "AWS_OIDC_LOG_LOKI_CREDENTIALS"
-	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
+	envLogLokiCredentials      = "AWS_OIDC_LOG_LOKI_CREDENTIALS" // base64-encoded username:password; overrides path when set
+	successMessage             = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
 	<code>$ aws --profile &lt;profile-name&gt; &lt;command&gt;</code><br/>
@@ -47,14 +47,12 @@ func init() {
 	}
 	rootCmd.PersistentFlags().String(flagLogLokiURL, defaultLogLokiURL, "Loki base URL to push logs to; also "+envLogLokiURL)
 
-	defaultLogLokiCredentials := os.Getenv(envLogLokiCredentials)
-	if defaultLogLokiCredentials == "" {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			defaultLogLokiCredentials = filepath.Join(home, ".aws-oidc", "secrets", "loki-secret")
-		}
+	defaultLogLokiCredentialsPath := ""
+	home, err := os.UserHomeDir()
+	if err == nil {
+		defaultLogLokiCredentialsPath = filepath.Join(home, ".aws-oidc", "secrets", "loki-secret")
 	}
-	rootCmd.PersistentFlags().String(flagLogLokiCredentials, defaultLogLokiCredentials, "Path to file containing Loki Basic Auth credentials (base64-encoded username:password); default ~/.aws-oidc/secrets/loki-secret; also "+envLogLokiCredentials)
+	rootCmd.PersistentFlags().String(flagLogLokiCredentialsPath, defaultLogLokiCredentialsPath, "Path to file containing Loki Basic Auth credentials (base64 username:password); used when "+envLogLokiCredentials+" is not set")
 	rootCmd.PersistentFlags().StringVar(&nodeLocalCache, flagNodeLocalCache, os.Getenv(envNodeLocalCache),
 		"Directory on node-local disk for OIDC token cache (use in distributed/NFS environments). "+
 			"Can also be set via "+envNodeLocalCache)
@@ -92,10 +90,11 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("missing log-loki-url flag: %w", err)
 		}
-		logLokiCredentials, err := cmd.Flags().GetString(flagLogLokiCredentials)
+		logLokiCredentialsPath, err := cmd.Flags().GetString(flagLogLokiCredentialsPath)
 		if err != nil {
-			return fmt.Errorf("missing log-loki-credentials flag: %w", err)
+			return fmt.Errorf("missing log-loki-credentials-path flag: %w", err)
 		}
+		logLokiCredentialsFromEnv := os.Getenv(envLogLokiCredentials)
 
 		if flushOIDCTokenCache {
 			err = flushOIDCTokenCacheFn(cmd.Context(), clientID, issuerURL)
@@ -110,7 +109,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		logCloser, err = initLogger(verbosity, logLokiURL, logLokiCredentials)
+		logCloser, err = initLogger(verbosity, logLokiURL, logLokiCredentialsPath, logLokiCredentialsFromEnv)
 		if err != nil {
 			return fmt.Errorf("initializing logger: %w", err)
 		}

@@ -45,10 +45,10 @@ func NewClient(baseURL, userAgent, username, password string, timeout time.Durat
 		userAgent = "aws-oidc"
 	}
 	return &Client{
-		baseURL:  strings.TrimSuffix(baseURL, "/"),
+		baseURL:   strings.TrimSuffix(baseURL, "/"),
 		userAgent: userAgent,
-		username: username,
-		password: password,
+		username:  username,
+		password:  password,
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -121,6 +121,7 @@ func (c *Client) send(ctx context.Context, payload []byte) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.username != "" && c.password != "" {
+		fmt.Println("setting basic auth", c.username, c.password)
 		req.SetBasicAuth(c.username, c.password)
 	}
 	resp, err := c.httpClient.Do(req)
