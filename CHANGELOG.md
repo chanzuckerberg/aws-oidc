@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.35.2...v0.36.0) (2026-03-04)
+
+
+### Features
+
+* flag to make output of refresh ttl command machine readable ([#1178](https://github.com/chanzuckerberg/aws-oidc/issues/1178)) ([0f62092](https://github.com/chanzuckerberg/aws-oidc/commit/0f6209269a542386f3a35f65926b33a6dfeabd8d))
+
 ## [0.35.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.35.1...v0.35.2) (2026-02-27)
 
 
