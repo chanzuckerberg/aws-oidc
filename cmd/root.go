@@ -26,7 +26,7 @@ const (
 	flagNodeLocalCache      = "node-local-cache"
 	envNodeLocalCache       = "AWS_OIDC_NODE_LOCAL_CACHE"
 	envLogLokiURL           = "AWS_OIDC_LOG_LOKI_URL"
-	envLogLokiCredentials   = "AWS_OIDC_LOG_LOKI_CREDENTIALS" // base64-encoded username:password; overrides path when set
+	envLogLokiCredentials   = "AWS_OIDC_LOG_LOKI_CREDENTIALS" // base64-encoded username:password
 	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
