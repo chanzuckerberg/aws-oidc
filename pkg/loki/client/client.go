@@ -121,7 +121,6 @@ func (c *Client) send(ctx context.Context, payload []byte) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", c.userAgent)
 	if c.username != "" && c.password != "" {
-		fmt.Println("setting basic auth", c.username, c.password)
 		req.SetBasicAuth(c.username, c.password)
 	}
 	resp, err := c.httpClient.Do(req)

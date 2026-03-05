@@ -148,21 +148,6 @@ func (h *lokiHandler) Flush() error {
 	return nil
 }
 
-// resolveBasicAuthCredentials returns username and password from env value (base64 username:password) if non-empty, else by reading the file at path.
-func resolveBasicAuthCredentials(path, envValue string) (username, password string, err error) {
-	if envValue != "" {
-		return parseBasicAuthCredentials(envValue)
-	}
-	if path == "" {
-		return "", "", fmt.Errorf("no credentials: set %s or provide a credentials path", envLogLokiCredentials)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", "", fmt.Errorf("reading credentials file: %w", err)
-	}
-	return parseBasicAuthCredentials(strings.TrimSpace(string(data)))
-}
-
 // parseBasicAuthCredentials decodes a base64-encoded "username:password" and returns the two parts.
 func parseBasicAuthCredentials(base64Value string) (username, password string, err error) {
 	decoded, err := base64.StdEncoding.DecodeString(base64Value)
@@ -182,7 +167,7 @@ func parseBasicAuthCredentials(base64Value string) (username, password string, e
 	return username, password, nil
 }
 
-func initLogger(verbosity int, logLokiURL, logLokiCredentialsPath, logLokiCredentialsFromEnv string) (func() error, error) {
+func initLogger(verbosity int, logLokiURL, logLokiCredentials string) (func() error, error) {
 	// Default: WARN, -v: INFO, -vv: DEBUG
 	stderrLevel := slog.LevelWarn
 	switch {
@@ -198,10 +183,11 @@ func initLogger(verbosity int, logLokiURL, logLokiCredentialsPath, logLokiCreden
 
 	handlers := []slog.Handler{stderrHandler}
 
+	closer := func() error { return nil }
 	var loki *lokiHandler
-	username, password, err := resolveBasicAuthCredentials(logLokiCredentialsPath, logLokiCredentialsFromEnv)
+	username, password, err := parseBasicAuthCredentials(logLokiCredentials)
 	if err != nil {
-		return nil, fmt.Errorf("Loki credentials: %w", err)
+		return closer, fmt.Errorf("Loki credentials: %w", err)
 	}
 	if logLokiURL != "" && username != "" && password != "" {
 		baseURL := strings.TrimSuffix(logLokiURL, "/")
@@ -209,7 +195,7 @@ func initLogger(verbosity int, logLokiURL, logLokiCredentialsPath, logLokiCreden
 		var err error
 		loki, err = newLokiHandler(baseURL, hostname, username, password, slog.LevelDebug)
 		if err != nil {
-			return nil, fmt.Errorf("initializing Loki handler: %w", err)
+			return closer, fmt.Errorf("initializing Loki handler: %w", err)
 		}
 		handlers = append(handlers, loki)
 	}
@@ -217,7 +203,7 @@ func initLogger(verbosity int, logLokiURL, logLokiCredentialsPath, logLokiCreden
 	logger := slog.New(&multiHandler{handlers: handlers})
 	slog.SetDefault(logger)
 
-	closer := func() error {
+	closer = func() error {
 		if loki != nil {
 			return loki.Flush()
 		}

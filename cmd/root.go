@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/storage"
 	"github.com/spf13/cobra"
@@ -20,15 +19,15 @@ var (
 )
 
 const (
-	flagVerbose                = "verbose"
-	flagFlushOIDCTokenCache    = "flush-oidc-token-cache"
-	flagLogLokiURL             = "log-loki-url"
-	flagLogLokiCredentialsPath = "log-loki-credentials-path"
-	flagNodeLocalCache         = "node-local-cache"
-	envNodeLocalCache          = "AWS_OIDC_NODE_LOCAL_CACHE"
-	envLogLokiURL              = "AWS_OIDC_LOG_LOKI_URL"
-	envLogLokiCredentials      = "AWS_OIDC_LOG_LOKI_CREDENTIALS" // base64-encoded username:password; overrides path when set
-	successMessage             = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
+	flagVerbose             = "verbose"
+	flagFlushOIDCTokenCache = "flush-oidc-token-cache"
+	flagLogLokiURL          = "log-loki-url"
+	flagLogLokiCredentials  = "log-loki-credentials"
+	flagNodeLocalCache      = "node-local-cache"
+	envNodeLocalCache       = "AWS_OIDC_NODE_LOCAL_CACHE"
+	envLogLokiURL           = "AWS_OIDC_LOG_LOKI_URL"
+	envLogLokiCredentials   = "AWS_OIDC_LOG_LOKI_CREDENTIALS" // base64-encoded username:password; overrides path when set
+	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
 	<code>$ aws --profile &lt;profile-name&gt; &lt;command&gt;</code><br/>
@@ -41,18 +40,20 @@ func init() {
 	rootCmd.PersistentFlags().CountP(flagVerbose, "v", "Increase verbosity (-v for INFO, -vv for DEBUG)")
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
 	rootCmd.PersistentFlags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
-	defaultLogLokiURL := os.Getenv(envLogLokiURL)
-	if defaultLogLokiURL == "" {
-		defaultLogLokiURL = "https://public-loki.dev-central-o11y.dev.czi.team"
+	logLokiURL := os.Getenv(envLogLokiURL)
+	if logLokiURL == "" {
+		logLokiURL = "https://public-loki.prod-central-o11y.prod.czi.team"
 	}
-	rootCmd.PersistentFlags().String(flagLogLokiURL, defaultLogLokiURL, "Loki base URL to push logs to; also "+envLogLokiURL)
+	rootCmd.PersistentFlags().String(flagLogLokiURL, logLokiURL, "Loki base URL to push logs to; also "+envLogLokiURL)
 
-	defaultLogLokiCredentialsPath := ""
-	home, err := os.UserHomeDir()
-	if err == nil {
-		defaultLogLokiCredentialsPath = filepath.Join(home, ".aws-oidc", "secrets", "loki-secret")
+	logLokiCredentials := os.Getenv(envLogLokiCredentials)
+	if logLokiCredentials == "" {
+		// NOTE: not really a credential, more like a pointer to our loki instance
+		// so we can capture logs from aws-oidc. Similar to a sentry DSN.
+		logLokiCredentials = "Y2VudHJhbC1sb2tpOkJpU1VJamxQTm4yTjgzaHgzYkJrb3U5RmFDSkc5VQo="
 	}
-	rootCmd.PersistentFlags().String(flagLogLokiCredentialsPath, defaultLogLokiCredentialsPath, "Path to file containing Loki Basic Auth credentials (base64 username:password); used when "+envLogLokiCredentials+" is not set")
+	rootCmd.PersistentFlags().String(flagLogLokiCredentials, logLokiCredentials, "Loki credentials to push logs to")
+
 	rootCmd.PersistentFlags().StringVar(&nodeLocalCache, flagNodeLocalCache, os.Getenv(envNodeLocalCache),
 		"Directory on node-local disk for OIDC token cache (use in distributed/NFS environments). "+
 			"Can also be set via "+envNodeLocalCache)
@@ -90,11 +91,11 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("missing log-loki-url flag: %w", err)
 		}
-		logLokiCredentialsPath, err := cmd.Flags().GetString(flagLogLokiCredentialsPath)
+
+		logLokiCredentials, err := cmd.Flags().GetString(flagLogLokiCredentials)
 		if err != nil {
-			return fmt.Errorf("missing log-loki-credentials-path flag: %w", err)
+			return fmt.Errorf("missing log-loki-credentials flag: %w", err)
 		}
-		logLokiCredentialsFromEnv := os.Getenv(envLogLokiCredentials)
 
 		if flushOIDCTokenCache {
 			err = flushOIDCTokenCacheFn(cmd.Context(), clientID, issuerURL)
@@ -109,7 +110,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		logCloser, err = initLogger(verbosity, logLokiURL, logLokiCredentialsPath, logLokiCredentialsFromEnv)
+		logCloser, err = initLogger(verbosity, logLokiURL, logLokiCredentials)
 		if err != nil {
 			return fmt.Errorf("initializing logger: %w", err)
 		}
