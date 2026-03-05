@@ -34,23 +34,24 @@ const (
 	<code>$ AWS_PROFILE=&lt;profile-name&gt; aws &lt;command&gt;</code><br/>
 	<p> Feel free to <a href="#" onclick="window.close();">close this window</a> whenever</p>
 	`
+	defaultLokiURL         = "https://public-loki.prod-central-o11y.prod.czi.team"
+	defaultLokiCredentials = ""
 )
 
 func init() {
 	rootCmd.PersistentFlags().CountP(flagVerbose, "v", "Increase verbosity (-v for INFO, -vv for DEBUG)")
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
 	rootCmd.PersistentFlags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
+
 	logLokiURL := os.Getenv(envLogLokiURL)
 	if logLokiURL == "" {
-		logLokiURL = "https://public-loki.prod-central-o11y.prod.czi.team"
+		logLokiURL = defaultLokiURL
 	}
-	rootCmd.PersistentFlags().String(flagLogLokiURL, logLokiURL, "Loki base URL to push logs to; also "+envLogLokiURL)
+	rootCmd.PersistentFlags().String(flagLogLokiURL, logLokiURL, "Loki base URL to push logs to")
 
 	logLokiCredentials := os.Getenv(envLogLokiCredentials)
 	if logLokiCredentials == "" {
-		// NOTE: not really a credential, more like a pointer to our loki instance
-		// so we can capture logs from aws-oidc. Similar to a sentry DSN.
-		logLokiCredentials = "Y2VudHJhbC1sb2tpOkJpU1VJamxQTm4yTjgzaHgzYkJrb3U5RmFDSkc5VQo="
+		logLokiCredentials = defaultLokiCredentials
 	}
 	rootCmd.PersistentFlags().String(flagLogLokiCredentials, logLokiCredentials, "Loki credentials to push logs to")
 
