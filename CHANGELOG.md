@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.36.1...v0.36.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* simplify folder structure; each user get their own space ([#1182](https://github.com/chanzuckerberg/aws-oidc/issues/1182)) ([ca896cf](https://github.com/chanzuckerberg/aws-oidc/commit/ca896cf54f44e06a44648794e7a3a2fc2e79c816))
+
 ## [0.36.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.36.0...v0.36.1) (2026-03-11)
 
 
