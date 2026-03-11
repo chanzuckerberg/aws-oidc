@@ -60,14 +60,10 @@ func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) erro
 }
 
 func getNodeLocalCachePath(provided string) string {
-	if provided == "" {
-		return ""
-	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		return filepath.Join(provided, "aws-oidc", fmt.Sprintf("%d", os.Getuid()))
-	}
-	return filepath.Join(provided, "aws-oidc", hostname, fmt.Sprintf("%d", os.Getuid()))
+	// hostname is an empty string if the hostname is not found.
+	hostname, _ := os.Hostname()
+	// Each user has their own directory on the node-local disk.
+	return filepath.Join(provided, fmt.Sprintf("%d", os.Getuid()), hostname)
 }
 
 var rootCmd = &cobra.Command{
@@ -97,12 +93,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if nodeLocalCache != "" {
-			path := getNodeLocalCachePath(nodeLocalCache)
-			err := os.MkdirAll(path, 0777)
-			if err != nil {
-				return fmt.Errorf("creating node-local cache directory: %w", err)
-			}
-			nodeLocalCacheFullPath = path
+			nodeLocalCacheFullPath = getNodeLocalCachePath(nodeLocalCache)
 		}
 
 		logCloser, err = initLogger(verbosity, logFile)
