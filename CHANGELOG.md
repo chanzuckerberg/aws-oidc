@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.36.0...v0.36.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* multiple people sharing /tmp with too restrictive file permissions ([#1180](https://github.com/chanzuckerberg/aws-oidc/issues/1180)) ([32de923](https://github.com/chanzuckerberg/aws-oidc/commit/32de923512d89cfd3fd90a97fa472422ade5f8dc))
+
 ## [0.36.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.35.2...v0.36.0) (2026-03-04)
 
 
