@@ -4,18 +4,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/storage"
 	"github.com/spf13/cobra"
 )
 
 var (
-	clientID       string
-	issuerURL      string
-	roleARN        string
-	deviceCodeFlow bool
-	nodeLocalCache string
-	logCloser      func() error = func() error { return nil }
+	clientID               string
+	issuerURL              string
+	roleARN                string
+	deviceCodeFlow         bool
+	nodeLocalCache         string
+	nodeLocalCacheFullPath string
+	logCloser              func() error = func() error { return nil }
 )
 
 const (
@@ -57,6 +59,17 @@ func flushOIDCTokenCacheFn(ctx context.Context, clientID, issuerURL string) erro
 	return nil
 }
 
+func getNodeLocalCachePath(provided string) string {
+	if provided == "" {
+		return ""
+	}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return filepath.Join(provided, "aws-oidc", fmt.Sprintf("%d", os.Getuid()))
+	}
+	return filepath.Join(provided, "aws-oidc", hostname, fmt.Sprintf("%d", os.Getuid()))
+}
+
 var rootCmd = &cobra.Command{
 	Use:          "aws-oidc",
 	SilenceUsage: true,
@@ -84,9 +97,12 @@ var rootCmd = &cobra.Command{
 		}
 
 		if nodeLocalCache != "" {
-			if err := os.MkdirAll(nodeLocalCache, 0o700); err != nil {
+			path := getNodeLocalCachePath(nodeLocalCache)
+			err := os.MkdirAll(path, 0777)
+			if err != nil {
 				return fmt.Errorf("creating node-local cache directory: %w", err)
 			}
+			nodeLocalCacheFullPath = path
 		}
 
 		logCloser, err = initLogger(verbosity, logFile)
