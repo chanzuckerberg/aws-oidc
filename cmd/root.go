@@ -23,9 +23,12 @@ var (
 const (
 	flagVerbose             = "verbose"
 	flagFlushOIDCTokenCache = "flush-oidc-token-cache"
-	flagLogFile             = "log-file"
+	flagLogLokiURL          = "log-loki-url"
+	flagLogLokiCredentials  = "log-loki-credentials"
 	flagNodeLocalCache      = "node-local-cache"
 	envNodeLocalCache       = "AWS_OIDC_NODE_LOCAL_CACHE"
+	envLogLokiURL           = "AWS_OIDC_LOG_LOKI_URL"
+	envLogLokiCredentials   = "AWS_OIDC_LOG_LOKI_CREDENTIALS" // base64-encoded username:password
 	successMessage          = `<h1>Success!</h1><p>You are now authenticated with AWS; this temporary session
 	will allow you to run AWS commmands from the command line.</p><p> When running
 	aws-cli commands, be sure to specify your profile in one of the following ways:</p>
@@ -33,13 +36,27 @@ const (
 	<code>$ AWS_PROFILE=&lt;profile-name&gt; aws &lt;command&gt;</code><br/>
 	<p> Feel free to <a href="#" onclick="window.close();">close this window</a> whenever</p>
 	`
+	defaultLokiURL         = "https://public-loki.prod-central-o11y.prod.czi.team"
+	defaultLokiCredentials = ""
 )
 
 func init() {
 	rootCmd.PersistentFlags().CountP(flagVerbose, "v", "Increase verbosity (-v for INFO, -vv for DEBUG)")
 	rootCmd.PersistentFlags().BoolP(flagFlushOIDCTokenCache, "", false, "Flush the OIDC token cache")
 	rootCmd.PersistentFlags().BoolVar(&deviceCodeFlow, "device-code-flow", false, "Use device code flow for authentication")
-	rootCmd.PersistentFlags().String(flagLogFile, "", "Path to a log file to write logs to (in addition to stderr when verbose)")
+
+	logLokiURL := os.Getenv(envLogLokiURL)
+	if logLokiURL == "" {
+		logLokiURL = defaultLokiURL
+	}
+	rootCmd.PersistentFlags().String(flagLogLokiURL, logLokiURL, "Loki base URL to push logs to")
+
+	logLokiCredentials := os.Getenv(envLogLokiCredentials)
+	if logLokiCredentials == "" {
+		logLokiCredentials = defaultLokiCredentials
+	}
+	rootCmd.PersistentFlags().String(flagLogLokiCredentials, logLokiCredentials, "Loki credentials to push logs to")
+
 	rootCmd.PersistentFlags().StringVar(&nodeLocalCache, flagNodeLocalCache, os.Getenv(envNodeLocalCache),
 		"Directory on node-local disk for OIDC token cache (use in distributed/NFS environments). "+
 			"Can also be set via "+envNodeLocalCache)
@@ -80,9 +97,14 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("missing flush-oidc-token-cache flag: %w", err)
 		}
 
-		logFile, err := cmd.Flags().GetString(flagLogFile)
+		logLokiURL, err := cmd.Flags().GetString(flagLogLokiURL)
 		if err != nil {
-			return fmt.Errorf("missing log-file flag: %w", err)
+			return fmt.Errorf("missing log-loki-url flag: %w", err)
+		}
+
+		logLokiCredentials, err := cmd.Flags().GetString(flagLogLokiCredentials)
+		if err != nil {
+			return fmt.Errorf("missing log-loki-credentials flag: %w", err)
 		}
 
 		if flushOIDCTokenCache {
@@ -96,7 +118,7 @@ var rootCmd = &cobra.Command{
 			nodeLocalCacheFullPath = getNodeLocalCachePath(nodeLocalCache)
 		}
 
-		logCloser, err = initLogger(verbosity, logFile)
+		logCloser, err = initLogger(verbosity, logLokiURL, logLokiCredentials)
 		if err != nil {
 			return fmt.Errorf("initializing logger: %w", err)
 		}
@@ -112,7 +134,7 @@ func Execute(ctx context.Context) error {
 	}
 	closeErr := logCloser()
 	if closeErr != nil {
-		fmt.Fprintf(os.Stderr, "closing log file: %v\n", closeErr)
+		fmt.Fprintf(os.Stderr, "flushing logger: %v\n", closeErr)
 	}
 	return err
 }
