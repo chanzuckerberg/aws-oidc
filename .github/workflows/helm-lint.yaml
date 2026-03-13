@@ -1,4 +1,3 @@
-###### Generated using `argus bootstrap` command ######
 name: Lint argus stack helm chart
 
 on:
@@ -9,17 +8,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-rdev:
-    runs-on: ARM64
-    steps:
-      - uses: chanzuckerberg/github-actions/.github/actions/helm-lint@v6
-        with:
-          chart_path: .infra/rdev
-          values_files: ../common.yaml,./values.yaml
   lint-prod:
-    runs-on: ARM64
+    runs-on: ubuntu-latest
     steps:
       - uses: chanzuckerberg/github-actions/.github/actions/helm-lint@v6
         with:
           chart_path: .infra/prod
+          values_files: ../common.yaml,./values.yaml
+  lint-rdev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: chanzuckerberg/github-actions/.github/actions/helm-lint@v6
+        with:
+          chart_path: .infra/rdev
           values_files: ../common.yaml,./values.yaml
