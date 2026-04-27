@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/chanzuckerberg/go-misc/oidc/v5/cli/client"
 )
 
@@ -17,9 +17,9 @@ func GetAWSAssumeIdentity(
 	roleARN string,
 	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	sess, err := session.NewSession()
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("creating AWS session: %w", err)
+		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
 
 	roleSessionName := token.Claims.Email
@@ -30,15 +30,15 @@ func GetAWSAssumeIdentity(
 		}
 	}
 
-	stsSession := sts.New(sess)
-	sessionDurationSeconds := int64(sessionDuration.Seconds())
+	stsClient := sts.NewFromConfig(cfg)
+	sessionDurationSeconds := int32(sessionDuration.Seconds())
 	input := &sts.AssumeRoleWithWebIdentityInput{
 		RoleArn:          aws.String(roleARN),
 		RoleSessionName:  &roleSessionName,
 		WebIdentityToken: aws.String(token.IDToken),
 		DurationSeconds:  &sessionDurationSeconds,
 	}
-	tokenOutput, err := stsSession.AssumeRoleWithWebIdentityWithContext(ctx, input)
+	tokenOutput, err := stsClient.AssumeRoleWithWebIdentity(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("assuming role with web identity: %w", err)
 	}

@@ -4,8 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	ststypes "github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/util"
 	"github.com/stretchr/testify/require"
@@ -38,7 +39,7 @@ func TestAWSEnvPrecedence(t *testing.T) {
 		Region:    aws.String(prevRegionKey1.String()),
 		Output:    aws.String(prevOutputKey1.String()),
 	}
-	dummyCredentials := &sts.Credentials{
+	dummyCredentials := &ststypes.Credentials{
 		AccessKeyId:     aws.String("dummyAccessKeyId"),
 		SecretAccessKey: aws.String("dummySecretAccessKey"),
 		SessionToken:    aws.String("dummySessionToken"),
