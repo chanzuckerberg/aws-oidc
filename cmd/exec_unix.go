@@ -9,7 +9,7 @@ import (
 	osexec "os/exec"
 	"syscall"
 
-	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 )
 
@@ -47,9 +47,9 @@ func getAWSEnvVars(assumeRoleOutput *sts.AssumeRoleWithWebIdentityOutput, awsOID
 
 	// Load assumeRoleOutput credentials
 	envVars = append(envVars,
-		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", string(*assumeRoleOutput.Credentials.AccessKeyId)),
-		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", string(*assumeRoleOutput.Credentials.SecretAccessKey)),
-		fmt.Sprintf("AWS_SESSION_TOKEN=%s", string(*assumeRoleOutput.Credentials.SessionToken)),
+		fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", *assumeRoleOutput.Credentials.AccessKeyId),
+		fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", *assumeRoleOutput.Credentials.SecretAccessKey),
+		fmt.Sprintf("AWS_SESSION_TOKEN=%s", *assumeRoleOutput.Credentials.SessionToken),
 	)
 
 	return envVars

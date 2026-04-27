@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 	"github.com/chanzuckerberg/aws-oidc/pkg/getter"
 	"github.com/spf13/cobra"
@@ -60,9 +60,9 @@ func credProcessRun(cmd *cobra.Command, args []string) error {
 
 	creds := credProcess{
 		Version:         credProcessVersion,
-		AccessKeyID:     string(*assumeRoleOutput.Credentials.AccessKeyId),
-		SecretAccessKey: string(*assumeRoleOutput.Credentials.SecretAccessKey),
-		SessionToken:    string(*assumeRoleOutput.Credentials.SessionToken),
+		AccessKeyID:     *assumeRoleOutput.Credentials.AccessKeyId,
+		SecretAccessKey: *assumeRoleOutput.Credentials.SecretAccessKey,
+		SessionToken:    *assumeRoleOutput.Credentials.SessionToken,
 		Expiration:      assumeRoleOutput.Credentials.Expiration.Format(time.RFC3339),
 	}
 

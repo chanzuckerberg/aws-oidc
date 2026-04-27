@@ -103,7 +103,7 @@ func getSubFromCtx(ctx context.Context) *string {
 
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
-	oktaClient okta.AppResource,
+	oktaClient okta.AppLister,
 	clientMappingsByKey okta.OIDCRoleMappingsByKey,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +151,7 @@ func Index(
 type RouterConfig struct {
 	Verifier            oidcVerifier
 	AwsGenerationParams *AWSConfigGenerationParams
-	OktaAppClient       okta.AppResource
+	OktaAppClient       okta.AppLister
 	ClientMappings      okta.OIDCRoleMappingsByKey
 }
 

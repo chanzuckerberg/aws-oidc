@@ -43,8 +43,8 @@ stack:
           readOnly: true
       env:
         - name: OKTA_CLIENT_ID
-          value: aws-config
+          value: 0oa1be0s0d6KhEAed1t8
         - name: OKTA_ISSUER_URL
-          value: https://czi-prod.okta.com
+          value: https://czi.okta.com
         - name: OKTA_SERVICE_CLIENT_ID
-          value: 0oa2m0fqfwCAASN9K5d7
+          value: 0oa18b7m1cb97rFLK1t8
