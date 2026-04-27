@@ -8,8 +8,7 @@ import (
 	"testing"
 
 	oidc "github.com/coreos/go-oidc"
-	"github.com/okta/okta-sdk-golang/v2/okta"
-	"github.com/okta/okta-sdk-golang/v2/okta/query"
+	"github.com/okta/okta-sdk-golang/v3/okta"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,8 +30,8 @@ var testAWSConfigGenerationParams = AWSConfigGenerationParams{
 
 type emptyOktaApplications struct{}
 
-func (oktaApp *emptyOktaApplications) ListApplications(ctx context.Context, qp *query.Params) ([]okta.App, *okta.Response, error) {
-	return nil, nil, nil
+func (m *emptyOktaApplications) ListApplications(_ context.Context, _, _ string) ([]okta.ListApplications200ResponseInner, string, error) {
+	return nil, "", nil
 }
 
 func TestNoEmail(t *testing.T) {

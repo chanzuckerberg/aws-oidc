@@ -45,7 +45,7 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	return env, nil
 }
 
-func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (okta.AppResource, error) {
+func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID string) (okta.AppLister, error) {
 	oktaConfig := &okta.OktaClientConfig{
 		ClientID:      oktaClientID,
 		PrivateKeyPEM: privateKey,
@@ -55,7 +55,7 @@ func createOktaClientApps(ctx context.Context, orgURL, privateKey, oktaClientID 
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create Okta Client: %w", err)
 	}
-	return client.Application, nil
+	return client, nil
 }
 
 func serveConfigRun(cmd *cobra.Command, args []string) error {
