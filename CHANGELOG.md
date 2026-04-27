@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.37.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.36.2...v0.37.0) (2026-04-27)
+
+
+### Features
+
+* switch aws-oidc to use czi.okta.com ([#1193](https://github.com/chanzuckerberg/aws-oidc/issues/1193)) ([87bd388](https://github.com/chanzuckerberg/aws-oidc/commit/87bd388708cde8b81f53a226e6421022679454d6))
+
+
+### Misc
+
+* bump actions/checkout from 5 to 6 ([#1176](https://github.com/chanzuckerberg/aws-oidc/issues/1176)) ([9f6211e](https://github.com/chanzuckerberg/aws-oidc/commit/9f6211e9b49fe5579f2fe806bf1f3accb622a1f3))
+* bump actions/create-github-app-token from 2 to 3 ([#1187](https://github.com/chanzuckerberg/aws-oidc/issues/1187)) ([bc5a1f1](https://github.com/chanzuckerberg/aws-oidc/commit/bc5a1f11b8a9f97c65b034ceb2ba76b812a5e838))
+* bump dependabot/fetch-metadata from 2 to 3 ([#1192](https://github.com/chanzuckerberg/aws-oidc/issues/1192)) ([7c5abb2](https://github.com/chanzuckerberg/aws-oidc/commit/7c5abb244e2f0b340ce23b4252e7eb2d3600b995))
+* bump EndBug/add-and-commit from 9 to 10 ([#1189](https://github.com/chanzuckerberg/aws-oidc/issues/1189)) ([289b734](https://github.com/chanzuckerberg/aws-oidc/commit/289b734fa9825e00e9baa69cb6c974b4dedaedb2))
+* bump github.com/go-jose/go-jose/v3 from 3.0.4 to 3.0.5 ([#1190](https://github.com/chanzuckerberg/aws-oidc/issues/1190)) ([a25a05d](https://github.com/chanzuckerberg/aws-oidc/commit/a25a05d7878a8d4f6ccbab73d0982cd0ed232aa7))
+* bump github.com/go-jose/go-jose/v4 from 4.1.3 to 4.1.4 ([#1191](https://github.com/chanzuckerberg/aws-oidc/issues/1191)) ([19f9b29](https://github.com/chanzuckerberg/aws-oidc/commit/19f9b29f3a72f7dfb5e31c31bd5e58a7d868c6e5))
+
 ## [0.36.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.36.1...v0.36.2) (2026-03-11)
 
 
