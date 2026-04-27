@@ -188,11 +188,11 @@
   okta_client_id: 0oa1bn1cw4wphTTM31t8
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
-  aws_role_arn: arn:aws:iam::591406941557:role/readonly
+  aws_role_arn: arn:aws:iam::591406941557:role/poweruser
   okta_client_id: 0oa1bn1bb8l2eKHyR1t8
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
-  aws_role_arn: arn:aws:iam::591406941557:role/poweruser
+  aws_role_arn: arn:aws:iam::591406941557:role/readonly
   okta_client_id: 0oa1bn1bb8l2eKHyR1t8
 - aws_account_id: "591406941557"
   aws_account_alias: czi-connections
