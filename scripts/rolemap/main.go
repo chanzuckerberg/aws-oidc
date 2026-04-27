@@ -24,9 +24,9 @@ type OIDCRoleMappingByClientID map[string][]OIDCRoleMapping
 const (
 	accountIDOutputName             = "current_account_id"
 	accountAliasOutputName          = "current_account_alias"
-	oktaCZIAdminClientIDsOutputName = "okta-czi-admin_oidc_client_ids"
-	poweruserClientIDsOutputName    = "poweruser_oidc_client_ids"
-	readonlyClientIDsOutputName     = "readonly_oidc_client_ids"
+	oktaCZIAdminClientIDsOutputName = "czi-okta_okta_czi_admin_oidc_client_ids"
+	poweruserClientIDsOutputName    = "czi_okta_poweruser_oidc_client_ids"
+	readonlyClientIDsOutputName     = "czi_okta_readonly_oidc_client_ids"
 
 	poweruserRoleARNFmt    = "arn:aws:iam::%s:role/poweruser"
 	readonlyRoleARNFmt     = "arn:aws:iam::%s:role/readonly"
