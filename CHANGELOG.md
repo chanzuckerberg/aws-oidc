@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.0...v0.37.1) (2026-05-04)
+
+
+### Misc
+
+* update rolemap to include es-migration-test ([#1194](https://github.com/chanzuckerberg/aws-oidc/issues/1194)) ([081ddb5](https://github.com/chanzuckerberg/aws-oidc/commit/081ddb50e823b3a1ba7af4821173e1437e231dfb))
+
 ## [0.37.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.36.2...v0.37.0) (2026-04-27)
 
 
