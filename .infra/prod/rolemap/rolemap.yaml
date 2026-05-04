@@ -51,7 +51,7 @@
   aws_role_arn: arn:aws:iam::908710317728:role/okta-czi-admin
   okta_client_id: 0oa1bn1cw4wphTTM31t8
 - aws_account_id: "908710317728"
-  aws_account_alias: cryoet-dev
+  aws_account_alias: cryoet-dev2
   aws_role_arn: arn:aws:iam::908710317728:role/readonly
   okta_client_id: 0oa1bn1c874E2iUvA1t8
 - aws_account_id: "871040364337"
