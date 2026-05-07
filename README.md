@@ -88,6 +88,23 @@ $ aws-oidc check-refresh-ttl --issuer-url=<issuer url> --client-id=<client ID>
 ### version
 Prints the version of aws-oidc to stdout.
 
+### serve-imds
+Runs a long-lived credential helper for **unattended workloads** (no human in the loop). Authenticates via Okta OAuth 2.0 `client_credentials`, exchanges the resulting JWT for AWS STS credentials, and serves them on a localhost endpoint that mimics EC2 IMDSv2.
+
+Workloads such as Prometheus or the AWS CLI consume the credentials by setting `AWS_EC2_METADATA_SERVICE_ENDPOINT` to the helper's URL — the AWS SDK's default credential chain discovers them automatically and uses them for SigV4 signing.
+
+```bash
+$ aws-oidc serve-imds \
+    --client-id <okta-service-app-client-id> \
+    --client-secret-file /etc/aws-oidc/client_secret \
+    --issuer-url https://<org>.okta.com/oauth2/<custom_auth_server_id> \
+    --aws-role-arn arn:aws:iam::ACCT:role/<your-role>
+```
+
+The `--issuer-url` MUST point to an Okta **Custom** Authorization Server (not the Org / default authorization server, which issues opaque tokens that AWS STS cannot validate). All flags can be set via env vars with the `AWS_OIDC_IMDS_` prefix, e.g. `AWS_OIDC_IMDS_CLIENT_ID`.
+
+Full operator guide (Okta + AWS prerequisites, systemd unit example, Kubernetes sidecar example, troubleshooting): see [docs/serve-imds-workload-helper.md](docs/serve-imds-workload-helper.md).
+
 ## Distributed / NFS Environments
 
 In environments where many hosts share a home directory over NFS (e.g. HPC clusters, shared compute nodes), the default OIDC token cache at `~/.cache/oidc-cli/` can cause problems:

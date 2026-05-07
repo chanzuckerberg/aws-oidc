@@ -18,5 +18,10 @@ RUN apk update && apk --no-cache add ca-certificates curl
 COPY --from=builder /app/aws-oidc /bin/aws-oidc
 COPY ./entrypoint.sh ./entrypoint.sh
 
+# Smoke test: confirm both subcommands register and --help works. Catches
+# broken Cobra wiring at image build time.
+RUN /bin/aws-oidc serve-config --help >/dev/null \
+ && /bin/aws-oidc serve-imds --help >/dev/null
+
 CMD ["serve-config"]
 ENTRYPOINT ["./entrypoint.sh"]
