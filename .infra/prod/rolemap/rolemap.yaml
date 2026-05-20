@@ -1,4 +1,4 @@
-- aws_account_id: "984830177581"
+- aws_account_id: "984830177581" # bump
   aws_account_alias: czi-comp-bio
   aws_role_arn: arn:aws:iam::984830177581:role/readonly
   okta_client_id: 0oa1bn1d9ucwCNsIy1t8
