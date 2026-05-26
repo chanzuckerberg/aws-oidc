@@ -266,6 +266,14 @@
   aws_account_alias: cryoet-prod
   aws_role_arn: arn:aws:iam::489077519657:role/okta-czi-admin
   okta_client_id: 0oa1bn1cw4wphTTM31t8
+- aws_account_id: "488839855460"
+  aws_account_alias: nautilus-proj-prod
+  aws_role_arn: arn:aws:iam::488839855460:role/readonly
+  okta_client_id: 0oa1bn1d9ucwCNsIy1t8
+- aws_account_id: "488839855460"
+  aws_account_alias: nautilus-proj-prod
+  aws_role_arn: arn:aws:iam::488839855460:role/okta-czi-admin
+  okta_client_id: 0oa1bn1cw4wphTTM31t8
 - aws_account_id: "471112759938"
   aws_account_alias: core-platform-nonprod
   aws_role_arn: arn:aws:iam::471112759938:role/readonly
@@ -369,6 +377,14 @@
 - aws_account_id: "339713142298"
   aws_account_alias: virtual-cells-prod
   aws_role_arn: arn:aws:iam::339713142298:role/okta-czi-admin
+  okta_client_id: 0oa1bn1cw4wphTTM31t8
+- aws_account_id: "331146039280"
+  aws_account_alias: nautilus-proj-nonprod
+  aws_role_arn: arn:aws:iam::331146039280:role/readonly
+  okta_client_id: 0oa1bn1d9ucwCNsIy1t8
+- aws_account_id: "331146039280"
+  aws_account_alias: nautilus-proj-nonprod
+  aws_role_arn: arn:aws:iam::331146039280:role/okta-czi-admin
   okta_client_id: 0oa1bn1cw4wphTTM31t8
 - aws_account_id: "277707108111"
   aws_account_alias: sci-data-staging
