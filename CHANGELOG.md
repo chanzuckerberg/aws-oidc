@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.1...v0.37.2) (2026-05-26)
+
+
+### Misc
+
+* update rolemap ([#1197](https://github.com/chanzuckerberg/aws-oidc/issues/1197)) ([75b1f28](https://github.com/chanzuckerberg/aws-oidc/commit/75b1f28b6787b357800322c45b0d37edc1ca2bac))
+
 ## [0.37.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.0...v0.37.1) (2026-05-04)
 
 
