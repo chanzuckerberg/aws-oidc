@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.2...v0.37.3) (2026-05-28)
+
+
+### Misc
+
+* nudge to trigger rolemap update ([#1200](https://github.com/chanzuckerberg/aws-oidc/issues/1200)) ([08dd277](https://github.com/chanzuckerberg/aws-oidc/commit/08dd2774d820515a60962bc780119d96472067f4))
+* nudge to trigger rolemap update ([#1202](https://github.com/chanzuckerberg/aws-oidc/issues/1202)) ([eb60008](https://github.com/chanzuckerberg/aws-oidc/commit/eb6000883c1d9a905b8394c9836803fff0abf34f))
+
 ## [0.37.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.1...v0.37.2) (2026-05-26)
 
 
