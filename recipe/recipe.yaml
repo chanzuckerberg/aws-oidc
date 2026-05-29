@@ -1,5 +1,5 @@
 context:
-  version: "0.37.3" # x-release-please-version
+  version: "0.37.4" # x-release-please-version
 
 package:
   name: aws-oidc
