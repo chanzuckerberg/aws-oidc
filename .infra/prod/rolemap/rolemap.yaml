@@ -268,6 +268,10 @@
   okta_client_id: 0oa1bn1cw4wphTTM31t8
 - aws_account_id: "488839855460"
   aws_account_alias: nautilus-proj-prod
+  aws_role_arn: arn:aws:iam::488839855460:role/readonly
+  okta_client_id: 0oa1cclklzu855YQw1t8
+- aws_account_id: "488839855460"
+  aws_account_alias: nautilus-proj-prod
   aws_role_arn: arn:aws:iam::488839855460:role/poweruser
   okta_client_id: 0oa1ccljp159SKrMr1t8
 - aws_account_id: "488839855460"
@@ -389,6 +393,10 @@
 - aws_account_id: "331146039280"
   aws_account_alias: nautilus-proj-nonprod
   aws_role_arn: arn:aws:iam::331146039280:role/readonly
+  okta_client_id: 0oa1ccliyaaxugliW1t8
+- aws_account_id: "331146039280"
+  aws_account_alias: nautilus-proj-nonprod
+  aws_role_arn: arn:aws:iam::331146039280:role/readonly
   okta_client_id: 0oa1bn1d9ucwCNsIy1t8
 - aws_account_id: "331146039280"
   aws_account_alias: nautilus-proj-nonprod
@@ -416,11 +424,11 @@
   okta_client_id: 0oa1bn1cw4wphTTM31t8
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
-  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
+  aws_role_arn: arn:aws:iam::254379453707:role/readonly
   okta_client_id: 0oa1bn1beawf6Yt8s1t8
 - aws_account_id: "254379453707"
   aws_account_alias: edu-platform-playground
-  aws_role_arn: arn:aws:iam::254379453707:role/readonly
+  aws_role_arn: arn:aws:iam::254379453707:role/poweruser
   okta_client_id: 0oa1bn1beawf6Yt8s1t8
 - aws_account_id: "248448116955"
   aws_account_alias: czi-protocolsio
