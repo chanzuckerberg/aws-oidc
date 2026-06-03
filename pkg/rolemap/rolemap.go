@@ -1,27 +1,24 @@
-package main
+// Package rolemap generates the aws-oidc rolemap — the mapping from Okta OIDC
+// client IDs to assumable AWS role ARNs — by reading the per-account Terraform
+// state outputs published to TFE.
+package rolemap
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"sort"
 
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/hashicorp/go-tfe"
 	"gopkg.in/yaml.v2"
 )
 
-type OIDCRoleMapping struct {
-	AWSAccountID    string `yaml:"aws_account_id"`
-	AWSAccountAlias string `yaml:"aws_account_alias"`
-	AWSRoleARN      string `yaml:"aws_role_arn"`
-	OktaClientID    string `yaml:"okta_client_id"`
-}
-
-type OIDCRoleMappingByClientID map[string][]OIDCRoleMapping
-
 const (
+	tfeAddress = "https://si.prod.tfe.czi.technology"
+	tfeOrg     = "shared-infra"
+
 	accountIDOutputName             = "current_account_id"
 	accountAliasOutputName          = "current_account_alias"
 	oktaCZIAdminClientIDsOutputName = "czi-okta_okta_czi_admin_oidc_client_ids"
@@ -39,13 +36,70 @@ const (
 	customRoleARNFmt       = "arn:aws:iam::%s:role/%s"
 )
 
-func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID string) ([]OIDCRoleMapping, error) {
+// Generate reads every shared-infra accounts-* workspace's current state from TFE and
+// returns the full set of role mappings, in a deterministic order.
+func Generate(ctx context.Context, tfeToken string) (okta.OIDCRoleMappings, error) {
+	client, err := tfe.NewClient(&tfe.Config{Token: tfeToken, Address: tfeAddress})
+	if err != nil {
+		return nil, fmt.Errorf("creating new TFE client: %w", err)
+	}
+
+	workspaces, err := getAllAccountTFEWorkspaces(ctx, client)
+	if err != nil {
+		return nil, fmt.Errorf("getting all %s account-* workspaces: %w", tfeOrg, err)
+	}
+
+	allMappings := okta.OIDCRoleMappings{}
+	for _, workspace := range workspaces {
+		// Skip specific workspaces
+		if workspace.Name == "accounts-es-prod" {
+			slog.Info("skipping workspace", "name", workspace.Name)
+			continue
+		}
+
+		mappings, err := workspaceRoleMappings(ctx, client, workspace.ID)
+		if err != nil {
+			return nil, fmt.Errorf("getting role mappings for workspace %s: %w", workspace.Name, err)
+		}
+
+		slog.Info("workspace", "name", workspace.Name, "id", workspace.ID, "mappingsCounts", len(mappings))
+		allMappings = append(allMappings, mappings...)
+	}
+
+	// Total ordering so the generated YAML is deterministic regardless of the order TFE
+	// returns workspaces or state outputs. Account ID and client ID alone are not enough:
+	// one client ID can map to more than one role ARN (e.g. a custom role plus poweruser),
+	// so without the role-ARN tiebreaker those rows could swap places and churn the diff.
+	sort.Slice(allMappings, func(i, j int) bool {
+		a, b := allMappings[i], allMappings[j]
+		if a.AWSAccountID != b.AWSAccountID {
+			return a.AWSAccountID > b.AWSAccountID
+		}
+		if a.OktaClientID != b.OktaClientID {
+			return a.OktaClientID > b.OktaClientID
+		}
+		return a.AWSRoleARN > b.AWSRoleARN
+	})
+
+	return allMappings, nil
+}
+
+// Marshal renders mappings to the YAML form stored in the rolemap ConfigMap.
+func Marshal(mappings okta.OIDCRoleMappings) ([]byte, error) {
+	b, err := yaml.Marshal(mappings)
+	if err != nil {
+		return nil, fmt.Errorf("marshalling role mappings to YAML: %w", err)
+	}
+	return b, nil
+}
+
+func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID string) (okta.OIDCRoleMappings, error) {
 	currentState, err := client.StateVersionOutputs.ReadCurrent(ctx, workspaceID)
 	if err != nil {
 		return nil, fmt.Errorf("reading current state version outputs: %w", err)
 	}
 
-	mappings := []OIDCRoleMapping{}
+	mappings := okta.OIDCRoleMappings{}
 	var accountID string
 	var accountAlias string
 	for _, output := range currentState.Items {
@@ -65,7 +119,7 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 				if err != nil {
 					return nil, fmt.Errorf("parsing role ARN: %w", err)
 				}
-				mappings = append(mappings, OIDCRoleMapping{
+				mappings = append(mappings, okta.OIDCRoleMapping{
 					OktaClientID:    clientID.(string),
 					AWSAccountID:    accountID,
 					AWSAccountAlias: accountAlias,
@@ -78,7 +132,7 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 				if err != nil {
 					return nil, fmt.Errorf("parsing role ARN: %w", err)
 				}
-				mappings = append(mappings, OIDCRoleMapping{
+				mappings = append(mappings, okta.OIDCRoleMapping{
 					OktaClientID:    clientID.(string),
 					AWSAccountID:    accountID,
 					AWSAccountAlias: accountAlias,
@@ -91,7 +145,7 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 				if err != nil {
 					return nil, fmt.Errorf("parsing role ARN: %w", err)
 				}
-				mappings = append(mappings, OIDCRoleMapping{
+				mappings = append(mappings, okta.OIDCRoleMapping{
 					OktaClientID:    clientID.(string),
 					AWSAccountID:    accountID,
 					AWSAccountAlias: accountAlias,
@@ -114,13 +168,13 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 // { role_name, client_ids } objects, into role mappings. It tolerates anything that does
 // not match that shape by skipping it, so an account without the output (or with an
 // unexpected value) simply contributes no custom-role mappings rather than failing the run.
-func customRoleMappings(accountID, accountAlias string, value interface{}) ([]OIDCRoleMapping, error) {
+func customRoleMappings(accountID, accountAlias string, value interface{}) (okta.OIDCRoleMappings, error) {
 	entries, ok := value.([]interface{})
 	if !ok {
 		return nil, nil
 	}
 
-	mappings := []OIDCRoleMapping{}
+	mappings := okta.OIDCRoleMappings{}
 	for _, entry := range entries {
 		obj, ok := entry.(map[string]interface{})
 		if !ok {
@@ -143,7 +197,7 @@ func customRoleMappings(accountID, accountAlias string, value interface{}) ([]OI
 			if !ok {
 				continue
 			}
-			mappings = append(mappings, OIDCRoleMapping{
+			mappings = append(mappings, okta.OIDCRoleMapping{
 				OktaClientID:    id,
 				AWSAccountID:    accountID,
 				AWSAccountAlias: accountAlias,
@@ -160,7 +214,7 @@ func getAllAccountTFEWorkspaces(ctx context.Context, client *tfe.Client) ([]*tfe
 	page := 1
 	pageSize := 100
 	for {
-		workspaceListPage, err := client.Workspaces.List(ctx, "shared-infra", &tfe.WorkspaceListOptions{
+		workspaceListPage, err := client.Workspaces.List(ctx, tfeOrg, &tfe.WorkspaceListOptions{
 			Search: "accounts-",
 			ListOptions: tfe.ListOptions{
 				PageNumber: page,
@@ -178,79 +232,4 @@ func getAllAccountTFEWorkspaces(ctx context.Context, client *tfe.Client) ([]*tfe
 	}
 
 	return workspaces, nil
-}
-
-func exec(ctx context.Context) error {
-	token := os.Getenv("TFE_TOKEN")
-	if token == "" {
-		return fmt.Errorf("TFE_TOKEN environment variable must be set.")
-	}
-
-	config := &tfe.Config{
-		Token:   token,
-		Address: "https://si.prod.tfe.czi.technology",
-	}
-
-	client, err := tfe.NewClient(config)
-	if err != nil {
-		return fmt.Errorf("creating new TFE client: %w", err)
-	}
-
-	workspaces, err := getAllAccountTFEWorkspaces(ctx, client)
-	if err != nil {
-		return fmt.Errorf("getting all shared-infra account-* workspaces: %w", err)
-	}
-
-	allMappings := []OIDCRoleMapping{}
-	for _, workspace := range workspaces {
-		// Skip specific workspaces
-		if workspace.Name == "accounts-es-prod" {
-			slog.Info("skipping workspace", "name", workspace.Name)
-			continue
-		}
-
-		mappings, err := workspaceRoleMappings(ctx, client, workspace.ID)
-		if err != nil {
-			return fmt.Errorf("getting role mappings for workspace %s: %w", workspace.Name, err)
-		}
-
-		slog.Info("workspace", "name", workspace.Name, "id", workspace.ID, "mappingsCounts", len(mappings))
-		allMappings = append(allMappings, mappings...)
-	}
-
-	// Total ordering so the generated YAML is deterministic regardless of the order TFE
-	// returns workspaces or state outputs. Account ID and client ID alone are not enough:
-	// one client ID can map to more than one role ARN (e.g. a custom role plus poweruser),
-	// so without the role-ARN tiebreaker those rows could swap places and churn the diff.
-	sort.Slice(allMappings, func(i, j int) bool {
-		a, b := allMappings[i], allMappings[j]
-		if a.AWSAccountID != b.AWSAccountID {
-			return a.AWSAccountID > b.AWSAccountID
-		}
-		if a.OktaClientID != b.OktaClientID {
-			return a.OktaClientID > b.OktaClientID
-		}
-		return a.AWSRoleARN > b.AWSRoleARN
-	})
-
-	b, err := yaml.Marshal(allMappings)
-	if err != nil {
-		return fmt.Errorf("marshalling role mappings to YAML: %w", err)
-	}
-
-	for _, env := range []string{"rdev", "prod"} {
-		err = os.WriteFile(fmt.Sprintf("../../.infra/%s/rolemap/rolemap.yaml", env), b, 0644)
-		if err != nil {
-			return fmt.Errorf("writing role mappings to file: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func main() {
-	err := exec(context.Background())
-	if err != nil {
-		panic(err)
-	}
 }

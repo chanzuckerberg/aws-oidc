@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
+	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/coreos/go-oidc"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/assert/yaml"
 )
 
 var webServerPort int
@@ -26,6 +25,8 @@ type OktaWebserverEnvironment struct {
 func init() {
 	rootCmd.AddCommand(serveConfigCmd)
 	serveConfigCmd.Flags().IntVar(&webServerPort, "web-server-port", 8080, "Port to host the aws config website")
+	serveConfigCmd.Flags().String(flagConfigMapName, "rolemap", "Name of the ConfigMap to read the rolemap from")
+	serveConfigCmd.Flags().String(flagConfigMapKey, "rolemap.yaml", "Key within the ConfigMap that holds the rolemap YAML")
 }
 
 var serveConfigCmd = &cobra.Command{
@@ -80,29 +81,35 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		OIDCProvider: oktaEnv.ISSUER_URL,
 	}
 
-	b, err := os.ReadFile("/rolemap/rolemap.yaml")
+	configMapName, err := cmd.Flags().GetString(flagConfigMapName)
 	if err != nil {
-		return fmt.Errorf("reading rolemap.yaml: %w", err)
+		return fmt.Errorf("missing configmap-name flag: %w", err)
 	}
-	clientMappings := okta.OIDCRoleMappings{}
-	err = yaml.Unmarshal(b, &clientMappings)
+	configMapKey, err := cmd.Flags().GetString(flagConfigMapKey)
 	if err != nil {
-		return fmt.Errorf("unmarshalling rolemap.yaml: %w", err)
+		return fmt.Errorf("missing configmap-key flag: %w", err)
 	}
-	clientMappingsByKey := make(okta.OIDCRoleMappingsByKey)
-	for _, mapping := range clientMappings {
-		_, ok := clientMappingsByKey[mapping.OktaClientID]
-		if ok {
-			clientMappingsByKey[mapping.OktaClientID] = append(clientMappingsByKey[mapping.OktaClientID], mapping)
-		} else {
-			clientMappingsByKey[mapping.OktaClientID] = []okta.OIDCRoleMapping{mapping}
+
+	kubeClient, namespace, err := configmap.NewInClusterClient()
+	if err != nil {
+		return fmt.Errorf("creating in-cluster client: %w", err)
+	}
+
+	// Read the rolemap ConfigMap fresh on every request so the cronjob's updates are
+	// served without a restart.
+	mappingsProvider := func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error) {
+		mappings, err := configmap.ReadRoleMappings(ctx, kubeClient, namespace, configMapName, configMapKey)
+		if err != nil {
+			return nil, err
 		}
+		return mappings.ByClientID(), nil
 	}
+
 	routerConfig := &webserver.RouterConfig{
 		Verifier:            verifier,
 		AwsGenerationParams: &configGenerationParams,
 		OktaAppClient:       oktaAppClient,
-		ClientMappings:      clientMappingsByKey,
+		MappingsProvider:    mappingsProvider,
 	}
 
 	router := webserver.GetRouter(ctx, routerConfig)

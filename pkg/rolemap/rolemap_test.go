@@ -1,8 +1,10 @@
-package main
+package rolemap
 
 import (
 	"reflect"
 	"testing"
+
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
 func TestCustomRoleMappings(t *testing.T) {
@@ -13,7 +15,7 @@ func TestCustomRoleMappings(t *testing.T) {
 
 	cases := map[string]struct {
 		value interface{}
-		want  []OIDCRoleMapping
+		want  okta.OIDCRoleMappings
 	}{
 		"single role single client": {
 			value: []interface{}{
@@ -22,7 +24,7 @@ func TestCustomRoleMappings(t *testing.T) {
 					"client_ids": []interface{}{"0oaCLIENT1"},
 				},
 			},
-			want: []OIDCRoleMapping{
+			want: okta.OIDCRoleMappings{
 				{
 					OktaClientID:    "0oaCLIENT1",
 					AWSAccountID:    accountID,
@@ -42,7 +44,7 @@ func TestCustomRoleMappings(t *testing.T) {
 					"client_ids": []interface{}{"0oaB1"},
 				},
 			},
-			want: []OIDCRoleMapping{
+			want: okta.OIDCRoleMappings{
 				{OktaClientID: "0oaA1", AWSAccountID: accountID, AWSAccountAlias: accountAlias, AWSRoleARN: "arn:aws:iam::123456789012:role/role-a"},
 				{OktaClientID: "0oaA2", AWSAccountID: accountID, AWSAccountAlias: accountAlias, AWSRoleARN: "arn:aws:iam::123456789012:role/role-a"},
 				{OktaClientID: "0oaB1", AWSAccountID: accountID, AWSAccountAlias: accountAlias, AWSRoleARN: "arn:aws:iam::123456789012:role/role-b"},
@@ -67,7 +69,7 @@ func TestCustomRoleMappings(t *testing.T) {
 					"client_ids": []interface{}{"0oaGOOD", 42}, // non-string client id skipped
 				},
 			},
-			want: []OIDCRoleMapping{
+			want: okta.OIDCRoleMappings{
 				{OktaClientID: "0oaGOOD", AWSAccountID: accountID, AWSAccountAlias: accountAlias, AWSRoleARN: "arn:aws:iam::123456789012:role/good-role"},
 			},
 		},
