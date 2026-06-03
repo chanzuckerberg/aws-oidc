@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.38.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.4...v0.38.0) (2026-06-03)
+
+
+### Features
+
+* **rolemap:** custom roles + serve from a cronjob-updated ConfigMap ([#1205](https://github.com/chanzuckerberg/aws-oidc/issues/1205)) ([07e30fd](https://github.com/chanzuckerberg/aws-oidc/commit/07e30fd2b5b02b7c2cde64fe6fa70a8edbad4c81))
+
+
+### Misc
+
+* update 'stack' helm chart version for aws-oidc prod ([#1186](https://github.com/chanzuckerberg/aws-oidc/issues/1186)) ([14c280e](https://github.com/chanzuckerberg/aws-oidc/commit/14c280e343bf1b04cc593d68bab63eded7a5aaad))
+* update 'stack' helm chart version for aws-oidc rdev ([#1185](https://github.com/chanzuckerberg/aws-oidc/issues/1185)) ([606c3a1](https://github.com/chanzuckerberg/aws-oidc/commit/606c3a197f0349384ab8dff64c9399f1597c0247))
+
 ## [0.37.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.3...v0.37.4) (2026-05-29)
 
 
