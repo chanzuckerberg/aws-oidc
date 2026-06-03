@@ -218,11 +218,19 @@ func exec(ctx context.Context) error {
 		allMappings = append(allMappings, mappings...)
 	}
 
+	// Total ordering so the generated YAML is deterministic regardless of the order TFE
+	// returns workspaces or state outputs. Account ID and client ID alone are not enough:
+	// one client ID can map to more than one role ARN (e.g. a custom role plus poweruser),
+	// so without the role-ARN tiebreaker those rows could swap places and churn the diff.
 	sort.Slice(allMappings, func(i, j int) bool {
-		if allMappings[i].AWSAccountID != allMappings[j].AWSAccountID {
-			return allMappings[i].AWSAccountID > allMappings[j].AWSAccountID
+		a, b := allMappings[i], allMappings[j]
+		if a.AWSAccountID != b.AWSAccountID {
+			return a.AWSAccountID > b.AWSAccountID
 		}
-		return allMappings[i].OktaClientID > allMappings[j].OktaClientID
+		if a.OktaClientID != b.OktaClientID {
+			return a.OktaClientID > b.OktaClientID
+		}
+		return a.AWSRoleARN > b.AWSRoleARN
 	})
 
 	b, err := yaml.Marshal(allMappings)

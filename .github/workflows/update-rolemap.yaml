@@ -1,5 +1,16 @@
 name: Update rolemap
-on: push
+on:
+  push:
+  schedule:
+    # Every 30 minutes, catch rolemap drift from shared-infra applies that did not
+    # touch this repo (new accounts/roles, rotated client IDs).
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# Never let two refresh runs race on the shared PR branch.
+concurrency:
+  group: update-rolemap
+  cancel-in-progress: false
 
 jobs:
   update-rolemap:
@@ -23,8 +34,42 @@ jobs:
           TFE_TOKEN: ${{ secrets.TFE_TOKEN }}
         run: |
           go run main.go
-      - uses: EndBug/add-and-commit@v10
+
+      # On push, commit the regenerated rolemap straight back to the pushed branch.
+      - name: Commit on push
+        if: github.event_name == 'push'
+        uses: EndBug/add-and-commit@v10
         with:
           add: -A
           message: |
             commit from ci -- ran update-rolemap and pushed
+
+      # On schedule / manual run, propose the refresh as a single PR. Reusing a fixed
+      # branch means an open PR is updated in place rather than duplicated.
+      - name: Open or update rolemap PR
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "rolemap unchanged; nothing to do"
+            exit 0
+          fi
+
+          branch=automation/update-rolemap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add -A
+          git commit -m "chore: update rolemap"
+          git push --force origin "$branch"
+
+          existing=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$existing" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "chore: update rolemap" \
+              --body "Automated rolemap refresh from TFE state, run on a 30-minute schedule. This PR updates in place on each run; merge it to publish the regenerated rolemap."
+          else
+            echo "PR #$existing already open; force-pushed the refreshed rolemap to its branch"
+          fi
