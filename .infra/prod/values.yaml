@@ -8,3 +8,36 @@ stack:
       ingress:
         rules:
           - host: aws-oidc.prod-central.prod.czi.team
+  cronJobs:
+    # Regenerates the rolemap from TFE state every 10 minutes and writes it to the
+    # `rolemap` ConfigMap. Granted read/write on that ConfigMap by templates/rbac.yaml.
+    # Reads TFE_TOKEN from the Argus stack secret. Same image as the server; CI's
+    # surgical `tag: sha-*` bump keeps this tag in sync.
+    rolemap-updater:
+      schedule: "*/10 * * * *"
+      concurrencyPolicy: Forbid
+      serviceAccount:
+        create: true
+        name: rolemap-updater
+      image:
+        repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+        tag: sha-64b0b94
+      # This is a batch job with no HTTP server. Override the inherited HTTP probes with a
+      # trivially-succeeding exec probe (the chart drops httpGet when exec is set) so a slow
+      # TFE run isn't killed by a failing liveness check.
+      livenessProbe:
+        exec:
+          command: ["aws-oidc", "version"]
+      readinessProbe:
+        exec:
+          command: ["aws-oidc", "version"]
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      args:
+        - update-rolemap
+        - -v
