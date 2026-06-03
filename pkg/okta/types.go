@@ -19,6 +19,16 @@ type ctxKey struct{}
 type OIDCRoleMappings []OIDCRoleMapping
 type OIDCRoleMappingsByKey map[string][]OIDCRoleMapping
 
+// ByClientID groups the mappings by their Okta client ID, the shape the config
+// server looks up per request.
+func (m OIDCRoleMappings) ByClientID() OIDCRoleMappingsByKey {
+	byKey := make(OIDCRoleMappingsByKey, len(m))
+	for _, mapping := range m {
+		byKey[mapping.OktaClientID] = append(byKey[mapping.OktaClientID], mapping)
+	}
+	return byKey
+}
+
 func FromContext(ctx context.Context) *OIDCRoleMappings {
 	v, _ := ctx.Value(ctxKey{}).(*OIDCRoleMappings)
 	return v
