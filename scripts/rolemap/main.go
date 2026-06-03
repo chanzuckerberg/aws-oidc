@@ -27,10 +27,16 @@ const (
 	oktaCZIAdminClientIDsOutputName = "czi-okta_okta_czi_admin_oidc_client_ids"
 	poweruserClientIDsOutputName    = "czi_okta_poweruser_oidc_client_ids"
 	readonlyClientIDsOutputName     = "czi_okta_readonly_oidc_client_ids"
+	// customRolesOutputName is a list of { role_name, client_ids } objects, one per custom
+	// role in the account. Unlike the fixed poweruser/readonly/admin roles, the role name
+	// varies, so the output carries it alongside the client IDs. Accounts with no custom
+	// roles omit this output entirely, so a missing output yields no mappings.
+	customRolesOutputName = "czi_okta_custom_role_oidc_client_ids"
 
 	poweruserRoleARNFmt    = "arn:aws:iam::%s:role/poweruser"
 	readonlyRoleARNFmt     = "arn:aws:iam::%s:role/readonly"
 	oktaCZIAdminRoleARNFmt = "arn:aws:iam::%s:role/okta-czi-admin"
+	customRoleARNFmt       = "arn:aws:iam::%s:role/%s"
 )
 
 func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID string) ([]OIDCRoleMapping, error) {
@@ -92,6 +98,57 @@ func workspaceRoleMappings(ctx context.Context, client *tfe.Client, workspaceID 
 					AWSRoleARN:      roleARN.String(),
 				})
 			}
+		case customRolesOutputName:
+			customMappings, err := customRoleMappings(accountID, accountAlias, output.Value)
+			if err != nil {
+				return nil, fmt.Errorf("parsing custom role mappings: %w", err)
+			}
+			mappings = append(mappings, customMappings...)
+		}
+	}
+
+	return mappings, nil
+}
+
+// customRoleMappings parses the czi_okta_custom_role_oidc_client_ids output, a list of
+// { role_name, client_ids } objects, into role mappings. It tolerates anything that does
+// not match that shape by skipping it, so an account without the output (or with an
+// unexpected value) simply contributes no custom-role mappings rather than failing the run.
+func customRoleMappings(accountID, accountAlias string, value interface{}) ([]OIDCRoleMapping, error) {
+	entries, ok := value.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	mappings := []OIDCRoleMapping{}
+	for _, entry := range entries {
+		obj, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		roleName, ok := obj["role_name"].(string)
+		if !ok || roleName == "" {
+			continue
+		}
+		clientIDs, ok := obj["client_ids"].([]interface{})
+		if !ok {
+			continue
+		}
+		roleARN, err := arn.Parse(fmt.Sprintf(customRoleARNFmt, accountID, roleName))
+		if err != nil {
+			return nil, fmt.Errorf("parsing role ARN for %q: %w", roleName, err)
+		}
+		for _, clientID := range clientIDs {
+			id, ok := clientID.(string)
+			if !ok {
+				continue
+			}
+			mappings = append(mappings, OIDCRoleMapping{
+				OktaClientID:    id,
+				AWSAccountID:    accountID,
+				AWSAccountAlias: accountAlias,
+				AWSRoleARN:      roleARN.String(),
+			})
 		}
 	}
 
