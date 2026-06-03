@@ -104,7 +104,7 @@ func getSubFromCtx(ctx context.Context) *string {
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
 	oktaClient okta.AppLister,
-	clientMappingsByKey okta.OIDCRoleMappingsByKey,
+	mappingsProvider MappingsProvider,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -119,6 +119,15 @@ func Index(
 		sub := getSubFromCtx(ctx)
 		if sub == nil {
 			slog.Error(fmt.Sprintf("getting subject ID for %s", *email))
+			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+			return
+		}
+
+		// Re-read the rolemap on every request so a freshly generated mapping is picked up
+		// without restarting the server.
+		clientMappingsByKey, err := mappingsProvider(ctx)
+		if err != nil {
+			slog.Error("reading rolemap", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
@@ -148,11 +157,15 @@ func Index(
 	})
 }
 
+// MappingsProvider returns the current rolemap, grouped by client ID. It is called once
+// per request so the server always serves the latest rolemap.
+type MappingsProvider func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error)
+
 type RouterConfig struct {
 	Verifier            oidcVerifier
 	AwsGenerationParams *AWSConfigGenerationParams
 	OktaAppClient       okta.AppLister
-	ClientMappings      okta.OIDCRoleMappingsByKey
+	MappingsProvider    MappingsProvider
 }
 
 type SlogRecoveryLogger slog.Logger
@@ -169,7 +182,7 @@ func GetRouter(
 	handle := NewAuthMiddleware(Index(
 		config.AwsGenerationParams,
 		config.OktaAppClient,
-		config.ClientMappings,
+		config.MappingsProvider,
 	), config.Verifier)
 
 	mux.Handle("/", handle)

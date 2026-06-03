@@ -13,6 +13,11 @@ stack:
     aws-oidc:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+      # The server reads the rolemap ConfigMap via the Kubernetes API on each request,
+      # so it needs its own service account (granted read access by templates/rbac.yaml).
+      serviceAccount:
+        create: true
+        name: aws-oidc
       resources:
         limits:
           cpu: 300m
@@ -33,14 +38,6 @@ stack:
       readinessProbe:
         httpGet:
           path: /health
-      volumes:
-        - name: role-map
-          configMap:
-            name: rolemap
-      volumeMounts:
-        - name: role-map
-          mountPath: /rolemap
-          readOnly: true
       env:
         - name: OKTA_CLIENT_ID
           value: 0oa1be0s0d6KhEAed1t8

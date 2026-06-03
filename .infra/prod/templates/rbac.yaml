@@ -1,0 +1,57 @@
+# RBAC for the rolemap ConfigMap.
+# - The aws-oidc server reads it on every request.
+# - The rolemap-updater cronjob regenerates and writes it.
+# The ServiceAccounts themselves are created by the stack chart (serviceAccount.create).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rolemap-reader
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["rolemap"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rolemap-reader
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rolemap-reader
+subjects:
+  - kind: ServiceAccount
+    name: aws-oidc
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rolemap-writer
+  namespace: {{ .Release.Namespace }}
+rules:
+  # create cannot be restricted by resourceName, so it is its own rule.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["rolemap"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rolemap-writer
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rolemap-writer
+subjects:
+  - kind: ServiceAccount
+    name: rolemap-updater
+    namespace: {{ .Release.Namespace }}
