@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.0...v0.38.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **creds-process:** default STS region so credential_process works without AWS_REGION ([#1207](https://github.com/chanzuckerberg/aws-oidc/issues/1207)) ([86bf7c8](https://github.com/chanzuckerberg/aws-oidc/commit/86bf7c8a7cb14a8277fe898587104fb12eb4d720))
+
 ## [0.38.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.37.4...v0.38.0) (2026-06-03)
 
 
