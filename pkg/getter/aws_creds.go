@@ -17,7 +17,13 @@ func GetAWSAssumeIdentity(
 	roleARN string,
 	sessionDuration time.Duration,
 ) (*sts.AssumeRoleWithWebIdentityOutput, error) {
-	cfg, err := config.LoadDefaultConfig(ctx)
+	// AssumeRoleWithWebIdentity is a global STS operation; the region only
+	// selects the endpoint. A credential_process subprocess inherits neither the
+	// caller's --region flag nor the profile's region, and the SDK endpoint
+	// resolver rejects an empty region ("Missing Region"), so fall back to
+	// us-east-1 when nothing else resolves one. An explicit AWS_REGION /
+	// AWS_DEFAULT_REGION still takes precedence over this default.
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithDefaultRegion("us-east-1"))
 	if err != nil {
 		return nil, fmt.Errorf("loading AWS config: %w", err)
 	}
