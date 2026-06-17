@@ -1,0 +1,30 @@
+name: Argus Docker Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'App name from .argus-ci.yaml'
+        required: true
+        type: string
+      images:
+        description: 'Comma-separated image names (empty = all images in the app)'
+        required: false
+        type: string
+      ref:
+        description: 'Git ref to build (defaults to the branch you trigger from)'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.app }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    uses: chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml@v6
+    secrets: inherit
+    with:
+      app: ${{ inputs.app }}
+      images: ${{ inputs.images }}
+      ref: ${{ inputs.ref }}
