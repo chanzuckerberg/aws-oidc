@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://chanzuckerberg.github.io/argus/schemas/argus-ci.schema.json
+version: 1
+
+apps:
+  aws-oidc:
+    build:
+      filters:
+        branches: ["!main"]
+      images:
+        aws-oidc:
+          context: .
+          dockerfile: ./Dockerfile
+    envs:
+      rdev: {}
+      prod: {}
