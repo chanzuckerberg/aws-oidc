@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.38.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.1...v0.38.2) (2026-06-23)
+
+
+### Misc
+
+* bump actions/checkout from 6 to 7 ([#1214](https://github.com/chanzuckerberg/aws-oidc/issues/1214)) ([9ed6a03](https://github.com/chanzuckerberg/aws-oidc/commit/9ed6a0365f6ee644b3282a57c5abc0096e11d877))
+* migrate to Argus CI Orchestrator ([#1212](https://github.com/chanzuckerberg/aws-oidc/issues/1212)) ([d39ee3c](https://github.com/chanzuckerberg/aws-oidc/commit/d39ee3cf0e263725ecea2e38b7d08d6fc5816843))
+* register argus-docker-build-dispatch workflow ([#1211](https://github.com/chanzuckerberg/aws-oidc/issues/1211)) ([25163ca](https://github.com/chanzuckerberg/aws-oidc/commit/25163cabf79ae8e225a61dd8bf31064c58bc34e7))
+
 ## [0.38.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.0...v0.38.1) (2026-06-04)
 
 
