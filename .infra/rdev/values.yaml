@@ -9,4 +9,4 @@ stack:
           - path: /backend
             pathType: Prefix
       image:
-        tag: sha-453a578
+        tag: sha-e009145
