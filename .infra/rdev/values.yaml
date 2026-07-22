@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-5ab22a9
+        tag: sha-9f88fe5
       # This rdev stack is for the portal, which owns the stack root path. The config
       # server is not exercised here, so disable its ingress to avoid a host+path
       # collision with the portal.
@@ -14,7 +14,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-5ab22a9
+        tag: sha-9f88fe5
       serviceAccount:
         create: true
         name: portal
