@@ -43,4 +43,6 @@ stack:
         # No browser login yet: set this to YOUR Okta user id to act as that user (you are
         # treated as admin so you can see everything). Without it the portal returns 401.
         - name: PORTAL_DEV_SUB
-          value: ""
+          value: "00ugbvc7oiheU3Glz1t7"
+        - name: PORTAL_DEV_EMAIL
+          value: "jheath@chanzuckerberg.com"
