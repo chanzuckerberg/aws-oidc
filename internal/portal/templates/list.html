@@ -16,7 +16,12 @@
       <td>
         {{range .Grants}}{{.AccountAlias}} / {{.RoleName}}<br>{{else}}<span class="muted">none</span>{{end}}
       </td>
-      <td><a href="/agents/{{.Name}}">edit</a></td>
+      <td>
+        <a class="btn" href="/agents/{{.Name}}">edit</a>
+        <form class="inline" method="post" action="/agents/{{.Name}}/delete" onsubmit="return confirm('Delete {{.Name}}?');">
+          <button class="btn danger" type="submit">delete</button>
+        </form>
+      </td>
     </tr>
     {{end}}
   </table>
