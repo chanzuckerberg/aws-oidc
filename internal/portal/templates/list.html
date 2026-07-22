@@ -1,0 +1,31 @@
+{{define "list"}}{{template "head" .}}
+  <h1>{{if .User.Admin}}All agents{{else}}Your agents{{end}}</h1>
+  <p><a class="btn primary" href="/agents/new">Register new agent</a></p>
+  {{if .Agents}}
+  <table>
+    <tr>
+      <th>Name</th>
+      {{if .User.Admin}}<th>Owner</th>{{end}}
+      <th>Granted access (account / role)</th>
+      <th></th>
+    </tr>
+    {{range .Agents}}
+    <tr>
+      <td>{{.Name}}</td>
+      {{if $.User.Admin}}<td class="muted">{{if .OwnerEmail}}{{.OwnerEmail}}{{else}}{{.Owner}}{{end}}</td>{{end}}
+      <td>
+        {{range .Grants}}{{.AccountAlias}} / {{.RoleName}}<br>{{else}}<span class="muted">none</span>{{end}}
+      </td>
+      <td>
+        <a class="btn" href="/agents/{{.Name}}">edit</a>
+        <form class="inline" method="post" action="/agents/{{.Name}}/delete" onsubmit="return confirm('Delete {{.Name}}?');">
+          <button class="btn danger" type="submit">delete</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+  </table>
+  {{else}}
+  <p class="muted">No agents yet. Register one to grant it a slice of your AWS access.</p>
+  {{end}}
+{{template "foot" .}}{{end}}

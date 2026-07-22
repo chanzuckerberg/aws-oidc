@@ -3,4 +3,51 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-d7f00ae
+        tag: sha-9f88fe5
+      # This rdev stack is for the portal, which owns the stack root path. The config
+      # server is not exercised here, so disable its ingress to avoid a host+path
+      # collision with the portal.
+      ingress:
+        enabled: false
+    # The agent-registry portal. rdev-only for now: there is no browser login yet, so it
+    # is not exposed in prod. Identity comes from PORTAL_DEV_SUB below.
+    portal:
+      image:
+        repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+        tag: sha-9f88fe5
+      serviceAccount:
+        create: true
+        name: portal
+      resources:
+        limits:
+          cpu: 300m
+          memory: 500Mi
+        requests:
+          cpu: 300m
+          memory: 500Mi
+      args:
+        - serve-portal
+        - -v
+      ingress:
+        paths:
+          - path: /
+            pathType: Prefix
+      livenessProbe:
+        httpGet:
+          path: /health
+      readinessProbe:
+        httpGet:
+          path: /health
+      env:
+        - name: OKTA_CLIENT_ID
+          value: 0oa1be0s0d6KhEAed1t8
+        - name: OKTA_ISSUER_URL
+          value: https://czi.okta.com
+        - name: OKTA_SERVICE_CLIENT_ID
+          value: 0oa18b7m1cb97rFLK1t8
+        # No browser login yet: set this to YOUR Okta user id to act as that user (you are
+        # treated as admin so you can see everything). Without it the portal returns 401.
+        - name: PORTAL_DEV_SUB
+          value: "00ugbvc7oiheU3Glz1t7"
+        - name: PORTAL_DEV_EMAIL
+          value: "jheath@chanzuckerberg.com"
