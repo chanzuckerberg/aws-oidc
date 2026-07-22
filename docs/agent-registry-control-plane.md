@@ -2,7 +2,7 @@
 
 ## What we are building
 
-This plan adds an agent-registry control plane to the existing `aws-oidc` Argus app in prod-central. It is a new portal service (Go API plus React SPA) and a Kubernetes operator, both shipped in the `aws-oidc` repo and image alongside the existing config server and the rolemap cronjob. A human authenticates with Okta, registers an agent, and grants it scoped AWS access from a curated catalog. The portal writes an `Agent` custom resource. An operator watches `Agent` CRs and reconciles the desired grants into per-agent IAM roles across the target accounts, each bounded by a permissions boundary with a trust policy that only the shared agent Okta client can use. The CR is the source of truth. There is no separate database.
+This plan adds an agent-registry control plane to the existing `aws-oidc` Argus app in prod-central. It is a new portal service (a Go API that also serves a minimal server-rendered HTML UI) and a Kubernetes operator, both shipped in the `aws-oidc` repo and image alongside the existing config server and the rolemap cronjob. A human authenticates with Okta, registers an agent, and grants it scoped AWS access from a curated catalog. The portal writes an `Agent` custom resource. An operator watches `Agent` CRs and reconciles the desired grants into per-agent IAM roles across the target accounts, each bounded by a permissions boundary with a trust policy that only the shared agent Okta client can use. The CR is the source of truth. There is no separate database.
 
 Living in `aws-oidc` lets us reuse what is already there: the `rolemap` ConfigMap and `pkg/configmap` for entitlements, `pkg/aws_config_server` for the config the agent's `aws-oidc configure` pulls, and the same image, service account, and RBAC patterns. The config server is extended to produce the agent-specific config from Agent CR status.
 
@@ -26,17 +26,16 @@ flowchart TB
   end
 
   subgraph cp [Control plane: new services in the aws-oidc Argus app, prod-central]
-    spa["React SPA"]
-    api["Portal Go API"]
+    portal["Portal: Go API + server-rendered HTML"]
     kube[("Kubernetes API / etcd: Agent custom resources")]
     operator["Agent operator, controller-manager"]
     rolemapCM[("rolemap ConfigMap: existing entitlements")]
     configSrv["Config server, extended for agents"]
   end
 
-  human["Human"] -->|Okta SSO login| spa --> api
-  api -->|"read entitlements"| rolemapCM
-  api -->|"create/update/delete Agent CR"| kube
+  human["Human"] -->|Okta SSO login| portal
+  portal -->|"read entitlements"| rolemapCM
+  portal -->|"create/update/delete Agent CR"| kube
   operator -->|"watch Agent CRs"| kube
   operator -->|"AssumeRole into target account"| provisionerRole
   operator -->|"reconcile: create/update/delete IAM role"| agentRole["Per-agent IAM role"]
@@ -211,9 +210,8 @@ Add to the existing `aws-oidc` repo and image (module `github.com/chanzuckerberg
 - `internal/controller/` the Agent reconciler.
 - `internal/provisioner/` STS assume into target accounts and IAM role create/update/delete with the boundary, used by the controller.
 - `internal/catalog/` the curated grantable policies.
-- `internal/portal/` Okta login/session, Agent CR CRUD via the Kubernetes API, and the entitlements and catalog endpoints.
+- `internal/portal/` Okta login/session, the minimal server-rendered HTML UI (Go `html/template`), Agent CR CRUD via the Kubernetes API, and the entitlements and catalog endpoints.
 - `internal/webhook/` the validating/mutating admission webhook.
-- `web/` React SPA.
 - `config/crd/` the Agent CRD manifest; RBAC added to the existing `.infra/*/templates/rbac.yaml`.
 - The per-account bootstrap (OIDC provider, provisioner role, boundary, catalog) lives in shared-infra's all-accounts Terraform, not this repo. Any repo-local Terraform is limited to the one-time Okta agent app.
 
@@ -342,7 +340,7 @@ One-time in Okta: a single shared agent OIDC app. Per-agent identity comes from 
 
 Extend the existing `aws-oidc` Argus app (prod-central, account 533267185808) rather than creating a new app. Add to `.infra/common.yaml` and `.infra/prod/values.yaml`, next to the existing `aws-oidc` config server service and the `rolemap-updater` cronjob:
 
-- A `portal` service (SPA plus API) with an ingress rule.
+- A `portal` service (Go API plus server-rendered HTML) with an ingress rule.
 - An `operator` service running the controller-manager (`args: [operator]`) as its own Deployment, a single active replica with leader election. Same image, different args, matching how `rolemap-updater` reuses the image.
 - The `Agent` CRD, and RBAC in `.infra/*/templates/rbac.yaml`: the operator reconciles Agents and writes status; the portal CRUDs Agents and reads the `rolemap` ConfigMap (the config server already has that read grant).
 - IRSA for the operator (assume the per-account provisioner roles) and the portal service account.
@@ -380,7 +378,7 @@ Ordered so each PR is inert or additive on its own, per the stacked-PR conventio
 - [ ] Portal Okta login/session and authorization (own agents vs config-file admin list).
 - [ ] Portal API behind `aws-oidc serve-portal` (`cmd/serve-portal.go`): Agent CR CRUD, accounts, and catalog endpoints.
 - [ ] Extend `pkg/aws_config_server` with a `/agent-config` path built from Agent CR `status.grants`.
-- [ ] `web/` React SPA: register agent, pick accessible account and catalog policy, list own agents, admin view.
+- [ ] Minimal server-rendered HTML UI (Go `html/template`) in the portal, no SPA or frontend build: register agent, pick accessible account and catalog policy, list own agents, admin view.
 - [ ] `config/crd` and namespaced RBAC in `.infra/*/templates/rbac.yaml` for the operator and portal, plus IRSA.
 - [ ] Deploy: add `portal` and `operator` services to the aws-oidc Argus app (same image, `serve-portal` and `operator` args).
 - [ ] `enterprise/claude-code/managed-settings.json` (soft-launch client-side enforcement).
