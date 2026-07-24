@@ -49,6 +49,17 @@ deps:
 	go mod tidy
 .PHONY: deps
 
+CONTROLLER_GEN_VERSION ?= v0.18.0
+CONTROLLER_GEN = go run sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+
+generate: ## generate deepcopy methods for the API types
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./api/..."
+.PHONY: generate
+
+manifests: ## generate CRD manifests from the API types
+	$(CONTROLLER_GEN) crd paths="./api/..." output:crd:artifacts:config=config/crd
+.PHONY: manifests
+
 update:
 	go get -u ./...
 	go mod tidy
