@@ -9,22 +9,17 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/spf13/cobra"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 )
 
 var portalPort int
-
-const (
-	flagAgentConfigMapName = "agent-configmap-name"
-	flagAgentConfigMapKey  = "agent-configmap-key"
-)
 
 func init() {
 	rootCmd.AddCommand(servePortalCmd)
 	servePortalCmd.Flags().IntVar(&portalPort, "web-server-port", 8080, "Port to host the portal on")
 	servePortalCmd.Flags().String(flagConfigMapName, "rolemap", "Name of the ConfigMap to read the rolemap from")
 	servePortalCmd.Flags().String(flagConfigMapKey, "rolemap.yaml", "Key within the ConfigMap that holds the rolemap YAML")
-	servePortalCmd.Flags().String(flagAgentConfigMapName, "agent-registry", "Name of the ConfigMap that stores the agent registry")
-	servePortalCmd.Flags().String(flagAgentConfigMapKey, "agents.yaml", "Key within the agent registry ConfigMap")
 }
 
 var servePortalCmd = &cobra.Command{
@@ -55,18 +50,18 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing configmap-key flag: %w", err)
 	}
-	agentCMName, err := cmd.Flags().GetString(flagAgentConfigMapName)
-	if err != nil {
-		return fmt.Errorf("missing agent-configmap-name flag: %w", err)
-	}
-	agentCMKey, err := cmd.Flags().GetString(flagAgentConfigMapKey)
-	if err != nil {
-		return fmt.Errorf("missing agent-configmap-key flag: %w", err)
-	}
 
-	kubeClient, namespace, err := configmap.NewInClusterClient()
+	restConfig, namespace, err := configmap.NewInClusterConfig()
 	if err != nil {
-		return fmt.Errorf("creating in-cluster client: %w", err)
+		return fmt.Errorf("loading in-cluster config: %w", err)
+	}
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("creating kubernetes client: %w", err)
+	}
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("creating dynamic client: %w", err)
 	}
 
 	// Read the rolemap fresh on each request so entitlements reflect the latest mapping.
@@ -78,7 +73,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		return mappings.ByClientID(), nil
 	}
 
-	store := portal.NewConfigMapStore(kubeClient, namespace, agentCMName, agentCMKey)
+	store := portal.NewCRStore(dynamicClient, namespace)
 
 	srv, err := portal.NewServer(portal.Config{
 		Apps:             oktaAppClient,

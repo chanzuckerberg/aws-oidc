@@ -35,8 +35,8 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          Agent is a registered agent and the scoped AWS access granted to it. The CR is the
-          source of truth; there is no separate database.
+          Agent is a registered agent and the scoped access granted to it. The CR is the source of
+          truth; there is no separate database.
         properties:
           apiVersion:
             description: |-
@@ -64,31 +64,46 @@ spec:
                   resource name when unset.
                 type: string
               grants:
-                description: Grants is the desired set of per-account access.
+                description: Grants is the desired set of access, one entry per provider
+                  target.
                 items:
                   description: |-
-                    Grant is one unit of desired access: a catalog policy the agent may use in a target
-                    account. It is set by the owner through the portal and must always be a subset of the
-                    owner's own access. The operator turns each grant into a per-agent IAM role.
+                    Grant is one unit of access granted to an agent. It is a union: exactly one provider
+                    section is set. AWS is the only provider today; other third parties (for example Jira,
+                    GitHub, Slack, Google Workspace) are added as sibling fields here so an agent can hold
+                    scoped access across many systems in one resource.
+                  maxProperties: 1
+                  minProperties: 1
                   properties:
-                    accountId:
-                      description: AccountID is the 12-digit AWS account the grant
-                        targets.
-                      pattern: ^[0-9]{12}$
-                      type: string
-                    catalogPolicyId:
-                      description: |-
-                        CatalogPolicyID selects one of the curated grantable policies. Free-form policy is
-                        never allowed; the value must exist in the catalog and be within the owner's access.
-                      minLength: 1
-                      type: string
-                    region:
-                      description: Region is the default AWS region for the agent's
-                        profile in this account.
-                      type: string
-                  required:
-                  - accountId
-                  - catalogPolicyId
+                    aws:
+                      description: AWS grants the agent a role in an AWS account.
+                      properties:
+                        accountAlias:
+                          description: AccountAlias is the human-friendly account
+                            name, kept for display.
+                          type: string
+                        accountId:
+                          description: AccountID is the 12-digit AWS account the grant
+                            targets.
+                          pattern: ^[0-9]{12}$
+                          type: string
+                        region:
+                          description: Region is the default AWS region for the agent's
+                            profile in this account.
+                          type: string
+                        roleArn:
+                          description: RoleARN is the role the agent may assume in
+                            the account.
+                          minLength: 1
+                          type: string
+                        roleName:
+                          description: RoleName is the role name derived from the
+                            ARN, kept for display.
+                          type: string
+                      required:
+                      - accountId
+                      - roleArn
+                      type: object
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
@@ -96,7 +111,7 @@ spec:
                 description: |-
                   Owner is the Okta subject of the person who registered the agent. The portal and
                   the admission webhook stamp and verify this. An agent's access can never exceed the
-                  owner's, and one person cannot assume another person's agent roles.
+                  owner's, and one person cannot assume another person's agent access.
                 minLength: 1
                 type: string
               ownerEmail:
@@ -175,23 +190,27 @@ spec:
                 description: Grants is the per-grant provisioning result, aligned
                   with spec.grants.
                 items:
-                  description: |-
-                    GrantStatus is what the operator provisioned for one grant. The config server reads
-                    RoleARN to build the agent's aws-oidc profile.
+                  description: GrantStatus is what the operator provisioned for one
+                    grant, mirroring the spec union.
                   properties:
-                    accountId:
-                      description: AccountID matches the desired grant's account.
-                      type: string
-                    catalogPolicyId:
-                      description: CatalogPolicyID matches the desired grant's catalog
-                        policy.
-                      type: string
+                    aws:
+                      description: AWS holds AWS provisioning detail when Provider
+                        is "aws".
+                      properties:
+                        accountId:
+                          description: AccountID echoes the grant's account.
+                          type: string
+                        roleArn:
+                          description: RoleARN is the per-agent role the operator
+                            provisioned for the agent to assume.
+                          type: string
+                      type: object
                     message:
                       description: Message carries the reason when State is Failed.
                       type: string
-                    roleArn:
-                      description: RoleARN is the per-agent IAM role the operator
-                        created under /agents/.
+                    provider:
+                      description: Provider names the third party this grant targets
+                        (for example "aws").
                       type: string
                     state:
                       description: State is the provisioning state of this grant.
@@ -201,7 +220,7 @@ spec:
                       - Failed
                       type: string
                   required:
-                  - accountId
+                  - provider
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic

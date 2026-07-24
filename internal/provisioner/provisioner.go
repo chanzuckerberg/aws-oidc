@@ -30,15 +30,15 @@ type Config struct {
 	BoundaryPolicyName string
 }
 
-// RoleSpec is the desired per-agent role for one grant.
+// RoleSpec is the desired per-agent role for one AWS grant.
 type RoleSpec struct {
 	AccountID string
 	AgentName string
 	RoleName  string
 	// Owner is the Okta subject the trust policy binds the role to.
 	Owner string
-	// ManagedPolicyARN is the single catalog policy attached to the role.
-	ManagedPolicyARN string
+	// SourceRoleARN is the role in the owner's existing access the grant is derived from.
+	SourceRoleARN string
 }
 
 // Interface is the provisioning surface the controller depends on. Keeping it an interface
@@ -72,9 +72,9 @@ func New(cfg Config) *Provisioner {
 //
 // TODO: assume the per-account agent-provisioner role, then create the role under
 // cfg.RolePath with the permissions boundary attached and a trust policy that conditions
-// czi.okta.com:aud on cfg.AgentClientID and czi.okta.com:sub on spec.Owner, and attach the
-// single catalog managed policy. On resync, repair a drifted trust policy, re-apply the
-// boundary, and detach any policy that is not spec.ManagedPolicyARN.
+// czi.okta.com:aud on cfg.AgentClientID and czi.okta.com:sub on spec.Owner, bounding the
+// agent's access to a subset of spec.SourceRoleARN. On resync, repair a drifted trust
+// policy and re-apply the boundary.
 func (p *Provisioner) EnsureRole(ctx context.Context, spec RoleSpec) (string, error) {
 	return "", ErrNotImplemented
 }

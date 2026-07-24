@@ -4,22 +4,53 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Grant is one unit of desired access: a catalog policy the agent may use in a target
-// account. It is set by the owner through the portal and must always be a subset of the
-// owner's own access. The operator turns each grant into a per-agent IAM role.
-type Grant struct {
+// Provider names a third-party system a grant can target. AWS is supported today; more are
+// added as the registry expands to other systems.
+const (
+	ProviderAWS = "aws"
+)
+
+// AWSGrant is access to a single AWS role in an account. It is the same shape the portal
+// collects from the owner's existing access: the account and the role the agent may assume.
+type AWSGrant struct {
 	// AccountID is the 12-digit AWS account the grant targets.
 	// +kubebuilder:validation:Pattern=`^[0-9]{12}$`
 	AccountID string `json:"accountId"`
 
-	// CatalogPolicyID selects one of the curated grantable policies. Free-form policy is
-	// never allowed; the value must exist in the catalog and be within the owner's access.
+	// AccountAlias is the human-friendly account name, kept for display.
+	// +optional
+	AccountAlias string `json:"accountAlias,omitempty"`
+
+	// RoleARN is the role the agent may assume in the account.
 	// +kubebuilder:validation:MinLength=1
-	CatalogPolicyID string `json:"catalogPolicyId"`
+	RoleARN string `json:"roleArn"`
+
+	// RoleName is the role name derived from the ARN, kept for display.
+	// +optional
+	RoleName string `json:"roleName,omitempty"`
 
 	// Region is the default AWS region for the agent's profile in this account.
 	// +optional
 	Region string `json:"region,omitempty"`
+}
+
+// Grant is one unit of access granted to an agent. It is a union: exactly one provider
+// section is set. AWS is the only provider today; other third parties (for example Jira,
+// GitHub, Slack, Google Workspace) are added as sibling fields here so an agent can hold
+// scoped access across many systems in one resource.
+//
+// +kubebuilder:validation:MinProperties=1
+// +kubebuilder:validation:MaxProperties=1
+type Grant struct {
+	// AWS grants the agent a role in an AWS account.
+	// +optional
+	AWS *AWSGrant `json:"aws,omitempty"`
+
+	// Additional providers go here as pointer fields, for example:
+	//   Jira   *JiraGrant   `json:"jira,omitempty"`
+	//   GitHub *GitHubGrant `json:"github,omitempty"`
+	// Each new provider keeps the union invariant (exactly one section set) via the
+	// MinProperties/MaxProperties markers above.
 }
 
 // AgentSpec is the desired state a human sets through the portal.
@@ -31,7 +62,7 @@ type AgentSpec struct {
 
 	// Owner is the Okta subject of the person who registered the agent. The portal and
 	// the admission webhook stamp and verify this. An agent's access can never exceed the
-	// owner's, and one person cannot assume another person's agent roles.
+	// owner's, and one person cannot assume another person's agent access.
 	// +kubebuilder:validation:MinLength=1
 	Owner string `json:"owner"`
 
@@ -39,7 +70,7 @@ type AgentSpec struct {
 	// +optional
 	OwnerEmail string `json:"ownerEmail,omitempty"`
 
-	// Grants is the desired set of per-account access.
+	// Grants is the desired set of access, one entry per provider target.
 	// +optional
 	// +listType=atomic
 	Grants []Grant `json:"grants,omitempty"`
@@ -50,27 +81,33 @@ type AgentSpec struct {
 type GrantState string
 
 const (
-	// GrantStatePending means the operator has not yet provisioned the grant's IAM role.
+	// GrantStatePending means the operator has not yet provisioned the grant.
 	GrantStatePending GrantState = "Pending"
-	// GrantStateProvisioned means the per-agent IAM role exists and matches the grant.
+	// GrantStateProvisioned means the grant is provisioned and matches the desired state.
 	GrantStateProvisioned GrantState = "Provisioned"
 	// GrantStateFailed means the operator could not provision the grant; see Message.
 	GrantStateFailed GrantState = "Failed"
 )
 
-// GrantStatus is what the operator provisioned for one grant. The config server reads
-// RoleARN to build the agent's aws-oidc profile.
-type GrantStatus struct {
-	// AccountID matches the desired grant's account.
-	AccountID string `json:"accountId"`
-
-	// CatalogPolicyID matches the desired grant's catalog policy.
+// AWSGrantStatus is the AWS-specific provisioning result for a grant.
+type AWSGrantStatus struct {
+	// AccountID echoes the grant's account.
 	// +optional
-	CatalogPolicyID string `json:"catalogPolicyId,omitempty"`
+	AccountID string `json:"accountId,omitempty"`
 
-	// RoleARN is the per-agent IAM role the operator created under /agents/.
+	// RoleARN is the per-agent role the operator provisioned for the agent to assume.
 	// +optional
 	RoleARN string `json:"roleArn,omitempty"`
+}
+
+// GrantStatus is what the operator provisioned for one grant, mirroring the spec union.
+type GrantStatus struct {
+	// Provider names the third party this grant targets (for example "aws").
+	Provider string `json:"provider"`
+
+	// AWS holds AWS provisioning detail when Provider is "aws".
+	// +optional
+	AWS *AWSGrantStatus `json:"aws,omitempty"`
 
 	// State is the provisioning state of this grant.
 	// +optional
@@ -114,8 +151,8 @@ type AgentStatus struct {
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
-// Agent is a registered agent and the scoped AWS access granted to it. The CR is the
-// source of truth; there is no separate database.
+// Agent is a registered agent and the scoped access granted to it. The CR is the source of
+// truth; there is no separate database.
 type Agent struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
