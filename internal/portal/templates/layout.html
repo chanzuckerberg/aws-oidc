@@ -1,0 +1,38 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — Agent Registry</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+    header { display: flex; align-items: baseline; gap: .5rem; }
+    header a { font-weight: 600; text-decoration: none; color: inherit; }
+    .muted { color: #666; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+    th { background: #f6f6f6; }
+    .btn { display: inline-block; padding: .35rem .7rem; border: 1px solid #888; border-radius: 5px; text-decoration: none; color: inherit; background: #fafafa; cursor: pointer; }
+    .btn.primary { background: #1a5; border-color: #1a5; color: #fff; }
+    fieldset { margin: .6rem 0; border: 1px solid #ddd; border-radius: 5px; }
+    legend { font-weight: 600; }
+    label.grant { display: block; padding: .15rem 0; }
+    .err { color: #b00020; font-weight: 600; }
+    .danger { color: #b00020; }
+    form.inline { display: inline; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/">Agent Registry</a>
+    {{if .User}}<span class="muted">— {{if .User.Email}}{{.User.Email}}{{else}}{{.User.Sub}}{{end}}{{if .User.Admin}} · admin{{end}}</span>{{end}}
+  </header>
+  <hr>
+{{end}}
+
+{{define "foot"}}
+  <hr>
+  <footer class="muted">aws-oidc agent registry · hackathon build</footer>
+</body>
+</html>
+{{end}}

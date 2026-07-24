@@ -1,0 +1,39 @@
+{{define "form"}}{{template "head" .}}
+  <h1>{{if .Agent}}Edit agent: {{.Agent.Name}}{{else}}Register new agent{{end}}</h1>
+  {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+
+  <form method="post" action="{{.Action}}">
+    {{if not .Agent}}
+    <p><label>Name <input name="name" required pattern="[a-zA-Z0-9_-]+" placeholder="my-agent"></label></p>
+    {{end}}
+
+    <p class="muted">Select the access to grant. You can only grant access you already have.</p>
+
+    {{range .Entitlements.Accounts}}
+    {{$acct := .}}
+    <fieldset>
+      <legend>{{.Label}} <span class="muted">({{.AccountID}})</span></legend>
+      {{range .Roles}}
+      <label class="grant">
+        <input type="checkbox" name="grant" value="{{$acct.AccountID}}|{{.RoleARN}}"
+          {{if index $.Checked (printf "%s|%s" $acct.AccountID .RoleARN)}}checked{{end}}>
+        {{.RoleName}}
+      </label>
+      {{end}}
+    </fieldset>
+    {{else}}
+    <p class="muted">You have no AWS access to grant.</p>
+    {{end}}
+
+    <p>
+      <button class="btn primary" type="submit">Save</button>
+      <a class="btn" href="/">Cancel</a>
+    </p>
+  </form>
+
+  {{if .Agent}}
+  <form class="inline" method="post" action="/agents/{{.Agent.Name}}/delete" onsubmit="return confirm('Delete {{.Agent.Name}}?');">
+    <button class="btn danger" type="submit">Delete agent</button>
+  </form>
+  {{end}}
+{{template "foot" .}}{{end}}
