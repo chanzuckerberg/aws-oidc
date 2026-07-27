@@ -19,18 +19,29 @@ import (
 
 const namespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
-// NewInClusterClient builds a Kubernetes client from the pod's in-cluster service account
-// and returns it along with the pod's own namespace.
-func NewInClusterClient() (kubernetes.Interface, string, error) {
+// NewInClusterConfig loads the pod's in-cluster REST config and returns it along with the
+// pod's own namespace. Callers that need more than the typed client (for example a dynamic
+// client for custom resources) build their clients from this config.
+func NewInClusterConfig() (*rest.Config, string, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, "", fmt.Errorf("loading in-cluster config: %w", err)
+	}
+	return config, currentNamespace(), nil
+}
+
+// NewInClusterClient builds a Kubernetes client from the pod's in-cluster service account
+// and returns it along with the pod's own namespace.
+func NewInClusterClient() (kubernetes.Interface, string, error) {
+	config, namespace, err := NewInClusterConfig()
+	if err != nil {
+		return nil, "", err
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, "", fmt.Errorf("creating kubernetes client: %w", err)
 	}
-	return client, currentNamespace(), nil
+	return client, namespace, nil
 }
 
 func currentNamespace() string {

@@ -1,76 +1,66 @@
 package portal
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"k8s.io/client-go/kubernetes/fake"
+
+	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
 
-func TestConfigMapStore(t *testing.T) {
-	ctx := context.Background()
-	client := fake.NewSimpleClientset()
-	store := NewConfigMapStore(client, "test-ns", "agent-registry", "agents.yaml")
-
-	// Empty registry (ConfigMap does not exist yet).
-	agents, err := store.List(ctx)
-	require.NoError(t, err)
-	require.Empty(t, agents)
-
-	got, err := store.Get(ctx, "missing")
-	require.NoError(t, err)
-	require.Nil(t, got)
-
-	// Create.
-	bot := Agent{
+func TestAgentToCRRoundTrip(t *testing.T) {
+	in := Agent{
 		Name:       "data-bot",
 		Owner:      "sub-1",
 		OwnerEmail: "a@example.com",
 		Grants: []Grant{
-			{AccountID: "111", AccountAlias: "prod", RoleARN: "arn:aws:iam::111:role/agents/data-bot-ro", RoleName: "agents/data-bot-ro"},
+			{AccountID: "111111111111", AccountAlias: "prod", RoleARN: "arn:aws:iam::111111111111:role/agents/data-bot-ro", RoleName: "agents/data-bot-ro"},
 		},
 	}
-	require.NoError(t, store.Upsert(ctx, bot))
 
-	got, err = store.Get(ctx, "data-bot")
-	require.NoError(t, err)
-	require.NotNil(t, got)
-	require.Equal(t, "sub-1", got.Owner)
-	require.Len(t, got.Grants, 1)
+	cr := agentToCR(in, "test-ns")
+	require.Equal(t, "data-bot", cr.Name)
+	require.Equal(t, "test-ns", cr.Namespace)
+	require.Equal(t, "sub-1", cr.Spec.Owner)
+	require.Len(t, cr.Spec.Grants, 1)
+	require.NotNil(t, cr.Spec.Grants[0].AWS)
+	require.Equal(t, "111111111111", cr.Spec.Grants[0].AWS.AccountID)
+	require.Equal(t, "arn:aws:iam::111111111111:role/agents/data-bot-ro", cr.Spec.Grants[0].AWS.RoleARN)
 
-	// Owner scoping.
-	owned, err := store.ListByOwner(ctx, "sub-1")
-	require.NoError(t, err)
-	require.Len(t, owned, 1)
+	out := agentFromCR(cr)
+	require.Equal(t, in.Name, out.Name)
+	require.Equal(t, in.Owner, out.Owner)
+	require.Equal(t, in.OwnerEmail, out.OwnerEmail)
+	require.Equal(t, in.Grants, out.Grants)
+}
 
-	none, err := store.ListByOwner(ctx, "someone-else")
-	require.NoError(t, err)
-	require.Empty(t, none)
+// A grant with no known provider section is skipped when mapping back to the portal, which
+// only renders AWS.
+func TestAgentFromCRSkipsNonAWSGrants(t *testing.T) {
+	cr := &agentsv1.Agent{}
+	cr.Name = "bot"
+	cr.Spec.Owner = "sub-1"
+	cr.Spec.Grants = []agentsv1.Grant{
+		{AWS: &agentsv1.AWSGrant{AccountID: "111111111111", RoleARN: "arn:aws:iam::111111111111:role/x"}},
+		{}, // future provider the portal does not render yet
+	}
 
-	// A second agent for a different owner does not leak across owners.
-	require.NoError(t, store.Upsert(ctx, Agent{Name: "other-bot", Owner: "sub-2"}))
-	all, err := store.List(ctx)
-	require.NoError(t, err)
-	require.Len(t, all, 2)
-	owned, err = store.ListByOwner(ctx, "sub-1")
-	require.NoError(t, err)
-	require.Len(t, owned, 1)
+	out := agentFromCR(cr)
+	require.Len(t, out.Grants, 1)
+	require.Equal(t, "111111111111", out.Grants[0].AccountID)
+}
 
-	// Update in place.
-	bot.Grants = nil
-	require.NoError(t, store.Upsert(ctx, bot))
-	got, err = store.Get(ctx, "data-bot")
-	require.NoError(t, err)
-	require.Empty(t, got.Grants)
+func TestAgentToUnstructuredRoundTrip(t *testing.T) {
+	cr := agentToCR(Agent{Name: "bot", Owner: "sub-1", Grants: []Grant{
+		{AccountID: "111111111111", RoleARN: "arn:aws:iam::111111111111:role/x", RoleName: "x"},
+	}}, "ns")
 
-	// Delete.
-	require.NoError(t, store.Delete(ctx, "data-bot"))
-	got, err = store.Get(ctx, "data-bot")
+	u, err := agentToUnstructured(cr)
 	require.NoError(t, err)
-	require.Nil(t, got)
+	require.Equal(t, "Agent", u.GetKind())
+	require.Equal(t, "bot", u.GetName())
 
-	all, err = store.List(ctx)
+	back, err := agentFromUnstructured(u)
 	require.NoError(t, err)
-	require.Len(t, all, 1)
+	require.Equal(t, cr.Spec, back.Spec)
 }
