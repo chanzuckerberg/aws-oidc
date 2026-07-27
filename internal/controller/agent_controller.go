@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,11 +26,18 @@ import (
 // Agent object is removed.
 const agentFinalizer = "agents.czi.team/finalizer"
 
+// defaultGrantConcurrency bounds how many grants of a single agent are provisioned at once.
+// An agent can carry many grants across many accounts, so they are reconciled in parallel.
+const defaultGrantConcurrency = 8
+
 // AgentReconciler reconciles Agent objects by dispatching their grants to providers.
 type AgentReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Providers []Provider
+	// MaxConcurrentGrants bounds parallel per-grant provisioning within one agent. Zero
+	// uses defaultGrantConcurrency.
+	MaxConcurrentGrants int
 }
 
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents,verbs=get;list;watch;create;update;patch;delete
@@ -38,8 +46,6 @@ type AgentReconciler struct {
 
 // Reconcile drives one Agent toward its desired state.
 func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := logf.FromContext(ctx)
-
 	var agent agentsv1.Agent
 	err := r.Get(ctx, req.NamespacedName, &agent)
 	if err != nil {
@@ -59,27 +65,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	statuses := make([]agentsv1.GrantStatus, 0, len(agent.Spec.Grants))
-	var reconcileErr error
-	for _, grant := range agent.Spec.Grants {
-		provider := r.providerFor(grant)
-		if provider == nil {
-			statuses = append(statuses, agentsv1.GrantStatus{
-				State:   agentsv1.GrantStateFailed,
-				Message: "no provider registered for grant",
-			})
-			continue
-		}
-
-		status, err := provider.Ensure(ctx, &agent, grant)
-		if err != nil {
-			log.Error(err, "provisioning grant", "provider", provider.Name())
-			status.State = agentsv1.GrantStateFailed
-			status.Message = err.Error()
-			reconcileErr = errors.Join(reconcileErr, err)
-		}
-		statuses = append(statuses, status)
-	}
+	statuses, reconcileErr := r.reconcileGrants(ctx, &agent)
 
 	err = r.writeStatus(ctx, &agent, statuses)
 	if err != nil {
@@ -88,6 +74,57 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// Returning the error requeues with the workqueue's exponential backoff.
 	return ctrl.Result{}, reconcileErr
+}
+
+// reconcileGrants provisions every grant, in parallel up to the concurrency limit, and
+// returns the per-grant statuses aligned with spec.grants plus a joined error of any
+// transient failures. Each goroutine writes only its own status slot, so no locking is
+// needed. A failure of one grant does not cancel the others; they all get attempted each
+// pass, and failures requeue with backoff.
+func (r *AgentReconciler) reconcileGrants(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.GrantStatus, error) {
+	log := logf.FromContext(ctx)
+	grants := agent.Spec.Grants
+
+	statuses := make([]agentsv1.GrantStatus, len(grants))
+	errs := make([]error, len(grants))
+
+	limit := r.MaxConcurrentGrants
+	if limit <= 0 {
+		limit = defaultGrantConcurrency
+	}
+
+	group := new(errgroup.Group)
+	group.SetLimit(limit)
+
+	for i := range grants {
+		i := i
+		grant := grants[i]
+
+		provider := r.providerFor(grant)
+		if provider == nil {
+			statuses[i] = agentsv1.GrantStatus{
+				State:   agentsv1.GrantStateFailed,
+				Message: "no provider registered for grant",
+			}
+			continue
+		}
+
+		group.Go(func() error {
+			status, err := provider.Ensure(ctx, agent, grant)
+			if err != nil {
+				log.Error(err, "provisioning grant", "provider", provider.Name())
+				status.State = agentsv1.GrantStateFailed
+				status.Message = err.Error()
+				errs[i] = err
+			}
+			statuses[i] = status
+			// Return nil so one grant's failure does not cancel its siblings.
+			return nil
+		})
+	}
+	_ = group.Wait()
+
+	return statuses, errors.Join(errs...)
 }
 
 // reconcileDelete runs the providers' teardown, then drops the finalizer.

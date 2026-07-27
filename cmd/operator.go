@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,11 +19,15 @@ import (
 )
 
 const (
-	flagOktaAppClientID    = "okta-app-client-id"
-	flagIssuerHost         = "issuer-host"
-	flagBoundaryPolicyName = "boundary-policy-name"
-	flagLeaderElection     = "leader-election"
-	flagHealthProbeAddr    = "health-probe-bind-address"
+	flagOktaAppClientID     = "okta-app-client-id"
+	flagIssuerHost          = "issuer-host"
+	flagBoundaryPolicyName  = "boundary-policy-name"
+	flagLeaderElection      = "leader-election"
+	flagHealthProbeAddr     = "health-probe-bind-address"
+	flagProvisionerRoleName = "provisioner-role-name"
+	flagSessionDuration     = "assume-role-session-duration"
+	flagAWSRegion           = "aws-region"
+	flagGrantConcurrency    = "grant-concurrency"
 )
 
 func init() {
@@ -32,6 +37,10 @@ func init() {
 	operatorCmd.Flags().String(flagBoundaryPolicyName, "", "Permissions boundary policy name applied to every agent role (TODO: boundary not created yet; empty skips it)")
 	operatorCmd.Flags().Bool(flagLeaderElection, true, "Enable leader election so only one operator replica reconciles")
 	operatorCmd.Flags().String(flagHealthProbeAddr, ":8081", "Address the health probe endpoint binds to")
+	operatorCmd.Flags().String(flagProvisionerRoleName, "agent-provisioner", "Name of the role the operator assumes in each target account to create agent roles")
+	operatorCmd.Flags().Duration(flagSessionDuration, 15*time.Minute, "Duration of the short-lived cross-account assume-role session")
+	operatorCmd.Flags().String(flagAWSRegion, "us-east-1", "Region used for STS and IAM calls")
+	operatorCmd.Flags().Int(flagGrantConcurrency, 8, "Maximum grants of one agent provisioned in parallel")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -66,6 +75,22 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	healthAddr, err := cmd.Flags().GetString(flagHealthProbeAddr)
 	if err != nil {
 		return fmt.Errorf("missing health-probe-bind-address flag: %w", err)
+	}
+	provisionerRoleName, err := cmd.Flags().GetString(flagProvisionerRoleName)
+	if err != nil {
+		return fmt.Errorf("missing provisioner-role-name flag: %w", err)
+	}
+	sessionDuration, err := cmd.Flags().GetDuration(flagSessionDuration)
+	if err != nil {
+		return fmt.Errorf("missing assume-role-session-duration flag: %w", err)
+	}
+	awsRegion, err := cmd.Flags().GetString(flagAWSRegion)
+	if err != nil {
+		return fmt.Errorf("missing aws-region flag: %w", err)
+	}
+	grantConcurrency, err := cmd.Flags().GetInt(flagGrantConcurrency)
+	if err != nil {
+		return fmt.Errorf("missing grant-concurrency flag: %w", err)
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -106,18 +131,30 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("adding ready check: %w", err)
 	}
 
+	// The operator's own (IRSA) identity assumes each target account's provisioner role to
+	// create agent roles there, with short-lived sessions.
+	clientFactory, err := awsprovider.NewAssumeRoleClientFactory(cmd.Context(), awsprovider.AssumeRoleConfig{
+		ProvisionerRoleName: provisionerRoleName,
+		SessionDuration:     sessionDuration,
+		Region:              awsRegion,
+	})
+	if err != nil {
+		return fmt.Errorf("building cross-account client factory: %w", err)
+	}
+
 	// AWS is the only provider today. Additional providers are appended here as they are
 	// implemented; the reconciler dispatches each grant to the one that handles it.
 	awsProvider := awsprovider.NewProvider(awsprovider.Config{
 		IssuerHost:         issuerHost,
 		OktaAppClientID:    oktaAppClientID,
 		BoundaryPolicyName: boundaryPolicyName,
-	}, nil)
+	}, clientFactory)
 
 	reconciler := &controller.AgentReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Providers: []controller.Provider{awsProvider},
+		Client:              mgr.GetClient(),
+		Scheme:              mgr.GetScheme(),
+		Providers:           []controller.Provider{awsProvider},
+		MaxConcurrentGrants: grantConcurrency,
 	}
 	err = reconciler.SetupWithManager(mgr)
 	if err != nil {

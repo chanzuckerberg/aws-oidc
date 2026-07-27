@@ -232,11 +232,10 @@ func roleNameFromARN(roleARN string) string {
 	return roleARN[idx+len(":role/"):]
 }
 
-// DefaultClientFactory builds an IAM client from the operator's ambient credentials.
-//
-// TODO: this does not do cross-account access. It should assume each target account's
-// agent-provisioner role (arn:aws:iam::<accountID>:role/agent-provisioner) from the
-// operator's IRSA identity. Until then it only works against the operator's own account.
+// DefaultClientFactory builds an IAM client from the operator's ambient credentials, with no
+// role assumption, so it only reaches the operator's own account. It is a fallback for local
+// runs and tests. For real cross-account provisioning the operator uses
+// NewAssumeRoleClientFactory, which assumes each account's provisioner role.
 func DefaultClientFactory(ctx context.Context, accountID string) (IAMAPI, error) {
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithDefaultRegion("us-east-1"))
 	if err != nil {
