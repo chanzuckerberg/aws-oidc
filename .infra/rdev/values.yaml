@@ -58,7 +58,9 @@ stack:
     operator:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: branch-heathj-agent-registry-operator
+        # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
+        # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
+        tag: sha-c434130
       serviceAccount:
         create: true
         name: agent-operator
