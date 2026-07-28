@@ -79,10 +79,8 @@ stack:
         - --leader-election=false
         # Serve health on the stack service port so the default probes reach it.
         - --health-probe-bind-address=:8080
-        # TODO: the shared agent Okta app is not created yet (shared-infra okta-czi). Until
-        # its client id is wired in, provisioned role trust policies use this placeholder
-        # audience and no agent can actually assume them.
-        - --okta-app-client-id=agent-registry-placeholder
+        # Shared agent Okta app client id (shared-infra okta-czi output oidc_agent_client_id).
+        - --okta-app-client-id=0oa1djle01a21Qbo71t8
         - --provisioner-role-name=agent-provisioner
         # Standard tags applied to every agent role, alongside the operator's own
         # managedBy/owner and per-agent tags.

@@ -34,7 +34,7 @@ const (
 
 func init() {
 	rootCmd.AddCommand(operatorCmd)
-	operatorCmd.Flags().String(flagOktaAppClientID, "", "Client id of the shared agent Okta app used as the IAM trust audience (TODO: app not created yet)")
+	operatorCmd.Flags().String(flagOktaAppClientID, "", "Client id of the shared agent Okta app used as the IAM trust audience")
 	operatorCmd.Flags().String(flagIssuerHost, "czi.okta.com", "Okta issuer host (without scheme) that names the account OIDC provider")
 	operatorCmd.Flags().String(flagBoundaryPolicyName, "", "Permissions boundary policy name applied to every agent role (TODO: boundary not created yet; empty skips it)")
 	operatorCmd.Flags().Bool(flagLeaderElection, true, "Enable leader election so only one operator replica reconciles")

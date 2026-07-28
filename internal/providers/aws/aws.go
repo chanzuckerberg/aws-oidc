@@ -2,12 +2,9 @@
 // per-agent IAM role in the grant's account. The role trusts the shared agent Okta app via
 // web-identity federation, scoped to the owning subject.
 //
-// This is the first iteration. It creates the role if it does not already exist; several
-// pieces it depends on do not exist yet and are marked with TODOs:
-//   - the shared agent Okta app (its client id feeds the trust policy audience),
-//   - cross-account access (assuming each account's agent-provisioner role),
-//   - the permissions boundary,
-//   - the permissions policy that scopes the agent to a subset of the owner's role.
+// It creates the role if it does not already exist and mirrors the source role's policies
+// onto it. The permissions boundary is still a TODO: it is applied only when
+// BoundaryPolicyName is set, which awaits the shared-infra bootstrap.
 package aws
 
 import (
@@ -55,11 +52,7 @@ type Config struct {
 	// names the account's OIDC provider and prefixes the trust condition keys.
 	IssuerHost string
 	// OktaAppClientID is the shared agent Okta app client id used as the trust policy
-	// audience.
-	//
-	// TODO: this app does not exist yet. It is being created in shared-infra under
-	// okta-czi. Until its client id is wired in here, the aud condition will not match any
-	// real token and no agent can actually assume the role.
+	// audience. The app lives in shared-infra under okta-czi (output oidc_agent_client_id).
 	OktaAppClientID string
 	// RolePath is the IAM path every agent role lives under (must start and end with "/").
 	RolePath string
