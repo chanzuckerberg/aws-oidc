@@ -56,3 +56,34 @@ subjects:
   - kind: ServiceAccount
     name: portal
     namespace: {{ .Release.Namespace }}
+---
+# The operator watches Agent CRs and writes their status. It watches cluster-wide, so it
+# needs a ClusterRole. The name is namespaced so parallel rdev stacks do not collide on the
+# cluster-scoped object.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Namespace }}-agent-operator
+rules:
+  - apiGroups: ["agents.czi.team"]
+    resources: ["agents"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["agents.czi.team"]
+    resources: ["agents/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["agents.czi.team"]
+    resources: ["agents/finalizers"]
+    verbs: ["update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Namespace }}-agent-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Namespace }}-agent-operator
+subjects:
+  - kind: ServiceAccount
+    name: agent-operator
+    namespace: {{ .Release.Namespace }}

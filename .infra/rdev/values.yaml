@@ -51,3 +51,44 @@ stack:
           value: "00ugbvc7oiheU3Glz1t7"
         - name: PORTAL_DEV_EMAIL
           value: "jheath@chanzuckerberg.com"
+    # The agent-registry operator. Watches Agent CRs and provisions per-agent IAM roles by
+    # assuming each target account's agent-provisioner role. Its ServiceAccount is bound
+    # (via IRSA) to the operator control-plane role in core-platform-nonprod, which is
+    # trusted to assume the per-account provisioner roles. rdev-only for now.
+    operator:
+      image:
+        repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+        tag: branch-heathj-agent-registry-operator
+      serviceAccount:
+        create: true
+        name: agent-operator
+        annotations:
+          eks.amazonaws.com/role-arn: arn:aws:iam::471112759938:role/agent-registry-operator
+      resources:
+        limits:
+          cpu: 300m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      args:
+        - operator
+        # Single replica in rdev, so leader election (and its lease RBAC) is not needed.
+        - --leader-election=false
+        # Serve health on the stack service port so the default probes reach it.
+        - --health-probe-bind-address=:8080
+        # TODO: the shared agent Okta app is not created yet (shared-infra okta-czi). Until
+        # its client id is wired in, provisioned role trust policies use this placeholder
+        # audience and no agent can actually assume them.
+        - --okta-app-client-id=agent-registry-placeholder
+        - --provisioner-role-name=agent-provisioner
+        - -v
+      # The operator serves no traffic; it only needs the health endpoint.
+      ingress:
+        enabled: false
+      livenessProbe:
+        httpGet:
+          path: /healthz
+      readinessProbe:
+        httpGet:
+          path: /readyz
