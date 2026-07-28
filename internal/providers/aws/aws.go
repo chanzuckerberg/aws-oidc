@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -35,6 +36,11 @@ type IAMAPI interface {
 	GetRole(ctx context.Context, in *iam.GetRoleInput, opts ...func(*iam.Options)) (*iam.GetRoleOutput, error)
 	CreateRole(ctx context.Context, in *iam.CreateRoleInput, opts ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
 	DeleteRole(ctx context.Context, in *iam.DeleteRoleInput, opts ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	ListAttachedRolePolicies(ctx context.Context, in *iam.ListAttachedRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
+	AttachRolePolicy(ctx context.Context, in *iam.AttachRolePolicyInput, opts ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
+	ListRolePolicies(ctx context.Context, in *iam.ListRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error)
+	GetRolePolicy(ctx context.Context, in *iam.GetRolePolicyInput, opts ...func(*iam.Options)) (*iam.GetRolePolicyOutput, error)
+	PutRolePolicy(ctx context.Context, in *iam.PutRolePolicyInput, opts ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
 }
 
 // ClientFactory returns an IAM client scoped to a target account.
@@ -102,53 +108,110 @@ func (p *Provider) Ensure(ctx context.Context, agent *agentsv1.Agent, grant agen
 		return status, fmt.Errorf("iam client for account %s: %w", g.AccountID, err)
 	}
 
-	roleName := p.roleName(agent.Name, g)
+	roleName := p.roleName(agent, g)
+	sourceRole := sourceRoleName(g)
 
 	existing, err := client.GetRole(ctx, &iam.GetRoleInput{RoleName: awssdk.String(roleName)})
+	roleARN := ""
 	if err == nil {
-		// TODO: reconcile drift on the existing role (repair the trust policy, re-apply the
-		// boundary) and attach the scoped permissions policy. For now, treat presence as done.
-		status.AWS.RoleARN = awssdk.ToString(existing.Role.Arn)
-		status.State = agentsv1.GrantStateProvisioned
-		return status, nil
+		roleARN = awssdk.ToString(existing.Role.Arn)
+	} else {
+		var notFound *iamtypes.NoSuchEntityException
+		if !errors.As(err, &notFound) {
+			return status, fmt.Errorf("getting role %s: %w", roleName, err)
+		}
+
+		trust, trustErr := p.trustPolicy(g.AccountID, agent.Spec.Owner)
+		if trustErr != nil {
+			return status, trustErr
+		}
+
+		input := &iam.CreateRoleInput{
+			RoleName:                 awssdk.String(roleName),
+			Path:                     awssdk.String(p.cfg.RolePath),
+			AssumeRolePolicyDocument: awssdk.String(trust),
+			Description:              awssdk.String(fmt.Sprintf("Agent %s for %s, mirrors %s", agent.Name, agent.Spec.OwnerEmail, sourceRole)),
+			Tags:                     p.tags(agent),
+		}
+		// TODO: the permissions boundary is mandatory for real. It is skipped only until the
+		// boundary policy exists in the account (shared-infra bootstrap). Without it this role
+		// is unbounded, so do not enable this provider in a real account until
+		// BoundaryPolicyName is set.
+		if p.cfg.BoundaryPolicyName != "" {
+			input.PermissionsBoundary = awssdk.String(p.boundaryARN(g.AccountID))
+		}
+
+		created, createErr := client.CreateRole(ctx, input)
+		if createErr != nil {
+			return status, fmt.Errorf("creating role %s: %w", roleName, createErr)
+		}
+		roleARN = awssdk.ToString(created.Role.Arn)
 	}
 
-	var notFound *iamtypes.NoSuchEntityException
-	if !errors.As(err, &notFound) {
-		return status, fmt.Errorf("getting role %s: %w", roleName, err)
-	}
-
-	trust, err := p.trustPolicy(g.AccountID, agent.Spec.Owner)
+	// Mirror the permissions of the role the grant was selected from, so the agent gets the
+	// same access. Idempotent, so it also repairs an existing agent role on resync.
+	err = p.mirrorPolicies(ctx, client, sourceRole, roleName)
 	if err != nil {
-		return status, err
+		return status, fmt.Errorf("mirroring policies from %s onto %s: %w", sourceRole, roleName, err)
 	}
 
-	input := &iam.CreateRoleInput{
-		RoleName:                 awssdk.String(roleName),
-		Path:                     awssdk.String(p.cfg.RolePath),
-		AssumeRolePolicyDocument: awssdk.String(trust),
-		Description:              awssdk.String(fmt.Sprintf("Agent %s (owner %s)", agent.Name, agent.Spec.Owner)),
-		Tags:                     p.tags(agent),
-	}
-	// TODO: the permissions boundary is mandatory for real. It is skipped only until the
-	// boundary policy exists in the account (shared-infra bootstrap). Without it this role
-	// is unbounded, so do not enable this provider in a real account until BoundaryPolicyName
-	// is set.
-	if p.cfg.BoundaryPolicyName != "" {
-		input.PermissionsBoundary = awssdk.String(p.boundaryARN(g.AccountID))
-	}
-
-	created, err := client.CreateRole(ctx, input)
-	if err != nil {
-		return status, fmt.Errorf("creating role %s: %w", roleName, err)
-	}
-
-	// TODO: attach a permissions policy that scopes the agent to a subset of g.RoleARN (the
-	// owner's role the grant derives from). Until then the role can be assumed but grants no
-	// permissions.
-	status.AWS.RoleARN = awssdk.ToString(created.Role.Arn)
+	status.AWS.RoleARN = roleARN
 	status.State = agentsv1.GrantStateProvisioned
 	return status, nil
+}
+
+// mirrorPolicies copies the source role's permissions onto the agent role: every attached
+// managed policy and every inline policy. It is idempotent (attaching an already-attached
+// policy and putting an identical inline policy are both no-ops).
+//
+// TODO: this only adds; it does not detach policies the source role no longer has. Full
+// drift reconciliation (removing policies the source dropped) is future work.
+func (p *Provider) mirrorPolicies(ctx context.Context, client IAMAPI, sourceRole, agentRole string) error {
+	attached, err := client.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{
+		RoleName: awssdk.String(sourceRole),
+	})
+	if err != nil {
+		return fmt.Errorf("listing attached policies of %s: %w", sourceRole, err)
+	}
+	for _, ap := range attached.AttachedPolicies {
+		_, err = client.AttachRolePolicy(ctx, &iam.AttachRolePolicyInput{
+			RoleName:  awssdk.String(agentRole),
+			PolicyArn: ap.PolicyArn,
+		})
+		if err != nil {
+			return fmt.Errorf("attaching %s: %w", awssdk.ToString(ap.PolicyArn), err)
+		}
+	}
+
+	inline, err := client.ListRolePolicies(ctx, &iam.ListRolePoliciesInput{
+		RoleName: awssdk.String(sourceRole),
+	})
+	if err != nil {
+		return fmt.Errorf("listing inline policies of %s: %w", sourceRole, err)
+	}
+	for _, name := range inline.PolicyNames {
+		got, getErr := client.GetRolePolicy(ctx, &iam.GetRolePolicyInput{
+			RoleName:   awssdk.String(sourceRole),
+			PolicyName: awssdk.String(name),
+		})
+		if getErr != nil {
+			return fmt.Errorf("reading inline policy %s: %w", name, getErr)
+		}
+		// GetRolePolicy returns the document URL-encoded; PutRolePolicy wants plain JSON.
+		doc, decodeErr := url.QueryUnescape(awssdk.ToString(got.PolicyDocument))
+		if decodeErr != nil {
+			return fmt.Errorf("decoding inline policy %s: %w", name, decodeErr)
+		}
+		_, putErr := client.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
+			RoleName:       awssdk.String(agentRole),
+			PolicyName:     awssdk.String(name),
+			PolicyDocument: awssdk.String(doc),
+		})
+		if putErr != nil {
+			return fmt.Errorf("writing inline policy %s: %w", name, putErr)
+		}
+	}
+	return nil
 }
 
 // Delete removes the per-agent role. A missing role is treated as success.
@@ -163,7 +226,7 @@ func (p *Provider) Delete(ctx context.Context, agent *agentsv1.Agent, grant agen
 		return fmt.Errorf("iam client for account %s: %w", g.AccountID, err)
 	}
 
-	roleName := p.roleName(agent.Name, g)
+	roleName := p.roleName(agent, g)
 	// TODO: once the role carries attached policies, detach them before DeleteRole.
 	_, err = client.DeleteRole(ctx, &iam.DeleteRoleInput{RoleName: awssdk.String(roleName)})
 	if err != nil {
@@ -198,17 +261,39 @@ func unreachableAccount(err error) bool {
 	return false
 }
 
-// roleName derives the per-agent role name for a grant: <agent>-<source role base name>.
+// roleName derives the per-agent role name, including the owner's shortname so the role is
+// identifiable by human at a glance: <shortname>-agent-<agent>-<source role base name>, for
+// example jheath-agent-playground-readonly-readonly. When the owner email is unknown the
+// shortname is omitted.
 //
-// TODO: IAM role names cap at 64 characters and allow only [\w+=,.@-]; long agent or role
-// names need truncation or hashing.
-func (p *Provider) roleName(agentName string, g *agentsv1.AWSGrant) string {
+// TODO: IAM role names cap at 64 characters and allow only [\w+=,.@-]; long names need
+// truncation or hashing.
+func (p *Provider) roleName(agent *agentsv1.Agent, g *agentsv1.AWSGrant) string {
+	base := sourceRoleName(g)
+	short := shortName(agent.Spec.OwnerEmail)
+	if short == "" {
+		return fmt.Sprintf("agent-%s-%s", agent.Name, base)
+	}
+	return fmt.Sprintf("%s-agent-%s-%s", short, agent.Name, base)
+}
+
+// sourceRoleName is the base name of the role a grant was selected from (the role whose
+// permissions the agent role mirrors).
+func sourceRoleName(g *agentsv1.AWSGrant) string {
 	base := g.RoleName
 	if base == "" {
 		base = roleNameFromARN(g.RoleARN)
 	}
-	base = base[strings.LastIndex(base, "/")+1:]
-	return fmt.Sprintf("%s-%s", agentName, base)
+	return base[strings.LastIndex(base, "/")+1:]
+}
+
+// shortName is the local part of an email (before the @), used as the human's shortname.
+func shortName(email string) string {
+	at := strings.Index(email, "@")
+	if at <= 0 {
+		return ""
+	}
+	return email[:at]
 }
 
 func (p *Provider) boundaryARN(accountID string) string {
@@ -216,11 +301,19 @@ func (p *Provider) boundaryARN(accountID string) string {
 }
 
 func (p *Provider) tags(agent *agentsv1.Agent) []iamtypes.Tag {
-	return []iamtypes.Tag{
+	tags := []iamtypes.Tag{
 		{Key: awssdk.String("managed-by"), Value: awssdk.String("aws-oidc-agent-operator")},
 		{Key: awssdk.String("agent-name"), Value: awssdk.String(agent.Name)},
+		// agent-owner is the Okta subject; agent-owner-email is the human-readable owner.
 		{Key: awssdk.String("agent-owner"), Value: awssdk.String(agent.Spec.Owner)},
 	}
+	if agent.Spec.OwnerEmail != "" {
+		tags = append(tags, iamtypes.Tag{
+			Key:   awssdk.String("agent-owner-email"),
+			Value: awssdk.String(agent.Spec.OwnerEmail),
+		})
+	}
+	return tags
 }
 
 // trustPolicy builds the web-identity trust document: the account's Okta OIDC provider,
