@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -155,8 +156,13 @@ func (r *AgentReconciler) reconcileDelete(ctx context.Context, agent *agentsv1.A
 // writeStatus records per-grant results, the observed generation, and the aggregate Ready
 // condition on the status subresource.
 func (r *AgentReconciler) writeStatus(ctx context.Context, agent *agentsv1.Agent, statuses []agentsv1.GrantStatus) error {
-	agent.Status.Grants = statuses
-	agent.Status.ObservedGeneration = agent.Generation
+	// Compute the desired status on a copy so we can compare it to the current one and only
+	// write when it actually changed. Writing unconditionally every reconcile creates a
+	// status -> watch -> reconcile storm, which (with a lagging cache) shows up as a stream
+	// of optimistic-lock "object has been modified" conflicts.
+	desired := agent.Status.DeepCopy()
+	desired.Grants = statuses
+	desired.ObservedGeneration = agent.Generation
 
 	ready := true
 	for _, s := range statuses {
@@ -178,8 +184,13 @@ func (r *AgentReconciler) writeStatus(ctx context.Context, agent *agentsv1.Agent
 		condition.Reason = "AllGrantsProvisioned"
 		condition.Message = "all grants provisioned"
 	}
-	meta.SetStatusCondition(&agent.Status.Conditions, condition)
+	meta.SetStatusCondition(&desired.Conditions, condition)
 
+	if equality.Semantic.DeepEqual(&agent.Status, desired) {
+		return nil
+	}
+
+	desired.DeepCopyInto(&agent.Status)
 	err := r.Status().Update(ctx, agent)
 	if err != nil {
 		return fmt.Errorf("updating status: %w", err)
