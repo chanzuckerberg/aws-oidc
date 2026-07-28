@@ -39,9 +39,11 @@ type IAMAPI interface {
 	DeleteRole(ctx context.Context, in *iam.DeleteRoleInput, opts ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
 	ListAttachedRolePolicies(ctx context.Context, in *iam.ListAttachedRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
 	AttachRolePolicy(ctx context.Context, in *iam.AttachRolePolicyInput, opts ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
+	DetachRolePolicy(ctx context.Context, in *iam.DetachRolePolicyInput, opts ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error)
 	ListRolePolicies(ctx context.Context, in *iam.ListRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error)
 	GetRolePolicy(ctx context.Context, in *iam.GetRolePolicyInput, opts ...func(*iam.Options)) (*iam.GetRolePolicyOutput, error)
 	PutRolePolicy(ctx context.Context, in *iam.PutRolePolicyInput, opts ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
+	DeleteRolePolicy(ctx context.Context, in *iam.DeleteRolePolicyInput, opts ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error)
 }
 
 // ClientFactory returns an IAM client scoped to a target account.
@@ -236,7 +238,23 @@ func (p *Provider) Delete(ctx context.Context, agent *agentsv1.Agent, grant agen
 	}
 
 	roleName := p.roleName(agent, g)
-	// TODO: once the role carries attached policies, detach them before DeleteRole.
+
+	// IAM refuses to delete a role that still has policies, so detach managed policies and
+	// delete inline policies first.
+	err = p.emptyRole(ctx, client, roleName)
+	if err != nil {
+		var notFound *iamtypes.NoSuchEntityException
+		if errors.As(err, &notFound) {
+			return nil
+		}
+		if unreachableAccount(err) {
+			slog.Warn("skipping teardown: cannot reach target account, treating as nothing to clean up",
+				"provider", providerName, "account", g.AccountID, "role", roleName, "error", err)
+			return nil
+		}
+		return fmt.Errorf("emptying role %s: %w", roleName, err)
+	}
+
 	_, err = client.DeleteRole(ctx, &iam.DeleteRoleInput{RoleName: awssdk.String(roleName)})
 	if err != nil {
 		var notFound *iamtypes.NoSuchEntityException
@@ -252,6 +270,46 @@ func (p *Provider) Delete(ctx context.Context, agent *agentsv1.Agent, grant agen
 			return nil
 		}
 		return fmt.Errorf("deleting role %s: %w", roleName, err)
+	}
+	return nil
+}
+
+// emptyRole detaches every managed policy and deletes every inline policy on the role so it
+// can be deleted. When the role is already gone the list calls return NoSuchEntity, which the
+// caller treats as success.
+//
+// TODO: handle pagination (IsTruncated / Marker) for roles with many policies.
+func (p *Provider) emptyRole(ctx context.Context, client IAMAPI, roleName string) error {
+	attached, err := client.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{
+		RoleName: awssdk.String(roleName),
+	})
+	if err != nil {
+		return fmt.Errorf("listing attached policies of %s: %w", roleName, err)
+	}
+	for _, ap := range attached.AttachedPolicies {
+		_, err = client.DetachRolePolicy(ctx, &iam.DetachRolePolicyInput{
+			RoleName:  awssdk.String(roleName),
+			PolicyArn: ap.PolicyArn,
+		})
+		if err != nil {
+			return fmt.Errorf("detaching %s: %w", awssdk.ToString(ap.PolicyArn), err)
+		}
+	}
+
+	inline, err := client.ListRolePolicies(ctx, &iam.ListRolePoliciesInput{
+		RoleName: awssdk.String(roleName),
+	})
+	if err != nil {
+		return fmt.Errorf("listing inline policies of %s: %w", roleName, err)
+	}
+	for _, name := range inline.PolicyNames {
+		_, err = client.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+			RoleName:   awssdk.String(roleName),
+			PolicyName: awssdk.String(name),
+		})
+		if err != nil {
+			return fmt.Errorf("deleting inline policy %s: %w", name, err)
+		}
 	}
 	return nil
 }

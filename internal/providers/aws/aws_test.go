@@ -18,9 +18,10 @@ type fakeIAM struct {
 	deleteErr error
 	// sourceAttached are the managed policy ARNs the source role has.
 	sourceAttached []string
-	// createdRoleName and attachedToAgent capture what the provider did, for assertions.
-	createdRoleName string
-	attachedToAgent []string
+	// createdRoleName, attachedToAgent, and detachedFromAgent capture what the provider did.
+	createdRoleName   string
+	attachedToAgent   []string
+	detachedFromAgent []string
 }
 
 func (f *fakeIAM) GetRole(context.Context, *iam.GetRoleInput, ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
@@ -48,6 +49,15 @@ func (f *fakeIAM) ListAttachedRolePolicies(context.Context, *iam.ListAttachedRol
 func (f *fakeIAM) AttachRolePolicy(_ context.Context, in *iam.AttachRolePolicyInput, _ ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error) {
 	f.attachedToAgent = append(f.attachedToAgent, *in.PolicyArn)
 	return &iam.AttachRolePolicyOutput{}, nil
+}
+
+func (f *fakeIAM) DetachRolePolicy(_ context.Context, in *iam.DetachRolePolicyInput, _ ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error) {
+	f.detachedFromAgent = append(f.detachedFromAgent, *in.PolicyArn)
+	return &iam.DetachRolePolicyOutput{}, nil
+}
+
+func (f *fakeIAM) DeleteRolePolicy(context.Context, *iam.DeleteRolePolicyInput, ...func(*iam.Options)) (*iam.DeleteRolePolicyOutput, error) {
+	return &iam.DeleteRolePolicyOutput{}, nil
 }
 
 func (f *fakeIAM) ListRolePolicies(context.Context, *iam.ListRolePoliciesInput, ...func(*iam.Options)) (*iam.ListRolePoliciesOutput, error) {
@@ -162,6 +172,22 @@ func TestTagsMergeStandardAndAgent(t *testing.T) {
 		"agent-name":  "playground-readonly",
 		"agent-owner": "00uSUB123",
 	}, got)
+}
+
+func TestDeleteDetachesPoliciesFirst(t *testing.T) {
+	ctx := context.Background()
+	// The agent role has a managed policy attached (mirrored), so delete must detach it
+	// before DeleteRole, which otherwise fails with DeleteConflict.
+	f := &fakeIAM{sourceAttached: []string{"arn:aws:iam::aws:policy/ReadOnlyAccess"}}
+	p := providerWithFake(f)
+
+	agent := &agentsv1.Agent{}
+	agent.Name = "playground-readonly"
+	agent.Spec.OwnerEmail = "jheath@chanzuckerberg.com"
+
+	err := p.Delete(ctx, agent, awsGrant())
+	require.NoError(t, err)
+	require.Equal(t, []string{"arn:aws:iam::aws:policy/ReadOnlyAccess"}, f.detachedFromAgent)
 }
 
 func TestUnreachableAccount(t *testing.T) {
