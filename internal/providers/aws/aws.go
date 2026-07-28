@@ -15,12 +15,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/smithy-go"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
@@ -169,9 +171,31 @@ func (p *Provider) Delete(ctx context.Context, agent *agentsv1.Agent, grant agen
 		if errors.As(err, &notFound) {
 			return nil
 		}
+		// If we cannot assume into the account (the provisioner role is absent or does not
+		// trust us), there is nothing we could have provisioned there to clean up. Treat it
+		// as done rather than wedging the finalizer forever on an account we cannot reach.
+		if unreachableAccount(err) {
+			slog.Warn("skipping teardown: cannot reach target account, treating as nothing to clean up",
+				"provider", providerName, "account", g.AccountID, "role", roleName, "error", err)
+			return nil
+		}
 		return fmt.Errorf("deleting role %s: %w", roleName, err)
 	}
 	return nil
+}
+
+// unreachableAccount reports whether the error was caused by failing to assume into the
+// target account (the STS AssumeRole step), rather than by the IAM call itself. It walks the
+// wrapped error chain looking for a smithy operation error from STS, which the SDK surfaces
+// when credential resolution (the assume-role) fails.
+func unreachableAccount(err error) bool {
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		opErr, ok := e.(*smithy.OperationError)
+		if ok && opErr.ServiceID == "STS" {
+			return true
+		}
+	}
+	return false
 }
 
 // roleName derives the per-agent role name for a grant: <agent>-<source role base name>.
