@@ -138,6 +138,32 @@ func TestEnsureNamingAndMirror(t *testing.T) {
 	require.Equal(t, []string{"arn:aws:iam::aws:policy/ReadOnlyAccess"}, f.attachedToAgent)
 }
 
+func TestTagsMergeStandardAndAgent(t *testing.T) {
+	p := NewProvider(Config{
+		DefaultTags: map[string]string{"project": "agent-registry", "env": "rdev", "service": "aws-oidc"},
+	}, func(context.Context, string) (IAMAPI, error) { return &fakeIAM{}, nil })
+
+	agent := &agentsv1.Agent{}
+	agent.Name = "playground-readonly"
+	agent.Spec.Owner = "00uSUB123"
+	agent.Spec.OwnerEmail = "jheath@chanzuckerberg.com"
+
+	got := map[string]string{}
+	for _, tag := range p.tags(agent) {
+		got[*tag.Key] = *tag.Value
+	}
+
+	require.Equal(t, map[string]string{
+		"project":     "agent-registry",
+		"env":         "rdev",
+		"service":     "aws-oidc",
+		"managedBy":   "aws-oidc-agent-operator",
+		"owner":       "jheath@chanzuckerberg.com",
+		"agent-name":  "playground-readonly",
+		"agent-owner": "00uSUB123",
+	}, got)
+}
+
 func TestUnreachableAccount(t *testing.T) {
 	require.True(t, unreachableAccount(assumeRoleFailure()))
 	require.False(t, unreachableAccount(errors.New("throttled")))

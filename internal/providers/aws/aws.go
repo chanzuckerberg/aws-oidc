@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"sort"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -65,7 +66,15 @@ type Config struct {
 	// TODO: the boundary policy does not exist yet (part of the shared-infra bootstrap).
 	// When empty the role is created without a boundary; set this once the policy exists.
 	BoundaryPolicyName string
+	// DefaultTags are the deployment-level standard tags (for example project, env,
+	// service) applied to every agent role. The operator layers its own managedBy/owner and
+	// the per-agent tags on top of these.
+	DefaultTags map[string]string
 }
+
+// managedByValue is the managedBy tag value for roles this operator creates, matching the
+// standard tagging convention (Terraform-managed resources use "terraform").
+const managedByValue = "aws-oidc-agent-operator"
 
 // Provider provisions AWS grants.
 type Provider struct {
@@ -300,20 +309,41 @@ func (p *Provider) boundaryARN(accountID string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", accountID, p.cfg.BoundaryPolicyName)
 }
 
+// tags builds the role's tag set: the deployment-level standard tags (project/env/service),
+// the standard managedBy and owner, and the per-agent tags. owner is the human's email (the
+// person responsible for the agent); agent-owner is their Okta subject. Keys are emitted in
+// stable order.
 func (p *Provider) tags(agent *agentsv1.Agent) []iamtypes.Tag {
-	tags := []iamtypes.Tag{
-		{Key: awssdk.String("managed-by"), Value: awssdk.String("aws-oidc-agent-operator")},
-		{Key: awssdk.String("agent-name"), Value: awssdk.String(agent.Name)},
-		// agent-owner is the Okta subject; agent-owner-email is the human-readable owner.
-		{Key: awssdk.String("agent-owner"), Value: awssdk.String(agent.Spec.Owner)},
+	merged := map[string]string{}
+	for k, v := range p.cfg.DefaultTags {
+		merged[k] = v
 	}
-	if agent.Spec.OwnerEmail != "" {
-		tags = append(tags, iamtypes.Tag{
-			Key:   awssdk.String("agent-owner-email"),
-			Value: awssdk.String(agent.Spec.OwnerEmail),
-		})
+
+	merged["managedBy"] = managedByValue
+	merged["agent-name"] = agent.Name
+	merged["agent-owner"] = agent.Spec.Owner // Okta subject (the "client id")
+
+	owner := agent.Spec.OwnerEmail
+	if owner == "" {
+		owner = agent.Spec.Owner
 	}
+	merged["owner"] = coalesceUnknown(owner)
+
+	tags := make([]iamtypes.Tag, 0, len(merged))
+	for k, v := range merged {
+		tags = append(tags, iamtypes.Tag{Key: awssdk.String(k), Value: awssdk.String(v)})
+	}
+	sort.Slice(tags, func(i, j int) bool { return awssdk.ToString(tags[i].Key) < awssdk.ToString(tags[j].Key) })
 	return tags
+}
+
+// coalesceUnknown mirrors the fogg tagging convention of defaulting an empty value to
+// "unknown".
+func coalesceUnknown(v string) string {
+	if v == "" {
+		return "unknown"
+	}
+	return v
 }
 
 // trustPolicy builds the web-identity trust document: the account's Okta OIDC provider,

@@ -82,6 +82,9 @@ stack:
         # audience and no agent can actually assume them.
         - --okta-app-client-id=agent-registry-placeholder
         - --provisioner-role-name=agent-provisioner
+        # Standard tags applied to every agent role, alongside the operator's own
+        # managedBy/owner and per-agent tags.
+        - --role-tags=project=agent-registry,env=rdev,service=aws-oidc
         - -v
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:

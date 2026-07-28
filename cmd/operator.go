@@ -29,6 +29,7 @@ const (
 	flagSessionDuration     = "assume-role-session-duration"
 	flagAWSRegion           = "aws-region"
 	flagGrantConcurrency    = "grant-concurrency"
+	flagRoleTags            = "role-tags"
 )
 
 func init() {
@@ -42,6 +43,7 @@ func init() {
 	operatorCmd.Flags().Duration(flagSessionDuration, 15*time.Minute, "Duration of the short-lived cross-account assume-role session")
 	operatorCmd.Flags().String(flagAWSRegion, "us-east-1", "Region used for STS and IAM calls")
 	operatorCmd.Flags().Int(flagGrantConcurrency, 8, "Maximum grants of one agent provisioned in parallel")
+	operatorCmd.Flags().StringToString(flagRoleTags, nil, "Standard tags applied to every agent role (for example project=agent-registry,env=rdev,service=aws-oidc)")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -92,6 +94,10 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	grantConcurrency, err := cmd.Flags().GetInt(flagGrantConcurrency)
 	if err != nil {
 		return fmt.Errorf("missing grant-concurrency flag: %w", err)
+	}
+	roleTags, err := cmd.Flags().GetStringToString(flagRoleTags)
+	if err != nil {
+		return fmt.Errorf("missing role-tags flag: %w", err)
 	}
 
 	// Route controller-runtime's logr logging through the repo's slog logger set up in
@@ -151,6 +157,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		IssuerHost:         issuerHost,
 		OktaAppClientID:    oktaAppClientID,
 		BoundaryPolicyName: boundaryPolicyName,
+		DefaultTags:        roleTags,
 	}, clientFactory)
 
 	reconciler := &controller.AgentReconciler{
