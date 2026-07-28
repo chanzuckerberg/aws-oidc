@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
@@ -93,7 +94,9 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("missing grant-concurrency flag: %w", err)
 	}
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	// Route controller-runtime's logr logging through the repo's slog logger set up in
+	// PersistentPreRunE, so the operator logs the same way as the rest of the binary.
+	ctrl.SetLogger(logr.FromSlogHandler(slog.Default().Handler()))
 
 	restConfig, namespace, err := configmap.NewInClusterConfig()
 	if err != nil {
