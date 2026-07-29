@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-f1c2c88
+        tag: sha-c8964ff
       # This rdev stack is for the portal, which owns the stack root path. The config
       # server is not exercised here, so disable its routing to avoid a host+path
       # collision with the portal.
@@ -16,7 +16,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-f1c2c88
+        tag: sha-c8964ff
       serviceAccount:
         create: true
         name: portal
@@ -71,7 +71,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-f1c2c88
+        tag: sha-c8964ff
       serviceAccount:
         create: true
         name: agent-operator
