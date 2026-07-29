@@ -8,8 +8,6 @@ stack:
         paths:
           - path: /
             pathType: Prefix
-    # The agent-registry portal. rdev-only for now: there is no browser login yet, so it
-    # is not exposed in prod. Identity comes from PORTAL_DEV_SUB below.
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
