@@ -38,6 +38,12 @@ stack:
         paths:
           - path: /
             pathType: Prefix
+      oidcProxyGateway:
+        # The gateway forwards the Okta ID token in this cookie (Envoy Gateway does not yet
+        # forward it as a header). Pin the name so the portal can read it via
+        # PORTAL_ID_TOKEN_COOKIE below.
+        cookieNames:
+          idToken: IdToken-portal
       livenessProbe:
         httpGet:
           path: /health
@@ -51,12 +57,11 @@ stack:
           value: https://czi.okta.com
         - name: OKTA_SERVICE_CLIENT_ID
           value: 0oa18b7m1cb97rFLK1t8
-        # No browser login yet: set this to YOUR Okta user id to act as that user (you are
-        # treated as admin so you can see everything). Without it the portal returns 401.
-        - name: PORTAL_DEV_SUB
-          value: "00ugbvc7oiheU3Glz1t7"
-        - name: PORTAL_DEV_EMAIL
-          value: "jheath@chanzuckerberg.com"
+        # Identity comes from the Okta ID token the gateway OIDC proxy forwards in this cookie.
+        # To impersonate a specific user for testing instead, set PORTAL_DEV_SUB (and
+        # PORTAL_DEV_EMAIL) to their Okta user id; that overrides the cookie and grants admin.
+        - name: PORTAL_ID_TOKEN_COOKIE
+          value: IdToken-portal
     # The agent-registry operator. Watches Agent CRs and provisions per-agent IAM roles by
     # assuming each target account's agent-provisioner role. Its ServiceAccount is bound
     # (via IRSA) to the operator control-plane role in core-platform-nonprod, which is
