@@ -5,7 +5,18 @@ stack:
       replicaCount: 3
       image:
         tag: sha-0a4e8c2
+      # Coexistence migration from the nginx Ingress to the Envoy gateway. Both
+      # routing modes render; gateway.dnsOwner: gateway moves the DNS record to the
+      # gateway NLB via external-dns while the nginx Ingress keeps serving stale-DNS
+      # clients. A follow-up cleanup PR drops the ingress block once nginx is drained.
+      ingress:
+        enabled: true
+        host: aws-oidc.prod-central.prod.czi.team
+        paths:
+          - path: /
+            pathType: Prefix
       gateway:
+        dnsOwner: gateway
         host: aws-oidc.prod-central.prod.czi.team
         paths:
           - path: /

@@ -5,9 +5,11 @@ stack:
       image:
         tag: sha-f1c2c88
       # This rdev stack is for the portal, which owns the stack root path. The config
-      # server is not exercised here, so disable its ingress to avoid a host+path
+      # server is not exercised here, so disable its routing to avoid a host+path
       # collision with the portal.
       ingress:
+        enabled: false
+      gateway:
         enabled: false
     # The agent-registry portal. rdev-only for now: there is no browser login yet, so it
     # is not exposed in prod. Identity comes from PORTAL_DEV_SUB below.
@@ -28,7 +30,7 @@ stack:
       args:
         - serve-portal
         - -v
-      ingress:
+      gateway:
         paths:
           - path: /
             pathType: Prefix
