@@ -5,6 +5,7 @@ stack:
       image:
         tag: sha-f1c2c88
       gateway:
+        enabled: true
         paths:
           - path: /
             pathType: Prefix
@@ -26,10 +27,8 @@ stack:
         - serve-portal
         - -v
       gateway:
-        # Put the Okta login wall in front of the portal via an Envoy Gateway
-        # SecurityPolicy. Client id, secret, and issuer default to the shared
-        # argus-global-oidc app, whose redirect URIs cover the rdev cluster hosts.
         oidcProtected: true
+        enabled: true
         paths:
           - path: /portal
             pathType: Prefix
