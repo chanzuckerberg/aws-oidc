@@ -31,6 +31,10 @@ stack:
         - serve-portal
         - -v
       gateway:
+        # Put the Okta login wall in front of the portal via an Envoy Gateway
+        # SecurityPolicy. Client id, secret, and issuer default to the shared
+        # argus-global-oidc app, whose redirect URIs cover the rdev cluster hosts.
+        oidcProtected: true
         paths:
           - path: /
             pathType: Prefix
