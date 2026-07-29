@@ -24,7 +24,7 @@
 </head>
 <body>
   <header>
-    <a href="/">Agent Registry</a>
+    <a href="{{.BasePath}}/">Agent Registry</a>
     {{if .User}}<span class="muted">— {{if .User.Email}}{{.User.Email}}{{else}}{{.User.Sub}}{{end}}{{if .User.Admin}} · admin{{end}}</span>{{end}}
   </header>
   <hr>

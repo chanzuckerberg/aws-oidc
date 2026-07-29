@@ -17,6 +17,7 @@ require (
 	github.com/chanzuckerberg/go-misc/oidc/v5 v5.0.0-20260226201707-b3b2ff0ceb08
 	github.com/chanzuckerberg/go-misc/ver v0.0.0-20251117200159-d2a50dbfd31c
 	github.com/coreos/go-oidc v2.4.0+incompatible
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/go-logr/logr v1.4.2
 	github.com/gorilla/handlers v1.5.2
 	github.com/hashicorp/go-tfe v1.78.0
@@ -24,6 +25,7 @@ require (
 	github.com/okta/okta-sdk-golang/v3 v3.0.19
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
+	golang.org/x/oauth2 v0.33.0
 	golang.org/x/sync v0.18.0
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -50,7 +52,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chanzuckerberg/go-misc/osutil v0.0.0-20251205003006-0acabbc1617e // indirect
 	github.com/chanzuckerberg/go-misc/pidlock v0.0.0-20251117200159-d2a50dbfd31c // indirect
-	github.com/coreos/go-oidc/v3 v3.17.0 // indirect
 	github.com/creack/pty v1.1.24 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
@@ -106,7 +107,6 @@ require (
 	github.com/zalando/go-keyring v0.2.6 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/oauth2 v0.33.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect

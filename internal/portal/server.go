@@ -21,18 +21,21 @@ var templatesFS embed.FS
 
 var agentNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
-// Config wires the portal's dependencies.
+// Config wires the portal's dependencies. BasePath is the URL prefix the portal is served
+// under (for example "/portal" when the gateway routes a sub-path to it); empty means root.
 type Config struct {
 	Apps             okta.AppLister
 	MappingsProvider MappingsProvider
 	Store            AgentStore
 	Identity         *IdentityResolver
+	BasePath         string
 }
 
 // Server is the agent-registry portal.
 type Server struct {
-	cfg  Config
-	tmpl *template.Template
+	cfg      Config
+	tmpl     *template.Template
+	basePath string
 }
 
 // NewServer parses templates and returns a portal server.
@@ -41,13 +44,13 @@ func NewServer(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing templates: %w", err)
 	}
-	return &Server{cfg: cfg, tmpl: tmpl}, nil
+	return &Server{cfg: cfg, tmpl: tmpl, basePath: strings.TrimRight(cfg.BasePath, "/")}, nil
 }
 
 // Handler returns the HTTP handler for the portal.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /health", healthy)
 	mux.HandleFunc("GET /{$}", s.handleList)
 	mux.HandleFunc("GET /agents/new", s.handleNew)
 	mux.HandleFunc("POST /agents", s.handleCreate)
@@ -55,15 +58,30 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /agents/{name}", s.handleUpdate)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
 
+	handler := http.Handler(mux)
+	if s.basePath != "" {
+		root := http.NewServeMux()
+		root.HandleFunc("GET /health", healthy)
+		root.Handle(s.basePath+"/", http.StripPrefix(s.basePath, mux))
+		handler = root
+	}
+
 	recovery := handlers.RecoveryHandler(
 		handlers.PrintRecoveryStack(true),
 		handlers.RecoveryLogger(recoveryLogger{slog.Default()}),
 	)
-	return recovery(mux)
+	return recovery(handler)
+}
+
+func healthy(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
+
+func (s *Server) redirect(w http.ResponseWriter, r *http.Request, path string) {
+	http.Redirect(w, r, s.basePath+path, http.StatusSeeOther)
 }
 
 type pageData struct {
 	Title        string
+	BasePath     string
 	User         *User
 	Agents       []Agent
 	Agent        *Agent
@@ -178,7 +196,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	s.redirect(w, r, "/")
 }
 
 func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +269,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	s.redirect(w, r, "/")
 }
 
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
@@ -270,7 +288,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "deleting agent", err)
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	s.redirect(w, r, "/")
 }
 
 // ownedAgent loads the agent named in the path and enforces that the current user may act
@@ -302,7 +320,7 @@ func (s *Server) entitlements(ctx context.Context, sub string) (*Entitlements, e
 }
 
 func (s *Server) user(w http.ResponseWriter, r *http.Request) (*User, bool) {
-	user, err := s.cfg.Identity.Resolve(r)
+	user, err := s.cfg.Identity.Resolve(r.Context(), r)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return nil, false
@@ -311,6 +329,7 @@ func (s *Server) user(w http.ResponseWriter, r *http.Request) (*User, bool) {
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
+	data.BasePath = s.basePath
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {

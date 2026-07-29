@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/chanzuckerberg/aws-oidc/internal/portal"
 	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
@@ -75,11 +76,21 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 
 	store := portal.NewCRStore(dynamicClient, namespace)
 
+	// The gateway OIDC proxy authenticates with its own OAuth client (the shared
+	// argus-global-oidc app), so the forwarded access token's cid is that client, not the
+	// portal's own OKTA_CLIENT_ID. Configure it separately.
+	gatewayClientID := os.Getenv("PORTAL_OIDC_CLIENT_ID")
+	identity, err := portal.NewIdentityResolver(ctx, oktaEnv.ISSUER_URL, gatewayClientID)
+	if err != nil {
+		return fmt.Errorf("creating identity resolver: %w", err)
+	}
+
 	srv, err := portal.NewServer(portal.Config{
 		Apps:             oktaAppClient,
 		MappingsProvider: mappingsProvider,
 		Store:            store,
-		Identity:         portal.NewIdentityResolver(),
+		Identity:         identity,
+		BasePath:         os.Getenv("PORTAL_BASE_PATH"),
 	})
 	if err != nil {
 		return fmt.Errorf("creating portal server: %w", err)
