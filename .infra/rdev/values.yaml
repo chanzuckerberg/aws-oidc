@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-775eb61
+        tag: sha-10d07a1
       gateway:
         enabled: true
         paths:
@@ -12,7 +12,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-775eb61
+        tag: sha-10d07a1
       serviceAccount:
         create: true
         name: portal
@@ -72,7 +72,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-775eb61
+        tag: sha-10d07a1
       serviceAccount:
         create: true
         name: agent-operator
