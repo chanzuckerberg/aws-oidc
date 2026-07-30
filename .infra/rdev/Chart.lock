@@ -1,6 +1,6 @@
 dependencies:
 - name: stack
-  repository: file://../../../argo-helm-charts/stack
-  version: 2.49.0
-digest: sha256:bde3b743caa42e942af34f0bd42f0f8d6f0e22b4ced453b04d25ec0f4a610e64
-generated: "2026-07-30T14:37:32.179405-07:00"
+  repository: https://chanzuckerberg.github.io/argo-helm-charts
+  version: 2.49.1
+digest: sha256:117e1a28de2d83d13df28d404bf12550c120384468389f9cecfa758ba36e6a5d
+generated: "2026-07-30T15:17:26.583719-07:00"
