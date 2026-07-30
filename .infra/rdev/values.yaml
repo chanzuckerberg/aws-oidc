@@ -54,7 +54,7 @@ stack:
         # app). The forwarded access token's cid must match this, which binds the token to the
         # gateway app. This is not the portal's own OKTA_CLIENT_ID above.
         - name: PORTAL_OIDC_CLIENT_ID
-          value: 0oa1bn1d9ucwCNsIy1t8
+          value: 0oa1d7mtwjsTbgIKJ1t8
         - name: PORTAL_BASE_PATH
           value: /portal
         # Groups are not in the access token, so the portal reads them from Okta userinfo to
