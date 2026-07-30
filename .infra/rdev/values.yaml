@@ -32,10 +32,6 @@ stack:
         paths:
           - path: /portal
             pathType: Prefix
-          - path: /oauth2
-            pathType: Prefix
-          - path: /logout
-            pathType: Prefix
       oidcProxyGateway:
         # The gateway encrypts its session cookies, so the portal cannot read the token from
         # them. Forward the access token in the Authorization header instead; the portal
