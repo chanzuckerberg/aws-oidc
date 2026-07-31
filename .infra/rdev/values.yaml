@@ -3,4 +3,107 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-d7f00ae
+        tag: sha-10d07a1
+      gateway:
+        enabled: true
+        paths:
+          - path: /
+            pathType: Prefix
+    portal:
+      image:
+        repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+        tag: sha-10d07a1
+      serviceAccount:
+        create: true
+        name: portal
+      resources:
+        limits:
+          cpu: 300m
+          memory: 500Mi
+        requests:
+          cpu: 300m
+          memory: 500Mi
+      args:
+        - serve-portal
+        - -v
+      gateway:
+        oidcProtected: true
+        enabled: true
+        paths:
+          - path: /portal
+            pathType: Prefix
+      oidcProxyGateway:
+        # The gateway encrypts its session cookies, so the portal cannot read the token from
+        # them. Forward the access token in the Authorization header instead; the portal
+        # verifies it against Okta and reads the user id from its uid claim.
+        forwardAccessToken: true
+      livenessProbe:
+        httpGet:
+          path: /health
+      readinessProbe:
+        httpGet:
+          path: /health
+      env:
+        - name: OKTA_CLIENT_ID
+          value: 0oa1be0s0d6KhEAed1t8
+        - name: OKTA_ISSUER_URL
+          value: https://czi.okta.com
+        - name: OKTA_SERVICE_CLIENT_ID
+          value: 0oa18b7m1cb97rFLK1t8
+        # The client the gateway OIDC proxy authenticates with (the shared argus-global-oidc
+        # app). The forwarded access token's cid must match this, which binds the token to the
+        # gateway app. This is not the portal's own OKTA_CLIENT_ID above.
+        - name: PORTAL_OIDC_CLIENT_ID
+          value: 0oa1d7mtwjsTbgIKJ1t8
+        - name: PORTAL_BASE_PATH
+          value: /portal
+        # Groups are not in the access token, so the portal reads them from Okta userinfo to
+        # decide who gets the admin view. Set this to the Okta admin group(s), comma-separated.
+        - name: PORTAL_ADMIN_GROUPS
+          value: ""
+        # To impersonate a specific user for testing, set PORTAL_DEV_SUB (and PORTAL_DEV_EMAIL)
+        # to their Okta user id; that bypasses the gateway token and grants admin.
+    # The agent-registry operator. Watches Agent CRs and provisions per-agent IAM roles by
+    # assuming each target account's agent-provisioner role. Its ServiceAccount is bound
+    # (via IRSA) to the operator control-plane role in core-platform-nonprod, which is
+    # trusted to assume the per-account provisioner roles. rdev-only for now.
+    operator:
+      image:
+        repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
+        # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
+        # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
+        tag: sha-10d07a1
+      serviceAccount:
+        create: true
+        name: agent-operator
+        annotations:
+          eks.amazonaws.com/role-arn: arn:aws:iam::471112759938:role/agent-registry-operator
+      resources:
+        limits:
+          cpu: 300m
+          memory: 300Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      args:
+        - operator
+        # Single replica in rdev, so leader election (and its lease RBAC) is not needed.
+        - --leader-election=false
+        # Serve health on the stack service port so the default probes reach it.
+        - --health-probe-bind-address=:8080
+        # Shared agent Okta app client id (shared-infra okta-czi output oidc_agent_client_id).
+        - --okta-app-client-id=0oa1djle01a21Qbo71t8
+        - --provisioner-role-name=agent-provisioner
+        # Standard tags applied to every agent role, alongside the operator's own
+        # managedBy/owner and per-agent tags.
+        - --role-tags=project=agent-registry,env=rdev,service=aws-oidc
+        - -v
+      # The operator serves no traffic; it only needs the health endpoint.
+      ingress:
+        enabled: false
+      livenessProbe:
+        httpGet:
+          path: /healthz
+      readinessProbe:
+        httpGet:
+          path: /readyz

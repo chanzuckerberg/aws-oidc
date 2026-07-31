@@ -4,7 +4,9 @@ WORKDIR /app
 
 COPY cmd cmd
 COPY go.mod go.sum main.go ./
+COPY api api
 COPY pkg pkg
+COPY internal internal
 
 ARG PLATFORM=arm64
 ARG RELEASE_VERSION

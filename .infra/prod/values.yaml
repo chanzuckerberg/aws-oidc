@@ -5,9 +5,13 @@ stack:
       replicaCount: 3
       image:
         tag: sha-0a4e8c2
-      ingress:
-        rules:
-          - host: aws-oidc.prod-central.prod.czi.team
+      gateway:
+        enabled: true
+        dnsOwner: gateway
+        host: aws-oidc.prod-central.prod.czi.team
+        paths:
+          - path: /
+            pathType: Prefix
   cronJobs:
     # Regenerates the rolemap from TFE state every 10 minutes and writes it to the
     # `rolemap` ConfigMap. Granted read/write on that ConfigMap by templates/rbac.yaml.
