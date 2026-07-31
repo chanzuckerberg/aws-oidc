@@ -12,9 +12,9 @@
     {{range .Agents}}
     <tr>
       <td>{{.Name}}</td>
-      {{if $.User.Admin}}<td class="muted">{{if .OwnerEmail}}{{.OwnerEmail}}{{else}}{{.Owner}}{{end}}</td>{{end}}
+      {{if $.User.Admin}}<td class="muted">{{if .Spec.OwnerEmail}}{{.Spec.OwnerEmail}}{{else}}{{.Spec.Owner}}{{end}}</td>{{end}}
       <td>
-        {{range .Grants}}{{.AccountAlias}} / {{.RoleName}}<br>{{else}}<span class="muted">none</span>{{end}}
+        {{range .Spec.Grants}}{{with .AWS}}{{.AccountAlias}} / {{.RoleName}}<br>{{end}}{{else}}<span class="muted">none</span>{{end}}
       </td>
       <td>
         <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}">edit</a>

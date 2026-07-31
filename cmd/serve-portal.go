@@ -1,14 +1,13 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
 
+	"github.com/chanzuckerberg/aws-oidc/internal/agentstore"
 	"github.com/chanzuckerberg/aws-oidc/internal/portal"
 	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -66,15 +65,9 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// Read the rolemap fresh on each request so entitlements reflect the latest mapping.
-	mappingsProvider := func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error) {
-		mappings, err := configmap.ReadRoleMappings(ctx, kubeClient, namespace, rolemapName, rolemapKey)
-		if err != nil {
-			return nil, err
-		}
-		return mappings.ByClientID(), nil
-	}
+	mappingsProvider := configmap.NewMappingsProvider(kubeClient, namespace, rolemapName, rolemapKey)
 
-	store := portal.NewCRStore(dynamicClient, namespace)
+	store := agentstore.New(dynamicClient, namespace)
 
 	// The gateway OIDC proxy authenticates with its own OAuth client (the shared
 	// argus-global-oidc app), so the forwarded access token's cid is that client, not the

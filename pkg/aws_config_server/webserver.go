@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 
+	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
+	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
@@ -17,11 +18,6 @@ type oidcVerifier interface {
 	Verify(context.Context, string) (*oidc.IDToken, error)
 }
 
-type contextKey int
-
-const contextKeyEmail contextKey = 0
-const contextKeySub contextKey = 1
-
 type claims struct {
 	Email   string `json:"email"`
 	Subject string `json:"sub"`
@@ -30,16 +26,6 @@ type claims struct {
 type AWSConfigGenerationParams struct {
 	OIDCProvider string
 	Concurrency  int
-}
-
-// From https://github.com/dgrijalva/jwt-go/blob/master/request/oauth2.go
-// Strips 'Bearer ' prefix from bearer token string
-func stripBearerPrefixFromTokenString(token string) string {
-	// Should be a bearer token
-	if len(token) > 6 && strings.ToUpper(token[0:7]) == "BEARER " {
-		return token[7:]
-	}
-	return token
 }
 
 type AuthMiddleware struct {
@@ -62,7 +48,7 @@ func (a *AuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
 		return
 	}
-	rawIDToken := stripBearerPrefixFromTokenString(authHeader)
+	rawIDToken := identity.StripBearer(authHeader)
 
 	idToken, err := a.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
@@ -78,33 +64,33 @@ func (a *AuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
 		return
 	}
-	ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
-	ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
-	rWithValues := r.WithContext(ctxWithValues)
+	user := &identity.User{Sub: claims.Subject, Email: claims.Email}
+	rWithValues := r.WithContext(identity.NewContext(r.Context(), user))
 
 	a.handler.ServeHTTP(w, rWithValues)
 }
 
 func getEmailFromCtx(ctx context.Context) *string {
-	email, ok := ctx.Value(contextKeyEmail).(string)
-	if !ok {
+	user := identity.FromContext(ctx)
+	if user == nil {
 		return nil
 	}
-	return &email
+	return &user.Email
 }
 
 func getSubFromCtx(ctx context.Context) *string {
-	sub, ok := ctx.Value(contextKeySub).(string)
-	if !ok {
+	user := identity.FromContext(ctx)
+	if user == nil {
 		return nil
 	}
-	return &sub
+	return &user.Sub
 }
 
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
 	oktaClient okta.AppLister,
-	mappingsProvider MappingsProvider,
+	mappingsProvider awsaccess.MappingsProvider,
+	agentsProvider AgentsProvider,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -132,19 +118,27 @@ func Index(
 			return
 		}
 
-		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
+		access, err := awsaccess.Resolve(ctx, *sub, oktaClient, clientMappingsByKey)
 		if err != nil {
-			slog.Error(fmt.Sprintf("getting list of ClientIDs for sub %s", *sub), "error", err)
+			slog.Error(fmt.Sprintf("resolving access for sub %s", *sub), "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
-		slog.Debug("creating aws config", "email", *email, "clientIDsLen", len(clientIDs))
-		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappingsByKey, clientIDs)
-		if err != nil {
-			slog.Error("getting AWS Config File", "error", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
-			return
+		slog.Debug("creating aws config", "email", *email, "accountsLen", len(access.Accounts))
+		awsConfig := createAWSConfig(awsGenerationParams.OIDCProvider, access)
+
+		// Agent profiles are additive and optional. A nil provider (the feature disabled, as
+		// in prod today) leaves the response with only the human profiles.
+		if agentsProvider != nil {
+			agents, agentsErr := agentsProvider(ctx, *sub)
+			if agentsErr != nil {
+				// Degrade rather than fail: a registry hiccup must not break human config,
+				// which is the primary purpose of this endpoint.
+				slog.Error("building agent configs", "sub", *sub, "error", agentsErr)
+			} else {
+				awsConfig.Agents = agents
+			}
 		}
 
 		encoder := json.NewEncoder(w)
@@ -157,15 +151,18 @@ func Index(
 	})
 }
 
-// MappingsProvider returns the current rolemap, grouped by client ID. It is called once
-// per request so the server always serves the latest rolemap.
-type MappingsProvider func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error)
+// AgentsProvider returns the caller's agent configs, keyed on the caller's Okta subject. It
+// is optional: a nil provider disables agent config generation and the response carries only
+// the human profiles. It is a seam so this package stays free of the Kubernetes client that
+// reads the Agent custom resources.
+type AgentsProvider func(ctx context.Context, ownerSub string) ([]AgentConfig, error)
 
 type RouterConfig struct {
 	Verifier            oidcVerifier
 	AwsGenerationParams *AWSConfigGenerationParams
 	OktaAppClient       okta.AppLister
-	MappingsProvider    MappingsProvider
+	MappingsProvider    awsaccess.MappingsProvider
+	AgentsProvider      AgentsProvider
 }
 
 type SlogRecoveryLogger slog.Logger
@@ -183,6 +180,7 @@ func GetRouter(
 		config.AwsGenerationParams,
 		config.OktaAppClient,
 		config.MappingsProvider,
+		config.AgentsProvider,
 	), config.Verifier)
 
 	mux.Handle("/", handle)

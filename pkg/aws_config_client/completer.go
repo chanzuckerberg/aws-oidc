@@ -70,9 +70,14 @@ func (c *completer) awsProfileNameValidator(input interface{}) error {
 }
 
 func (c *completer) calculateDefaultProfileName(account server.AWSAccount) string {
+	return sanitizeProfileName(account.GetAliasOrName())
+}
+
+// sanitizeProfileName lowercases and replaces any character not valid in an AWS profile name
+// with a dash.
+func sanitizeProfileName(s string) string {
 	invalid := regexp.MustCompile("[^a-zA-Z0-9_-]")
-	replaced := invalid.ReplaceAllString(account.GetAliasOrName(), "-")
-	return strings.ToLower(replaced)
+	return strings.ToLower(invalid.ReplaceAllString(s, "-"))
 }
 
 func (c *completer) SurveyRegion() (string, error) {

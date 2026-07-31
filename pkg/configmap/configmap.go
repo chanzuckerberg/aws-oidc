@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -80,6 +81,19 @@ func ReadRoleMappings(ctx context.Context, client kubernetes.Interface, namespac
 		return nil, fmt.Errorf("unmarshalling rolemap from configmap %s/%s key %q: %w", namespace, name, key, err)
 	}
 	return mappings, nil
+}
+
+// NewMappingsProvider returns an awsaccess.MappingsProvider that reads the rolemap
+// ConfigMap fresh on each call, grouped by client ID. Both the config server and the portal
+// use it so they read the rolemap the same way.
+func NewMappingsProvider(client kubernetes.Interface, namespace, name, key string) awsaccess.MappingsProvider {
+	return func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error) {
+		mappings, err := ReadRoleMappings(ctx, client, namespace, name, key)
+		if err != nil {
+			return nil, err
+		}
+		return mappings.ByClientID(), nil
+	}
 }
 
 // WriteData upserts the rolemap ConfigMap, setting data[key] to the given bytes. The

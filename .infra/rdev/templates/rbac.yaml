@@ -1,6 +1,8 @@
-# RBAC for the rolemap ConfigMap (rdev). There is no cronjob in rdev, so only the
-# server's read access is granted; the server treats a missing ConfigMap as an empty
-# rolemap. The ServiceAccount is created by the stack chart (serviceAccount.create).
+# RBAC for the aws-oidc config server (rdev). It reads the rolemap ConfigMap for human
+# config and reads Agent custom resources to build each caller's agent config. There is no
+# cronjob in rdev, so only read access is granted; the server treats a missing ConfigMap or
+# a missing Agent CRD as empty. The ServiceAccount is created by the stack chart
+# (serviceAccount.create).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -11,6 +13,9 @@ rules:
     resources: ["configmaps"]
     resourceNames: ["rolemap"]
     verbs: ["get"]
+  - apiGroups: ["agents.czi.team"]
+    resources: ["agents"]
+    verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

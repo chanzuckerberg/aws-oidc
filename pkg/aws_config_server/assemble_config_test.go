@@ -3,6 +3,7 @@ package aws_config_server
 import (
 	"testing"
 
+	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 	"github.com/stretchr/testify/require"
 )
@@ -46,8 +47,8 @@ func TestCreateAWSConfig(t *testing.T) {
 			clientMappingsByKey[mapping.OktaClientID] = []okta.OIDCRoleMapping{mapping}
 		}
 	}
-	config, err := createAWSConfig("localhost", clientMappingsByKey, []okta.ClientID{"ClientID1", "ClientID2"})
-	r.NoError(err)
+	access := awsaccess.FromClientIDs([]okta.ClientID{"ClientID1", "ClientID2"}, clientMappingsByKey)
+	config := createAWSConfig("localhost", access)
 	r.NotEmpty(config)
 
 	for _, accountName := range []string{"Account1", "Account2"} {
