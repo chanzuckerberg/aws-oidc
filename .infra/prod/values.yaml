@@ -6,6 +6,7 @@ stack:
       image:
         tag: sha-0a4e8c2
       gateway:
+        enabled: true
         dnsOwner: gateway
         host: aws-oidc.prod-central.prod.czi.team
         paths:
