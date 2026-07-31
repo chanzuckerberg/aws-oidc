@@ -2,7 +2,7 @@
   <h1>{{if .Agent}}Edit agent: {{.Agent.Name}}{{else}}Register new agent{{end}}</h1>
   {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
 
-  <form method="post" action="{{.Action}}">
+  <form method="post" action="{{.BasePath}}{{.Action}}">
     {{if not .Agent}}
     <p><label>Name <input name="name" required pattern="[a-zA-Z0-9_-]+" placeholder="my-agent"></label></p>
     {{end}}
@@ -27,12 +27,12 @@
 
     <p>
       <button class="btn primary" type="submit">Save</button>
-      <a class="btn" href="/">Cancel</a>
+      <a class="btn" href="{{.BasePath}}/">Cancel</a>
     </p>
   </form>
 
   {{if .Agent}}
-  <form class="inline" method="post" action="/agents/{{.Agent.Name}}/delete" onsubmit="return confirm('Delete {{.Agent.Name}}?');">
+  <form class="inline" method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/delete" onsubmit="return confirm('Delete {{.Agent.Name}}?');">
     <button class="btn danger" type="submit">Delete agent</button>
   </form>
   {{end}}

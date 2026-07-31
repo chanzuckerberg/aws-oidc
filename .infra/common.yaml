@@ -28,10 +28,6 @@ stack:
       args:
         - serve-config
         - -v
-      ingress:
-        paths:
-          - path: /
-            pathType: Prefix
       livenessProbe:
         httpGet:
           path: /health
