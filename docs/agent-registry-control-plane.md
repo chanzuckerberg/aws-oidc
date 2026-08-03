@@ -267,17 +267,17 @@ Rendered `~/.aws-oidc/agents/data-bot/config`:
 ```ini
 [profile prod-central-o11y-agents-data-bot-s3-readonly]
 output             = json
-credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly --node-local-cache=~/.aws-oidc/agents/data-bot/cache
+credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly
 region             = us-west-2
 
 [profile agent-scoped]
 output             = json
-credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly --node-local-cache=~/.aws-oidc/agents/data-bot/cache
+credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly
 region             = us-west-2
 
 [profile es-research-agents-data-bot-athena]
 output             = json
-credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::359855083898:role/agents/data-bot-athena --node-local-cache=~/.aws-oidc/agents/data-bot/cache
+credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::359855083898:role/agents/data-bot-athena
 region             = us-west-2
 ```
 
@@ -285,7 +285,6 @@ Differences from the human config:
 
 - Every agent profile carries the same shared `--client-id`. This is what makes the role trust conditions (`aud` equals the agent client id) scope these profiles to agents.
 - Role ARNs live under `/agents/`. These are the per-agent, boundary-bounded roles the portal created, not the human's poweruser roles.
-- `--node-local-cache=~/.aws-oidc/agents/data-bot/cache` reuses the existing file-cache root flag so the agent's token cache lands in an `allowWrite` directory rather than the human's Keychain.
 - The first grant is also written as `agent-scoped`, matching `AWS_PROFILE=agent-scoped` from the managed settings, so plain `aws ...` uses it with no flag. Every grant additionally gets an `<account>-<role>` profile name.
 - Written to `~/.aws-oidc/agents/<agent-name>/config`, a per-agent path `configure` derives and regenerates in full on each run, pruning agents the human no longer owns. No `AWS_CONFIG_FILE` override and no new flags.
 

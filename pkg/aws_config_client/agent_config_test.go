@@ -54,9 +54,7 @@ func TestAgentConfigWrite(t *testing.T) {
 	first := f.Section("profile prod-agents-data-bot-ro").Key(AWSConfigSectionCredentialProcess).String()
 	require.Equal(t, first, scoped)
 
-	// The credential_process points the token cache at the agent's own cache dir.
-	expectedCache := filepath.Join(agentsDir, "data-bot", "cache")
-	require.Contains(t, first, "--node-local-cache="+expectedCache)
+	require.NotContains(t, first, "--node-local-cache")
 	require.Contains(t, first, "--aws-role-arn=arn:aws:iam::111111111111:role/agents/data-bot-ro")
 	require.Contains(t, first, "--client-id=0oaAGENT")
 

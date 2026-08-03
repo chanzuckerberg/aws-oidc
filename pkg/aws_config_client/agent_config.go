@@ -22,9 +22,7 @@ func AgentConfigsDir(home string) string {
 	return filepath.Join(home, ".aws-oidc", "agents")
 }
 
-// AgentConfigRenderer writes one AWS config file per agent under a base directory. Every
-// profile's credential_process points its OIDC token cache at the agent's own cache
-// directory, keeping agent tokens out of the human's keychain.
+// AgentConfigRenderer writes one AWS config file per agent under a base directory.
 type AgentConfigRenderer struct {
 	agentsDir string
 	region    string
@@ -89,17 +87,16 @@ func (r *AgentConfigRenderer) Print(agents []server.AgentConfig, w io.Writer) er
 
 func (r *AgentConfigRenderer) render(agent server.AgentConfig) (*ini.File, error) {
 	out := ini.Empty()
-	cacheDir := filepath.Join(r.agentsDir, agent.Name, "cache")
 
 	for i := range agent.Profiles {
 		profile := agent.Profiles[i]
-		err := r.addProfile(out, "profile "+agentProfileName(profile), profile, cacheDir)
+		err := r.addProfile(out, "profile "+agentProfileName(profile), profile)
 		if err != nil {
 			return nil, err
 		}
 		// The first grant doubles as the agent-scoped default so a bare `aws` works.
 		if i == 0 {
-			err = r.addProfile(out, "profile "+AgentScopedProfile, profile, cacheDir)
+			err = r.addProfile(out, "profile "+AgentScopedProfile, profile)
 			if err != nil {
 				return nil, err
 			}
@@ -108,13 +105,12 @@ func (r *AgentConfigRenderer) render(agent server.AgentConfig) (*ini.File, error
 	return out, nil
 }
 
-func (r *AgentConfigRenderer) addProfile(out *ini.File, section string, profile server.AWSProfile, cacheDir string) error {
+func (r *AgentConfigRenderer) addProfile(out *ini.File, section string, profile server.AWSProfile) error {
 	credsProcess := fmt.Sprintf(
-		"aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s --node-local-cache=%s",
+		"aws-oidc creds-process --issuer-url=%s --client-id=%s --aws-role-arn=%s",
 		profile.IssuerURL,
 		profile.ClientID,
 		profile.RoleARN,
-		cacheDir,
 	)
 
 	out.DeleteSection(section)
