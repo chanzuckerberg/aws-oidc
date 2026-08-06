@@ -18,4 +18,4 @@ jobs:
   conventional_commit_title:
     runs-on: ARM64
     steps:
-      - uses: chanzuckerberg/github-actions/.github/actions/conventional-commits@v6.32.0
+      - uses: chanzuckerberg/github-actions/.github/actions/conventional-commits@v6.33.0
