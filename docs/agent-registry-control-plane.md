@@ -104,14 +104,14 @@ In this design the agent uses its own `AWS_CONFIG_FILE`, whose `credential_proce
 2. Deny reads of the human's AWS config and credentials (`~/.aws`).
 3. Keep the human token cache in Keychain (a mach service the sandbox does not broker) while the agent uses a file-based cache in an allowed directory. This requires the file-based cache flag on `aws-oidc` for the agent.
 
-Ship this as a checked-in template in the `aws-oidc` repo, for example `enterprise/claude-code/managed-settings.json`, distributed by MDM to the OS managed path. Managed scope cannot be overridden by user or project settings.
+Ship this as a checked-in template in the `aws-oidc` repo, for example `enterprise/claude-code/managed-settings.json`, distributed by MDM to the OS managed path. Managed scope cannot be overridden by user or project settings. The config and cache paths are per-agent under `~/.aws-oidc/agents/<agent-name>/`, which is where `aws-oidc configure` writes them. `data-bot` is the example agent name here; deployment substitutes the real one.
 
 ```json
 {
   "requiredMinimumVersion": "2.1.187",
   "env": {
-    "AWS_CONFIG_FILE": "/opt/agent-aws/config",
-    "AWS_SHARED_CREDENTIALS_FILE": "/opt/agent-aws/credentials",
+    "AWS_CONFIG_FILE": "~/.aws-oidc/agents/data-bot/config",
+    "AWS_SHARED_CREDENTIALS_FILE": "~/.aws-oidc/agents/data-bot/credentials",
     "AWS_PROFILE": "agent-scoped"
   },
   "permissions": {
@@ -126,7 +126,7 @@ Ship this as a checked-in template in the `aws-oidc` repo, for example `enterpri
     "allowUnsandboxedCommands": true,
     "filesystem": {
       "denyRead": ["~/.aws"],
-      "allowWrite": ["/opt/agent-aws/cache", "/tmp/build"]
+      "allowWrite": ["~/.aws-oidc/agents/data-bot/cache", "/tmp/build"]
     },
     "credentials": {
       "files": [
@@ -194,7 +194,7 @@ Notes on the choices:
 - Env overwrite is the primary lever. `env` points `AWS_CONFIG_FILE`, `AWS_SHARED_CREDENTIALS_FILE`, and `AWS_PROFILE` at the agent config so all AWS calls resolve it, not `~/.aws`, and it works even with the sandbox off. `credentials.envVars` strips static AWS keys so the agent cannot inherit ambient ones (`AWS_PROFILE` is kept, since `env` sets it).
 - Read denies use two non-overlapping layers, both needed: `permissions.deny` covers Claude's Read tool, and sandbox `denyRead` / `credentials.files` cover Bash subprocesses (only once the sandbox is enabled).
 - Soft launch: the sandbox starts `enabled: false` (its denies inert), and when later enabled `failIfUnavailable: false` and `allowUnsandboxedCommands: true` keep it non-breaking. `_comment` keys carry the enforce-later TODOs, since Claude Code rejects real JSON comments.
-- Token cache: the human stays on Keychain (the sandbox cannot broker it); the agent uses a file cache under `/opt/agent-aws/cache` (an `allowWrite` path). On Linux also `denyRead` the on-disk human cache.
+- Token cache: the human stays on Keychain (the sandbox cannot broker it); the agent uses a file cache under `~/.aws-oidc/agents/<agent-name>/cache` (an `allowWrite` path). On Linux also `denyRead` the on-disk human cache.
 - No egress control this iteration. `allowedDomains` only pre-clears what the agent needs (Anthropic, Okta, STS) and `allowManagedDomainsOnly` stays `false`, so nothing else is blocked. Isolation comes from the env overwrite, the read denies, and the trust conditions, not the network layer. Real egress restriction and SSH/GitHub denies are deferred.
 - Steering, not blocking. The `PreToolUse` hook asks (not denies) when a human profile or `~/.aws` is referenced, and `aws` stays available.
 
@@ -219,64 +219,74 @@ Reuse what `aws-oidc` already has: `pkg/configmap` (read the `rolemap` for entit
 
 ## Extending the config server for agents
 
-The agent config is produced by the existing config server in [pkg/aws_config_server/webserver.go](../pkg/aws_config_server/webserver.go), not a new mirror. Today it serves human profiles from the `rolemap` ConfigMap. Extend it with an agent path that builds `AWSConfig` from the caller's Agent CR `status.grants`, reusing the existing `AWSProfile` shape in [pkg/aws_config_server/types.go](../pkg/aws_config_server/types.go) and the `creds-process` line format in [pkg/aws_config_client/completer.go](../pkg/aws_config_client/completer.go), with the shared agent client id and the per-agent role ARN. The `aws-oidc configure` client is unchanged; it just points `--config-url` at the agent path.
+The agent config is produced by the existing config server in [pkg/aws_config_server/webserver.go](../pkg/aws_config_server/webserver.go), not a new mirror or a new endpoint. Today it serves human profiles from the `rolemap` ConfigMap. It is extended so the same endpoint `aws-oidc configure` already calls also returns the caller's agent profiles, built from each Agent CR's `status.grants`, in an additive `agents` field on `AWSConfig` in [pkg/aws_config_server/types.go](../pkg/aws_config_server/types.go). Each agent profile reuses the existing `AWSProfile` shape with the shared agent client id and the per-agent role ARN. The change is additive on the wire: an older CLI ignores the `agents` field and writes exactly the `~/.aws/config` it writes today, while an upgraded CLI also writes the agent files. No new flags.
 
 ### Example: what `aws-oidc configure` produces for an agent
 
-Run once to populate the agent config:
+The human runs `configure` as they do today, with no agent-specific flags:
 
 ```bash
-AWS_CONFIG_FILE=/opt/agent-aws/config aws-oidc configure \
-  --config-url=https://aws-oidc.prod-central.prod.czi.team/agent-config \
+aws-oidc configure \
+  --config-url=https://aws-oidc.prod-central.prod.czi.team/ \
   --issuer-url=https://czi.okta.com \
-  --client-id=0oaAGENTclient0123 \
+  --client-id=0oaHUMANclient0123 \
   --default-region=us-west-2
 ```
 
-`configure` authenticates the human, and the config endpoint returns the profiles for the agents that human owns, built from each Agent CR's `status.grants`. The `AWSConfig` JSON it returns (for an agent with grants in two accounts):
+`configure` authenticates the human and writes their `~/.aws/config` as before. The same response also carries the profiles for the agents that human owns, built from each Agent CR's `status.grants`, and an upgraded CLI writes one file per agent to `~/.aws-oidc/agents/<agent-name>/config`. The `AWSConfig` JSON the endpoint returns (for an agent with grants in two accounts, human profiles elided):
 
 ```json
 {
-  "profiles": [
+  "profiles": [ "... the human's own profiles, unchanged ..." ],
+  "agents": [
     {
-      "client_id": "0oaAGENTclient0123",
-      "aws_account": { "id": "533267185808", "name": "prod-central-o11y", "alias": "prod-central-o11y" },
-      "role_arn": "arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly",
-      "issuer_url": "https://czi.okta.com",
-      "role_name": "agents/data-bot-s3-readonly"
-    },
-    {
-      "client_id": "0oaAGENTclient0123",
-      "aws_account": { "id": "359855083898", "name": "es-research", "alias": "es-research" },
-      "role_arn": "arn:aws:iam::359855083898:role/agents/data-bot-athena",
-      "issuer_url": "https://czi.okta.com",
-      "role_name": "agents/data-bot-athena"
+      "name": "data-bot",
+      "profiles": [
+        {
+          "client_id": "0oaAGENTclient0123",
+          "aws_account": { "id": "533267185808", "name": "prod-central-o11y", "alias": "prod-central-o11y" },
+          "role_arn": "arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly",
+          "issuer_url": "https://czi.okta.com",
+          "role_name": "agents/data-bot-s3-readonly"
+        },
+        {
+          "client_id": "0oaAGENTclient0123",
+          "aws_account": { "id": "359855083898", "name": "es-research", "alias": "es-research" },
+          "role_arn": "arn:aws:iam::359855083898:role/agents/data-bot-athena",
+          "issuer_url": "https://czi.okta.com",
+          "role_name": "agents/data-bot-athena"
+        }
+      ]
     }
   ]
 }
 ```
 
-Rendered `/opt/agent-aws/config`:
+Rendered `~/.aws-oidc/agents/data-bot/config`:
 
 ```ini
-[profile agent-scoped]
+[profile prod-central-o11y-agents-data-bot-s3-readonly]
 output             = json
-credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly --token-cache-dir=/opt/agent-aws/cache
+credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly
 region             = us-west-2
 
-[profile data-bot-es-research-athena]
+[profile agent-scoped]
 output             = json
-credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::359855083898:role/agents/data-bot-athena --token-cache-dir=/opt/agent-aws/cache
+credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::533267185808:role/agents/data-bot-s3-readonly
+region             = us-west-2
+
+[profile es-research-agents-data-bot-athena]
+output             = json
+credential_process = aws-oidc creds-process --issuer-url=https://czi.okta.com --client-id=0oaAGENTclient0123 --aws-role-arn=arn:aws:iam::359855083898:role/agents/data-bot-athena
 region             = us-west-2
 ```
 
-Differences from the human config, and the small aws-oidc changes they imply:
+Differences from the human config:
 
 - Every agent profile carries the same shared `--client-id`. This is what makes the role trust conditions (`aud` equals the agent client id) scope these profiles to agents.
 - Role ARNs live under `/agents/`. These are the per-agent, boundary-bounded roles the portal created, not the human's poweruser roles.
-- `--token-cache-dir=/opt/agent-aws/cache` is new. It is the file-based cache flag added in the aws-oidc update so the agent's token cache lands in an `allowWrite` path rather than the human's Keychain. This flag does not exist today.
-- The default profile is `agent-scoped`, matching `AWS_PROFILE=agent-scoped` from the managed settings, so plain `aws ...` uses it with no flag. Additional grants get descriptive per-account names, which is a portal naming choice.
-- Written to `AWS_CONFIG_FILE=/opt/agent-aws/config`. Honoring that env var (or adding an `--output-path` flag) is a needed change, since `configure` hardcodes `~/.aws/config` in [cmd/configure.go](../cmd/configure.go).
+- The first grant is also written as `agent-scoped`, matching `AWS_PROFILE=agent-scoped` from the managed settings, so plain `aws ...` uses it with no flag. Every grant additionally gets an `<account>-<role>` profile name.
+- Written to `~/.aws-oidc/agents/<agent-name>/config`, a per-agent path `configure` derives and regenerates in full on each run, pruning agents the human no longer owns. No `AWS_CONFIG_FILE` override and no new flags.
 
 ## Agent custom resource
 

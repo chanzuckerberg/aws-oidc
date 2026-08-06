@@ -81,10 +81,30 @@ var configureCmd = &cobra.Command{
 			return fmt.Errorf("could not open aws config: %w", err)
 		}
 
+		// Agent profiles are additive. When the server omits the field entirely (an older
+		// server, or the feature disabled) config.Agents is nil and the human path below is
+		// exactly as before. A present-but-empty list means every agent was revoked, which
+		// still prunes their config directories.
+		agentRegion := defaultRegion
+		if agentRegion == "" {
+			agentRegion = aws_config_client.DefaultAWSRegion
+		}
+		agentRenderer := aws_config_client.NewAgentConfigRenderer(
+			aws_config_client.AgentConfigsDir(homeDir),
+			agentRegion,
+		)
+
 		// We allow users to print aws config directly to stdout if they want
 		// instead of us directly trying to modify their aws config
 		if printOnly {
-			return completer.Complete(originalConfig, &aws_config_client.AWSConfigSTDOUTWriter{})
+			err = completer.Complete(originalConfig, &aws_config_client.AWSConfigSTDOUTWriter{})
+			if err != nil {
+				return err
+			}
+			if config.Agents != nil {
+				return agentRenderer.Print(config.Agents, os.Stdout)
+			}
+			return nil
 		}
 
 		awsConfigWriter := aws_config_client.NewAWSConfigFileWriter(awsConfigPath)
@@ -92,6 +112,14 @@ var configureCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return awsConfigWriter.Finalize()
+		err = awsConfigWriter.Finalize()
+		if err != nil {
+			return err
+		}
+
+		if config.Agents != nil {
+			return agentRenderer.Write(config.Agents)
+		}
+		return nil
 	},
 }

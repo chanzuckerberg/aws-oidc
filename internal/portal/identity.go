@@ -11,15 +11,9 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
-)
 
-// User is the authenticated portal user. Sub is the Okta user id (the "00u" value) and is what
-// entitlements and agent ownership are keyed on.
-type User struct {
-	Sub   string
-	Email string
-	Admin bool
-}
+	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
+)
 
 // errNoIdentity is returned when no authenticated user can be determined.
 var errNoIdentity = errors.New("no authenticated user")
@@ -117,12 +111,12 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 }
 
 // Resolve returns the current user, or errNoIdentity if none can be determined.
-func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*User, error) {
+func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*identity.User, error) {
 	if ir.devSub != "" {
-		return &User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
+		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
-	raw := stripBearer(r.Header.Get("Authorization"))
+	raw := identity.StripBearer(r.Header.Get("Authorization"))
 	if raw == "" {
 		return nil, errNoIdentity
 	}
@@ -134,7 +128,7 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*User
 	if userID == "" {
 		return nil, errNoIdentity
 	}
-	user := &User{Sub: userID}
+	user := &identity.User{Sub: userID}
 
 	// The verified token establishes who the user is. Email and groups come from userinfo; if
 	// that call fails we still know the user, so degrade to a non-admin view rather than
@@ -145,6 +139,7 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*User
 		return user, nil
 	}
 	user.Email = email
+	user.Groups = groups
 	user.Admin = isAdmin(groups, ir.adminGroups)
 	return user, nil
 }
@@ -169,15 +164,6 @@ func isAdmin(groups []string, adminGroups map[string]bool) bool {
 		}
 	}
 	return false
-}
-
-// stripBearer removes an optional "Bearer " prefix from an Authorization header value.
-func stripBearer(header string) string {
-	const prefix = "Bearer "
-	if len(header) >= len(prefix) && strings.EqualFold(header[:len(prefix)], prefix) {
-		return strings.TrimSpace(header[len(prefix):])
-	}
-	return strings.TrimSpace(header)
 }
 
 func parseAdminGroups(raw string) map[string]bool {

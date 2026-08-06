@@ -1,41 +1,28 @@
 package aws_config_server
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
+	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 )
 
-// we send back a json representation of our config that can be consumed by the client
-// using the configure command
-func createAWSConfig(oidcProvider string, clientMapping okta.OIDCRoleMappingsByKey, userClientIDs []okta.ClientID) (*AWSConfig, error) {
-	awsConfig := &AWSConfig{
-		Profiles: []AWSProfile{},
-	}
-
-	for _, clientID := range userClientIDs {
-		mappings := clientMapping[clientID.String()]
-		for _, mapping := range mappings {
-			roleARN, err := arn.Parse(mapping.AWSRoleARN)
-			if err != nil {
-				return nil, fmt.Errorf("parsing role ARN: %w", err)
-			}
-			profile := AWSProfile{
-				ClientID: mapping.OktaClientID,
-				RoleARN:  mapping.AWSRoleARN,
+// createAWSConfig projects a person's resolved AWS access into the config the client
+// consumes. The access is already deduplicated by account and role, so this is a straight
+// projection with no dedup of its own.
+func createAWSConfig(oidcProvider string, access *awsaccess.Access) *AWSConfig {
+	profiles := []AWSProfile{}
+	for _, acct := range access.Accounts {
+		for _, role := range acct.Roles {
+			profiles = append(profiles, AWSProfile{
+				ClientID: role.OktaClientID,
+				RoleARN:  role.RoleARN,
 				AWSAccount: AWSAccount{
-					Name:  mapping.AWSAccountAlias,
-					Alias: mapping.AWSAccountAlias,
-					ID:    mapping.AWSAccountID,
+					Name:  acct.Alias,
+					Alias: acct.Alias,
+					ID:    acct.ID,
 				},
 				IssuerURL: oidcProvider,
-				RoleName:  strings.ReplaceAll(roleARN.Resource, "role/", ""),
-			}
-			awsConfig.Profiles = append(awsConfig.Profiles, profile)
+				RoleName:  role.RoleName,
+			})
 		}
 	}
-
-	return awsConfig, nil
+	return &AWSConfig{Profiles: profiles}
 }

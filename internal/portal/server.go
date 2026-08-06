@@ -1,3 +1,10 @@
+// Package portal implements the agent-registry control plane UI and API: a person logs in,
+// sees the AWS access they already have, registers agents, and grants each agent a subset
+// of that access.
+//
+// Agents are stored as Agent custom resources (agents.czi.team/v1), one per agent, through
+// the shared agentstore. The portal writes the desired grants to a CR's spec; the operator
+// reconciles them. There is no database and no ConfigMap registry.
 package portal
 
 import (
@@ -9,10 +16,14 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/gorilla/handlers"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentstore"
+	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
+	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
@@ -25,8 +36,8 @@ var agentNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // under (for example "/portal" when the gateway routes a sub-path to it); empty means root.
 type Config struct {
 	Apps             okta.AppLister
-	MappingsProvider MappingsProvider
-	Store            AgentStore
+	MappingsProvider awsaccess.MappingsProvider
+	Store            agentstore.AgentStore
 	Identity         *IdentityResolver
 	BasePath         string
 }
@@ -82,9 +93,9 @@ func (s *Server) redirect(w http.ResponseWriter, r *http.Request, path string) {
 type pageData struct {
 	Title        string
 	BasePath     string
-	User         *User
-	Agents       []Agent
-	Agent        *Agent
+	User         *identity.User
+	Agents       []agentsv1.Agent
+	Agent        *agentsv1.Agent
 	Entitlements *Entitlements
 	Checked      map[string]bool
 	Action       string
@@ -99,7 +110,7 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var (
-		agents []Agent
+		agents []agentsv1.Agent
 		err    error
 	)
 	if user.Admin {
@@ -182,15 +193,16 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now().UTC()
-	err = s.cfg.Store.Upsert(ctx, Agent{
-		Name:       name,
-		Owner:      user.Sub,
-		OwnerEmail: user.Email,
-		Grants:     grants,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-	})
+	agent := &agentsv1.Agent{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: agentsv1.AgentSpec{
+			DisplayName: name,
+			Owner:       user.Sub,
+			OwnerEmail:  user.Email,
+			Grants:      grants,
+		},
+	}
+	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "saving agent", err)
 		return
@@ -212,7 +224,7 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Bound the choices by the owner's access, not the (possibly admin) editor's.
-	ent, err := s.entitlements(ctx, agent.Owner)
+	ent, err := s.entitlements(ctx, agent.Spec.Owner)
 	if err != nil {
 		s.fail(w, "resolving entitlements", err)
 		return
@@ -246,7 +258,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ent, err := s.entitlements(ctx, agent.Owner)
+	ent, err := s.entitlements(ctx, agent.Spec.Owner)
 	if err != nil {
 		s.fail(w, "resolving entitlements", err)
 		return
@@ -261,9 +273,8 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agent.Grants = grants
-	agent.UpdatedAt = time.Now().UTC()
-	err = s.cfg.Store.Upsert(ctx, *agent)
+	agent.Spec.Grants = grants
+	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
 		return
@@ -293,7 +304,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 // ownedAgent loads the agent named in the path and enforces that the current user may act
 // on it (owner or admin). It writes the response and returns ok=false on any failure.
-func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *User) (*Agent, bool) {
+func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *identity.User) (*agentsv1.Agent, bool) {
 	name := r.PathValue("name")
 	agent, err := s.cfg.Store.Get(r.Context(), name)
 	if err != nil {
@@ -304,7 +315,7 @@ func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *User) 
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return nil, false
 	}
-	if agent.Owner != user.Sub && !user.Admin {
+	if agent.Spec.Owner != user.Sub && !user.Admin {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return nil, false
 	}
@@ -319,7 +330,7 @@ func (s *Server) entitlements(ctx context.Context, sub string) (*Entitlements, e
 	return ResolveEntitlements(ctx, sub, s.cfg.Apps, mappings)
 }
 
-func (s *Server) user(w http.ResponseWriter, r *http.Request) (*User, bool) {
+func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
 	user, err := s.cfg.Identity.Resolve(r.Context(), r)
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -345,9 +356,9 @@ func (s *Server) fail(w http.ResponseWriter, what string, err error) {
 
 // parseGrants reads the selected grants from the form and validates each one is within the
 // entitlements, enforcing that an agent gets only a subset of the owner's access.
-func parseGrants(r *http.Request, ent *Entitlements) ([]Grant, error) {
+func parseGrants(r *http.Request, ent *Entitlements) ([]agentsv1.Grant, error) {
 	selected := r.Form["grant"]
-	grants := make([]Grant, 0, len(selected))
+	grants := make([]agentsv1.Grant, 0, len(selected))
 	for _, raw := range selected {
 		accountID, roleARN, ok := strings.Cut(raw, "|")
 		if !ok {
@@ -357,7 +368,8 @@ func parseGrants(r *http.Request, ent *Entitlements) ([]Grant, error) {
 		if !allowed {
 			return nil, fmt.Errorf("you do not have access to %s in account %s", roleARN, accountID)
 		}
-		grants = append(grants, grant)
+		awsGrant := grant
+		grants = append(grants, agentsv1.Grant{AWS: &awsGrant})
 	}
 	return grants, nil
 }
@@ -370,10 +382,12 @@ func checkedFromForm(r *http.Request) map[string]bool {
 	return checked
 }
 
-func checkedFromAgent(agent *Agent) map[string]bool {
+func checkedFromAgent(agent *agentsv1.Agent) map[string]bool {
 	checked := map[string]bool{}
-	for _, g := range agent.Grants {
-		checked[g.Key()] = true
+	for _, g := range agent.Spec.Grants {
+		if key := g.Key(); key != "" {
+			checked[key] = true
+		}
 	}
 	return checked
 }

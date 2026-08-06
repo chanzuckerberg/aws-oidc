@@ -12,11 +12,11 @@
     {{range .Entitlements.Accounts}}
     {{$acct := .}}
     <fieldset>
-      <legend>{{.Label}} <span class="muted">({{.AccountID}})</span></legend>
+      <legend>{{.Label}} <span class="muted">({{.ID}})</span></legend>
       {{range .Roles}}
       <label class="grant">
-        <input type="checkbox" name="grant" value="{{$acct.AccountID}}|{{.RoleARN}}"
-          {{if index $.Checked (printf "%s|%s" $acct.AccountID .RoleARN)}}checked{{end}}>
+        <input type="checkbox" name="grant" value="{{$acct.ID}}|{{.RoleARN}}"
+          {{if index $.Checked (printf "%s|%s" $acct.ID .RoleARN)}}checked{{end}}>
         {{.RoleName}}
       </label>
       {{end}}

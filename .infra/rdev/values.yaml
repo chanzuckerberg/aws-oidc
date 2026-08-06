@@ -3,7 +3,15 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-10d07a1
+        tag: sha-5193973
+      # Overrides the common args to enable agent config generation in rdev. Arrays replace
+      # rather than merge, so serve-config and -v are repeated here.
+      args:
+        - serve-config
+        # Shared agent Okta app client id (shared-infra okta-czi output oidc_agent_client_id).
+        # With this set, the config endpoint also returns each caller's agent profiles.
+        - --agent-client-id=0oa1djle01a21Qbo71t8
+        - -v
       gateway:
         enabled: true
         paths:
@@ -12,7 +20,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-10d07a1
+        tag: sha-5193973
       serviceAccount:
         create: true
         name: portal
@@ -72,7 +80,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-10d07a1
+        tag: sha-5193973
       serviceAccount:
         create: true
         name: agent-operator

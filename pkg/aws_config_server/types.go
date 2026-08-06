@@ -6,6 +6,18 @@ import (
 
 type AWSConfig struct {
 	Profiles []AWSProfile `json:"profiles,omitempty"`
+
+	// Agents carries one entry per agent the caller owns, each with its own scoped
+	// profiles. It is additive: an older client unmarshals into a struct without this
+	// field and drops it, so its human config output is unchanged.
+	Agents []AgentConfig `json:"agents,omitempty"`
+}
+
+// AgentConfig is the scoped access for a single registered agent, grouped so the client can
+// write one config file per agent.
+type AgentConfig struct {
+	Name     string       `json:"name"`
+	Profiles []AWSProfile `json:"profiles,omitempty"`
 }
 
 func (a *AWSConfig) HasAccount(acctName string) bool {
