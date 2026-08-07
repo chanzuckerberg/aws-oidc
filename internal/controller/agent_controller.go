@@ -9,8 +9,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,11 +33,22 @@ const agentFinalizer = "agents.czi.team/finalizer"
 // An agent can carry many grants across many accounts, so they are reconciled in parallel.
 const defaultGrantConcurrency = 8
 
-// AgentReconciler reconciles Agent objects by dispatching their grants to providers.
+// ThreadReconciler runs an agent's threads in the cluster. It is separate from Provider
+// because a thread is per-agent rather than per-grant, and because it needs the provisioned
+// role ARNs the providers return.
+type ThreadReconciler interface {
+	Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.ThreadStatus, error)
+}
+
+// AgentReconciler reconciles Agent objects by dispatching their grants to providers and
+// running their threads in the cluster.
 type AgentReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Providers []Provider
+	// Threads runs the agent's threads. Nil leaves agents without any pods, which is how the
+	// operator behaves in an environment where the runtime is not enabled.
+	Threads ThreadReconciler
 	// MaxConcurrentGrants bounds parallel per-grant provisioning within one agent. Zero
 	// uses defaultGrantConcurrency.
 	MaxConcurrentGrants int
@@ -44,6 +57,8 @@ type AgentReconciler struct {
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts;services;configmaps;persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile drives one Agent toward its desired state.
 func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -66,15 +81,27 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	statuses, reconcileErr := r.reconcileGrants(ctx, &agent)
+	grantStatuses, reconcileErr := r.reconcileGrants(ctx, &agent)
 
-	err = r.writeStatus(ctx, &agent, statuses)
+	// Threads run after the grants, because the AWS config their pods mount is built from the
+	// role ARNs the grants provisioned.
+	threadStatuses, threadErr := r.reconcileThreads(ctx, &agent)
+
+	err = r.writeStatus(ctx, &agent, grantStatuses, threadStatuses)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Returning the error requeues with the workqueue's exponential backoff.
-	return ctrl.Result{}, reconcileErr
+	return ctrl.Result{}, errors.Join(reconcileErr, threadErr)
+}
+
+// reconcileThreads runs the agent's threads, if the operator has a thread reconciler.
+func (r *AgentReconciler) reconcileThreads(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.ThreadStatus, error) {
+	if r.Threads == nil {
+		return nil, nil
+	}
+	return r.Threads.Reconcile(ctx, agent)
 }
 
 // reconcileGrants provisions every grant, in parallel up to the concurrency limit, and
@@ -153,19 +180,20 @@ func (r *AgentReconciler) reconcileDelete(ctx context.Context, agent *agentsv1.A
 	return ctrl.Result{}, nil
 }
 
-// writeStatus records per-grant results, the observed generation, and the aggregate Ready
-// condition on the status subresource.
-func (r *AgentReconciler) writeStatus(ctx context.Context, agent *agentsv1.Agent, statuses []agentsv1.GrantStatus) error {
+// writeStatus records per-grant and per-thread results, the observed generation, and the
+// aggregate Ready and RuntimeReady conditions on the status subresource.
+func (r *AgentReconciler) writeStatus(ctx context.Context, agent *agentsv1.Agent, grants []agentsv1.GrantStatus, threads []agentsv1.ThreadStatus) error {
 	// Compute the desired status on a copy so we can compare it to the current one and only
 	// write when it actually changed. Writing unconditionally every reconcile creates a
 	// status -> watch -> reconcile storm, which (with a lagging cache) shows up as a stream
 	// of optimistic-lock "object has been modified" conflicts.
 	desired := agent.Status.DeepCopy()
-	desired.Grants = statuses
+	desired.Grants = grants
+	desired.Threads = threads
 	desired.ObservedGeneration = agent.Generation
 
 	ready := true
-	for _, s := range statuses {
+	for _, s := range grants {
 		if s.State != agentsv1.GrantStateProvisioned {
 			ready = false
 			break
@@ -185,6 +213,7 @@ func (r *AgentReconciler) writeStatus(ctx context.Context, agent *agentsv1.Agent
 		condition.Message = "all grants provisioned"
 	}
 	meta.SetStatusCondition(&desired.Conditions, condition)
+	meta.SetStatusCondition(&desired.Conditions, runtimeCondition(agent, threads))
 
 	if equality.Semantic.DeepEqual(&agent.Status, desired) {
 		return nil
@@ -198,6 +227,40 @@ func (r *AgentReconciler) writeStatus(ctx context.Context, agent *agentsv1.Agent
 	return nil
 }
 
+// runtimeCondition summarizes the agent's threads. A suspended thread is deliberately idle, so
+// it does not hold the condition false. An agent that does not run in the cluster reports true
+// with nothing to run, which keeps the condition meaningful rather than permanently false.
+func runtimeCondition(agent *agentsv1.Agent, threads []agentsv1.ThreadStatus) metav1.Condition {
+	condition := metav1.Condition{
+		Type:               agentsv1.ConditionRuntimeReady,
+		ObservedGeneration: agent.Generation,
+		Status:             metav1.ConditionTrue,
+	}
+
+	if agent.Spec.Runtime == nil {
+		condition.Reason = "NoRuntime"
+		condition.Message = "agent does not run in the cluster"
+		return condition
+	}
+
+	for _, thread := range threads {
+		if thread.State == agentsv1.ThreadStateRunning || thread.State == agentsv1.ThreadStateSuspended {
+			continue
+		}
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = "ThreadsPending"
+		condition.Message = fmt.Sprintf("thread %s is %s", thread.Name, strings.ToLower(string(thread.State)))
+		if thread.Message != "" {
+			condition.Message += ": " + thread.Message
+		}
+		return condition
+	}
+
+	condition.Reason = "AllThreadsRunning"
+	condition.Message = fmt.Sprintf("all %d threads running", len(threads))
+	return condition
+}
+
 // providerFor returns the first registered provider that handles the grant, or nil.
 func (r *AgentReconciler) providerFor(grant agentsv1.Grant) Provider {
 	for _, p := range r.Providers {
@@ -208,9 +271,12 @@ func (r *AgentReconciler) providerFor(grant agentsv1.Grant) Provider {
 	return nil
 }
 
-// SetupWithManager registers the reconciler with the manager.
+// SetupWithManager registers the reconciler with the manager. It also watches the StatefulSets
+// it owns, so a thread's pod becoming ready is reflected in the agent's status without waiting
+// for a resync.
 func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&agentsv1.Agent{}).
+		Owns(&appsv1.StatefulSet{}).
 		Complete(r)
 }
