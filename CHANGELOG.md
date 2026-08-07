@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.38.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.3...v0.38.4) (2026-08-06)
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions from 6 to 6.31.0 ([#1228](https://github.com/chanzuckerberg/aws-oidc/issues/1228)) ([ad64fcc](https://github.com/chanzuckerberg/aws-oidc/commit/ad64fcc2f911eb36840db90f655397ca85e5bd48))
+* bump chanzuckerberg/github-actions from 6.31.0 to 6.32.0 ([#1232](https://github.com/chanzuckerberg/aws-oidc/issues/1232)) ([f0b5162](https://github.com/chanzuckerberg/aws-oidc/commit/f0b5162b1c470a1559c664eb165ccd96e7a3b5c2))
+* bump chanzuckerberg/github-actions from 6.32.0 to 6.33.0 ([#1234](https://github.com/chanzuckerberg/aws-oidc/issues/1234)) ([a98834a](https://github.com/chanzuckerberg/aws-oidc/commit/a98834a289934e50f73849b7560feb5c944b0e45))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6 to 6.31.0 ([#1229](https://github.com/chanzuckerberg/aws-oidc/issues/1229)) ([ebd5e0e](https://github.com/chanzuckerberg/aws-oidc/commit/ebd5e0e409043794cfe846a077d7503738d01963))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.31.0 to 6.32.0 ([#1233](https://github.com/chanzuckerberg/aws-oidc/issues/1233)) ([4acef1b](https://github.com/chanzuckerberg/aws-oidc/commit/4acef1b3d77c5fd49cfe8999b7518ef9b14d897f))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.32.0 to 6.33.0 ([#1235](https://github.com/chanzuckerberg/aws-oidc/issues/1235)) ([6359b73](https://github.com/chanzuckerberg/aws-oidc/commit/6359b735700dc31083feae7c9228cfdf5ca1f3b1))
+
+## [0.38.3](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.2...v0.38.3) (2026-07-20)
+
+
+### Bug Fixes
+
+* **serve-config:** log sub instead of email in ClientIDs error ([#1221](https://github.com/chanzuckerberg/aws-oidc/issues/1221)) ([1b10d03](https://github.com/chanzuckerberg/aws-oidc/commit/1b10d03910cc0c5d3e69e219778a1aea0ab08c41))
+
+
+### Misc
+
+* bump actions/setup-go from 6 to 7 ([#1220](https://github.com/chanzuckerberg/aws-oidc/issues/1220)) ([2d305a6](https://github.com/chanzuckerberg/aws-oidc/commit/2d305a653afecccf432d7f618d6a20d778c70862))
+* remove obsolete helm-dep-update workflow ([#1218](https://github.com/chanzuckerberg/aws-oidc/issues/1218)) ([8735400](https://github.com/chanzuckerberg/aws-oidc/commit/873540050d0c7ca979602e0e5cb396d048cb3d3a))
+
 ## [0.38.2](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.1...v0.38.2) (2026-06-23)
 
 
