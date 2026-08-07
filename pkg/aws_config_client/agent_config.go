@@ -90,7 +90,7 @@ func (r *AgentConfigRenderer) render(agent server.AgentConfig) (*ini.File, error
 
 	for i := range agent.Profiles {
 		profile := agent.Profiles[i]
-		err := r.addProfile(out, "profile "+agentProfileName(profile), profile)
+		err := r.addProfile(out, "profile "+AgentProfileName(profile), profile)
 		if err != nil {
 			return nil, err
 		}
@@ -153,8 +153,9 @@ func (r *AgentConfigRenderer) prune(agents []server.AgentConfig) error {
 	return nil
 }
 
-// agentProfileName is "<account>-<role>", sanitized the same way human account profile names
-// are. The agent name is not included because it is already the directory.
-func agentProfileName(profile server.AWSProfile) string {
+// AgentProfileName is "<account>-<role>", sanitized the same way human account profile names
+// are. The agent name is not included because it is already the directory. The operator uses
+// it too, so an agent's profiles are named the same whether it runs on a laptop or in a pod.
+func AgentProfileName(profile server.AWSProfile) string {
 	return sanitizeProfileName(fmt.Sprintf("%s-%s", profile.AWSAccount.GetAliasOrName(), profile.RoleName))
 }

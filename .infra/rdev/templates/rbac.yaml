@@ -92,3 +92,33 @@ subjects:
   - kind: ServiceAccount
     name: agent-operator
     namespace: {{ .Release.Namespace }}
+---
+# The operator also runs each agent's threads as pods in this namespace. That access is
+# namespaced rather than cluster-wide: the operator can create workloads only where it lives,
+# so a compromised operator cannot place pods elsewhere in the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-operator-threads
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts", "services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-operator-threads
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: agent-operator-threads
+subjects:
+  - kind: ServiceAccount
+    name: agent-operator
+    namespace: {{ .Release.Namespace }}
