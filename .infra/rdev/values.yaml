@@ -33,6 +33,13 @@ stack:
           memory: 500Mi
       args:
         - serve-portal
+        # Offer running agents as pods. The operator below is configured with the cluster's
+        # OIDC issuer, so a thread's pod can assume the agent's roles.
+        - --agent-runtime
+        - --agent-max-cpu=4
+        - --agent-max-memory=16Gi
+        - --agent-max-storage=200Gi
+        - --max-threads-per-agent=5
         - -v
       gateway:
         oidcProtected: true
@@ -105,6 +112,17 @@ stack:
         # Standard tags applied to every agent role, alongside the operator's own
         # managedBy/owner and per-agent tags.
         - --role-tags=project=agent-registry,env=rdev,service=aws-oidc
+        # dev-central's OIDC issuer. Setting it is what turns on running agents in the cluster:
+        # each agent role trusts this issuer for that agent's thread service accounts, so a
+        # thread's pod assumes the role with its projected token. The provider must also be
+        # registered in every account holding agent roles (shared-infra).
+        - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
+        # Placeholder base image until the real agent image (with the CLI preinstalled) exists.
+        # It has no long-running entrypoint, so the default command keeps the pod up.
+        - --agent-default-image=docker.io/library/ubuntu:24.04
+        - --agent-storage-class=ebs-csi-encrypted-gp3
+        - --agent-default-storage-size=20Gi
+        - --max-threads-per-agent=5
         - -v
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
