@@ -134,7 +134,7 @@ func Index(
 
 		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
 		if err != nil {
-			slog.Error(fmt.Sprintf("getting list of ClientIDs for %s", *email), "error", err)
+			slog.Error(fmt.Sprintf("getting list of ClientIDs for sub %s", *sub), "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
