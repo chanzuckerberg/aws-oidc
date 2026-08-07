@@ -33,6 +33,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.threads[*].name
+      name: Threads
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -123,6 +126,161 @@ spec:
                 description: OwnerEmail is the owner's email, kept for display and
                   audit.
                 type: string
+              runtime:
+                description: |-
+                  Runtime describes how the agent runs in the cluster. When unset the agent has no pods
+                  and exists only as the access granted to it.
+                properties:
+                  args:
+                    description: Args overrides the image arguments.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  command:
+                    description: Command overrides the image entrypoint.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  env:
+                    description: Env is extra environment for the agent container.
+                    items:
+                      description: |-
+                        AgentEnvVar is a plain environment variable for an agent's containers. It deliberately has
+                        no valueFrom: an agent owner must not be able to project arbitrary namespace secrets into
+                        their own pod.
+                      properties:
+                        name:
+                          minLength: 1
+                          type: string
+                        value:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  image:
+                    description: Image overrides the operator's default agent image.
+                    type: string
+                  nodeSelector:
+                    additionalProperties:
+                      type: string
+                    description: NodeSelector pins the pods to a class of node.
+                    type: object
+                  resources:
+                    description: |-
+                      Resources is the compute the container requests. The portal sets requests and limits
+                      to the same values so the pod is Guaranteed.
+                    properties:
+                      claims:
+                        description: |-
+                          Claims lists the names of resources, defined in spec.resourceClaims,
+                          that are used by this container.
+
+                          This is an alpha field and requires enabling the
+                          DynamicResourceAllocation feature gate.
+
+                          This field is immutable. It can only be set for containers.
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: |-
+                                Name must match the name of one entry in pod.spec.resourceClaims of
+                                the Pod where this field is used. It makes that resource available
+                                inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Limits describes the maximum amount of compute resources allowed.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: |-
+                          Requests describes the minimum amount of compute resources required.
+                          If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                          otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                          More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                        type: object
+                    type: object
+                  storage:
+                    description: Storage sizes each thread's workspace volume.
+                    properties:
+                      size:
+                        description: |-
+                          Size is the requested workspace size, for example "20Gi". It can be increased but not
+                          decreased, since a provisioned volume cannot shrink.
+                        pattern: ^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|K|M|G|T)?$
+                        type: string
+                      storageClassName:
+                        description: StorageClassName overrides the operator's default
+                          storage class.
+                        type: string
+                    required:
+                    - size
+                    type: object
+                type: object
+              threads:
+                description: |-
+                  Threads is the set of threads to run. Each gets its own pod and workspace. It is a map
+                  list so the API server rejects duplicate names and two writers editing different
+                  threads do not clobber each other. Ignored when Runtime is unset.
+                items:
+                  description: |-
+                    AgentThread is one running thread of an agent: its own pod and its own workspace, sharing
+                    the agent's access. A person runs several threads of the same agent at once.
+                  properties:
+                    displayName:
+                      description: DisplayName is the human-friendly label shown in
+                        the portal.
+                      type: string
+                    name:
+                      description: Name identifies the thread within the agent and
+                        names its Kubernetes objects.
+                      maxLength: 24
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    suspended:
+                      description: |-
+                        Suspended scales the thread to zero replicas while keeping its workspace, so an idle
+                        thread costs a volume rather than a pod.
+                      type: boolean
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             required:
             - owner
             type: object
@@ -234,6 +392,50 @@ spec:
                   last reconciled.
                 format: int64
                 type: integer
+              threads:
+                description: Threads is the per-thread provisioning result, one entry
+                  per spec.threads entry.
+                items:
+                  description: ThreadStatus is what the operator provisioned for one
+                    thread.
+                  properties:
+                    message:
+                      description: Message carries the reason when State is Failed.
+                      type: string
+                    name:
+                      description: Name matches the thread's name in spec.threads.
+                      type: string
+                    readyReplicas:
+                      description: ReadyReplicas is how many of the thread's pods
+                        are ready (zero or one).
+                      format: int32
+                      type: integer
+                    serviceAccountName:
+                      description: |-
+                        ServiceAccountName is the thread's Kubernetes service account, whose projected token
+                        the pod exchanges for the agent's AWS roles.
+                      type: string
+                    state:
+                      description: State is the thread's running state.
+                      enum:
+                      - Pending
+                      - Running
+                      - Suspended
+                      - Failed
+                      type: string
+                    statefulSetName:
+                      description: StatefulSetName is the workload running the thread.
+                      type: string
+                    workspaceClaimName:
+                      description: WorkspaceClaimName is the thread's persistent workspace.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
             type: object
         type: object
     served: true
