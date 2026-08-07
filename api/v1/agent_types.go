@@ -1,6 +1,7 @@
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,6 +54,87 @@ type Grant struct {
 	// MinProperties/MaxProperties markers above.
 }
 
+// AgentEnvVar is a plain environment variable for an agent's containers. It deliberately has
+// no valueFrom: an agent owner must not be able to project arbitrary namespace secrets into
+// their own pod.
+type AgentEnvVar struct {
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// +optional
+	Value string `json:"value,omitempty"`
+}
+
+// AgentStorage sizes the workspace volume each thread gets. The volume is provisioned
+// dynamically by the EBS CSI driver.
+type AgentStorage struct {
+	// Size is the requested workspace size, for example "20Gi". It can be increased but not
+	// decreased, since a provisioned volume cannot shrink.
+	// +kubebuilder:validation:Pattern=`^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|K|M|G|T)?$`
+	Size string `json:"size"`
+
+	// StorageClassName overrides the operator's default storage class.
+	// +optional
+	StorageClassName string `json:"storageClassName,omitempty"`
+}
+
+// AgentRuntime is the shape every thread of an agent runs as. It is a curated subset of a
+// pod spec rather than an embedded PodSpec: the operator owns the service account, the
+// projected token volume, and the AWS config mount, so an owner cannot point their pod at
+// another identity or mount a host path.
+type AgentRuntime struct {
+	// Image overrides the operator's default agent image.
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// Command overrides the image entrypoint.
+	// +optional
+	// +listType=atomic
+	Command []string `json:"command,omitempty"`
+
+	// Args overrides the image arguments.
+	// +optional
+	// +listType=atomic
+	Args []string `json:"args,omitempty"`
+
+	// Env is extra environment for the agent container.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Env []AgentEnvVar `json:"env,omitempty"`
+
+	// Resources is the compute the container requests. The portal sets requests and limits
+	// to the same values so the pod is Guaranteed.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
+	// Storage sizes each thread's workspace volume.
+	// +optional
+	Storage *AgentStorage `json:"storage,omitempty"`
+
+	// NodeSelector pins the pods to a class of node.
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+}
+
+// AgentThread is one running thread of an agent: its own pod and its own workspace, sharing
+// the agent's access. A person runs several threads of the same agent at once.
+type AgentThread struct {
+	// Name identifies the thread within the agent and names its Kubernetes objects.
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=24
+	Name string `json:"name"`
+
+	// DisplayName is the human-friendly label shown in the portal.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// Suspended scales the thread to zero replicas while keeping its workspace, so an idle
+	// thread costs a volume rather than a pod.
+	// +optional
+	Suspended bool `json:"suspended,omitempty"`
+}
+
 // AgentSpec is the desired state a human sets through the portal.
 type AgentSpec struct {
 	// DisplayName is the human-friendly name shown in the portal. Defaults to the
@@ -74,6 +156,19 @@ type AgentSpec struct {
 	// +optional
 	// +listType=atomic
 	Grants []Grant `json:"grants,omitempty"`
+
+	// Runtime describes how the agent runs in the cluster. When unset the agent has no pods
+	// and exists only as the access granted to it.
+	// +optional
+	Runtime *AgentRuntime `json:"runtime,omitempty"`
+
+	// Threads is the set of threads to run. Each gets its own pod and workspace. It is a map
+	// list so the API server rejects duplicate names and two writers editing different
+	// threads do not clobber each other. Ignored when Runtime is unset.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Threads []AgentThread `json:"threads,omitempty"`
 }
 
 // GrantState is the provisioning state of a single grant.
@@ -118,10 +213,58 @@ type GrantStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
+// ThreadState is the running state of one thread.
+// +kubebuilder:validation:Enum=Pending;Running;Suspended;Failed
+type ThreadState string
+
+const (
+	// ThreadStatePending means the thread's objects exist but no pod is ready yet.
+	ThreadStatePending ThreadState = "Pending"
+	// ThreadStateRunning means the thread has a ready pod.
+	ThreadStateRunning ThreadState = "Running"
+	// ThreadStateSuspended means the thread is intentionally scaled to zero.
+	ThreadStateSuspended ThreadState = "Suspended"
+	// ThreadStateFailed means the thread could not be provisioned; see Message.
+	ThreadStateFailed ThreadState = "Failed"
+)
+
+// ThreadStatus is what the operator provisioned for one thread.
+type ThreadStatus struct {
+	// Name matches the thread's name in spec.threads.
+	Name string `json:"name"`
+
+	// ServiceAccountName is the thread's Kubernetes service account, whose projected token
+	// the pod exchanges for the agent's AWS roles.
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+
+	// StatefulSetName is the workload running the thread.
+	// +optional
+	StatefulSetName string `json:"statefulSetName,omitempty"`
+
+	// WorkspaceClaimName is the thread's persistent workspace.
+	// +optional
+	WorkspaceClaimName string `json:"workspaceClaimName,omitempty"`
+
+	// ReadyReplicas is how many of the thread's pods are ready (zero or one).
+	// +optional
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+
+	// State is the thread's running state.
+	// +optional
+	State ThreadState `json:"state,omitempty"`
+
+	// Message carries the reason when State is Failed.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // Condition types set on an Agent.
 const (
 	// ConditionReady is true when every grant is Provisioned.
 	ConditionReady = "Ready"
+	// ConditionRuntimeReady is true when every non-suspended thread has a ready pod.
+	ConditionRuntimeReady = "RuntimeReady"
 )
 
 // AgentStatus is what the operator has provisioned. It is a subresource, so the portal's
@@ -141,6 +284,12 @@ type AgentStatus struct {
 	// +optional
 	// +listType=atomic
 	Grants []GrantStatus `json:"grants,omitempty"`
+
+	// Threads is the per-thread provisioning result, one entry per spec.threads entry.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Threads []ThreadStatus `json:"threads,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -149,6 +298,7 @@ type AgentStatus struct {
 // +kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=`.spec.ownerEmail`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Threads",type=string,JSONPath=`.status.threads[*].name`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Agent is a registered agent and the scoped access granted to it. The CR is the source of
