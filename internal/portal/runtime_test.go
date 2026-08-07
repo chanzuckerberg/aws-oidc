@@ -1,0 +1,211 @@
+package portal
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
+)
+
+// form builds the parsed submission the handlers hand to parseRuntime.
+func form(t *testing.T, values url.Values) *http.Request {
+	t.Helper()
+	r := httptest.NewRequest(http.MethodPost, "/agents", strings.NewReader(values.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	require.NoError(t, r.ParseForm())
+	return r
+}
+
+func TestParseRuntimeDisabled(t *testing.T) {
+	runtime, threads, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{})
+	require.NoError(t, err)
+	require.Nil(t, runtime)
+	require.Nil(t, threads)
+}
+
+// Turning the runtime on without naming a thread gives the agent one, so enabling it is a
+// single click rather than two steps.
+func TestParseRuntimeGivesAFirstThread(t *testing.T) {
+	runtime, threads, err := parseRuntime(form(t, url.Values{"runtime": {"on"}}), nil, AgentLimits{})
+	require.NoError(t, err)
+	require.NotNil(t, runtime)
+	require.Len(t, threads, 1)
+	require.Equal(t, firstThreadName, threads[0].Name)
+
+	// Sizing lands on both requests and limits, so a thread cannot burst past what its owner
+	// asked for.
+	require.Equal(t, defaultCPU, runtime.Resources.Requests.Cpu().String())
+	require.Equal(t, defaultCPU, runtime.Resources.Limits.Cpu().String())
+	require.Equal(t, defaultStorage, runtime.Storage.Size)
+}
+
+func TestParseRuntimeReadsSizing(t *testing.T) {
+	runtime, _, err := parseRuntime(form(t, url.Values{
+		"runtime": {"on"},
+		"cpu":     {"2"},
+		"memory":  {"4Gi"},
+		"storage": {"50Gi"},
+	}), nil, AgentLimits{})
+	require.NoError(t, err)
+
+	require.Equal(t, "2", runtime.Resources.Requests.Cpu().String())
+	require.Equal(t, "4Gi", runtime.Resources.Requests.Memory().String())
+	require.Equal(t, "50Gi", runtime.Storage.Size)
+}
+
+func TestParseRuntimeRejectsOversizedRequests(t *testing.T) {
+	_, _, err := parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"64"}}), nil, AgentLimits{})
+	require.ErrorContains(t, err, "CPU is limited to 4")
+
+	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "memory": {"512Gi"}}), nil, AgentLimits{})
+	require.ErrorContains(t, err, "Memory is limited to 16Gi")
+
+	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"a lot"}}), nil, AgentLimits{})
+	require.ErrorContains(t, err, "not a valid quantity")
+}
+
+// A provisioned volume cannot shrink, so a smaller request is refused rather than accepted and
+// then quietly ignored by the operator.
+func TestParseRuntimeRefusesToShrinkStorage(t *testing.T) {
+	current := &agentsv1.Agent{Spec: agentsv1.AgentSpec{
+		Runtime: &agentsv1.AgentRuntime{Storage: &agentsv1.AgentStorage{Size: "50Gi"}},
+	}}
+
+	_, _, err := parseRuntime(form(t, url.Values{"runtime": {"on"}, "storage": {"20Gi"}}), current, AgentLimits{})
+	require.ErrorContains(t, err, "cannot be reduced below the current 50Gi")
+
+	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "storage": {"100Gi"}}), current, AgentLimits{})
+	require.NoError(t, err)
+}
+
+func TestParseThreadsAddsSuspendsAndRemoves(t *testing.T) {
+	values := url.Values{
+		"runtime":       {"on"},
+		"thread":        {"main", "review", "stale"},
+		"suspended":     {"review"},
+		"remove-thread": {"stale"},
+		"new-thread":    {"Docs"},
+	}
+
+	_, threads, err := parseRuntime(form(t, values), nil, AgentLimits{})
+	require.NoError(t, err)
+
+	require.Equal(t, []agentsv1.AgentThread{
+		{Name: "main"},
+		{Name: "review", Suspended: true},
+		// A name typed with capitals is lowercased rather than rejected, since the CRD only
+		// accepts a DNS label.
+		{Name: "docs"},
+	}, threads)
+}
+
+func TestParseThreadsRejectsBadAndDuplicateNames(t *testing.T) {
+	_, _, err := parseRuntime(form(t, url.Values{
+		"runtime":    {"on"},
+		"new-thread": {"my_thread"},
+	}), nil, AgentLimits{})
+	require.ErrorContains(t, err, "lowercase letters, numbers, and dashes")
+
+	_, _, err = parseRuntime(form(t, url.Values{
+		"runtime":    {"on"},
+		"thread":     {"main"},
+		"new-thread": {"main"},
+	}), nil, AgentLimits{})
+	require.ErrorContains(t, err, "already a thread named")
+
+	_, _, err = parseRuntime(form(t, url.Values{
+		"runtime":    {"on"},
+		"new-thread": {strings.Repeat("a", 25)},
+	}), nil, AgentLimits{})
+	require.ErrorContains(t, err, "limited to 24 characters")
+}
+
+func TestParseThreadsEnforcesTheLimit(t *testing.T) {
+	_, _, err := parseRuntime(form(t, url.Values{
+		"runtime": {"on"},
+		"thread":  {"a", "b", "c"},
+	}), nil, AgentLimits{MaxThreads: 2})
+	require.ErrorContains(t, err, "limited to 2 threads")
+}
+
+// Removing the last thread means the agent runs nothing, which is expressed by suspending or
+// disabling the runtime, not by an empty thread list.
+func TestParseThreadsRemovingTheLastThreadKeepsOne(t *testing.T) {
+	_, threads, err := parseRuntime(form(t, url.Values{
+		"runtime":       {"on"},
+		"thread":        {"main"},
+		"remove-thread": {"main"},
+	}), nil, AgentLimits{})
+	require.NoError(t, err)
+	require.Len(t, threads, 1)
+	require.Equal(t, firstThreadName, threads[0].Name)
+}
+
+func TestRuntimeFromAgentShowsStoredSizingAndState(t *testing.T) {
+	agent := &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}}
+	agent.Spec.Runtime = &agentsv1.AgentRuntime{Storage: &agentsv1.AgentStorage{Size: "50Gi"}}
+	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}, {Name: "review", Suspended: true}}
+	agent.Status.Threads = []agentsv1.ThreadStatus{
+		{Name: "main", State: agentsv1.ThreadStateRunning},
+		{Name: "review", State: agentsv1.ThreadStateSuspended},
+	}
+
+	form := runtimeFromAgent(agent, AgentLimits{}.defaults())
+	require.True(t, form.Enabled)
+	require.Equal(t, "50Gi", form.Storage)
+	// Sizing the agent never set falls back to the default rather than rendering blank.
+	require.Equal(t, defaultCPU, form.CPU)
+	require.Equal(t, []threadForm{
+		{Name: "main", State: "Running"},
+		{Name: "review", Suspended: true, State: "Suspended"},
+	}, form.Threads)
+}
+
+// The runtime section is only rendered where the operator can actually run threads.
+func TestFormHidesRuntimeWhenNotOffered(t *testing.T) {
+	withRuntime, err := NewServer(Config{AgentRuntime: true})
+	require.NoError(t, err)
+	withoutRuntime, err := NewServer(Config{})
+	require.NoError(t, err)
+
+	data := pageData{
+		Title:        "Edit",
+		User:         &identity.User{Sub: "s"},
+		Agent:        &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}},
+		Entitlements: &Entitlements{},
+		Runtime:      runtimeFromAgent(nil, AgentLimits{}.defaults()),
+		Action:       "/agents/bot",
+	}
+
+	shown := httptest.NewRecorder()
+	withRuntime.render(shown, "form", data)
+	require.Contains(t, shown.Body.String(), "Run this agent as pods")
+	require.Contains(t, shown.Body.String(), `name="storage"`)
+
+	hidden := httptest.NewRecorder()
+	withoutRuntime.render(hidden, "form", data)
+	require.NotContains(t, hidden.Body.String(), "Run this agent as pods")
+}
+
+// A portal that does not offer the runtime must not clear the runtime of an agent that has one.
+func TestParseAgentRuntimeLeavesStoredRuntimeAloneWhenNotOffered(t *testing.T) {
+	s, err := NewServer(Config{})
+	require.NoError(t, err)
+
+	current := &agentsv1.Agent{Spec: agentsv1.AgentSpec{
+		Runtime: &agentsv1.AgentRuntime{Storage: &agentsv1.AgentStorage{Size: "50Gi"}},
+		Threads: []agentsv1.AgentThread{{Name: "main"}},
+	}}
+
+	runtime, threads, err := s.parseAgentRuntime(form(t, url.Values{}), current)
+	require.NoError(t, err)
+	require.Equal(t, current.Spec.Runtime, runtime)
+	require.Equal(t, current.Spec.Threads, threads)
+}

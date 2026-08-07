@@ -40,6 +40,11 @@ type Config struct {
 	Store            agentstore.AgentStore
 	Identity         *IdentityResolver
 	BasePath         string
+	// AgentRuntime offers the option of running an agent's threads as pods. It is off unless
+	// the operator can actually run them, so the form does not promise what it cannot deliver.
+	AgentRuntime bool
+	// Limits caps the sizing an owner may ask for. Unset fields fall back to defaults.
+	Limits AgentLimits
 }
 
 // Server is the agent-registry portal.
@@ -55,6 +60,7 @@ func NewServer(cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parsing templates: %w", err)
 	}
+	cfg.Limits = cfg.Limits.defaults()
 	return &Server{cfg: cfg, tmpl: tmpl, basePath: strings.TrimRight(cfg.BasePath, "/")}, nil
 }
 
@@ -100,6 +106,10 @@ type pageData struct {
 	Checked      map[string]bool
 	Action       string
 	Error        string
+	// RuntimeOffered mirrors Config.AgentRuntime, so the form hides the section entirely in an
+	// environment where agents do not run in the cluster.
+	RuntimeOffered bool
+	Runtime        runtimeForm
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +152,7 @@ func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
 		Entitlements: ent,
 		Checked:      map[string]bool{},
 		Action:       "/agents",
+		Runtime:      runtimeFromAgent(nil, s.cfg.Limits),
 	})
 }
 
@@ -169,6 +180,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "form", pageData{
 			Title: "Register agent", User: user, Entitlements: ent,
 			Checked: checkedFromForm(r), Action: "/agents", Error: msg,
+			Runtime: runtimeFromForm(r, s.cfg.Limits),
 		})
 	}
 
@@ -193,6 +205,12 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	runtime, threads, err := s.parseAgentRuntime(r, nil)
+	if err != nil {
+		renderErr(err.Error())
+		return
+	}
+
 	agent := &agentsv1.Agent{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: agentsv1.AgentSpec{
@@ -200,6 +218,8 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 			Owner:       user.Sub,
 			OwnerEmail:  user.Email,
 			Grants:      grants,
+			Runtime:     runtime,
+			Threads:     threads,
 		},
 	}
 	err = s.cfg.Store.Upsert(ctx, agent)
@@ -237,6 +257,7 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 		Entitlements: ent,
 		Checked:      checkedFromAgent(agent),
 		Action:       "/agents/" + agent.Name,
+		Runtime:      runtimeFromAgent(agent, s.cfg.Limits),
 	})
 }
 
@@ -264,16 +285,29 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	grants, err := parseGrants(r, ent)
-	if err != nil {
+	renderErr := func(msg string) {
 		s.render(w, "form", pageData{
 			Title: "Edit " + agent.Name, User: user, Agent: agent, Entitlements: ent,
-			Checked: checkedFromForm(r), Action: "/agents/" + agent.Name, Error: err.Error(),
+			Checked: checkedFromForm(r), Action: "/agents/" + agent.Name, Error: msg,
+			Runtime: runtimeFromForm(r, s.cfg.Limits),
 		})
+	}
+
+	grants, err := parseGrants(r, ent)
+	if err != nil {
+		renderErr(err.Error())
+		return
+	}
+
+	runtime, threads, err := s.parseAgentRuntime(r, agent)
+	if err != nil {
+		renderErr(err.Error())
 		return
 	}
 
 	agent.Spec.Grants = grants
+	agent.Spec.Runtime = runtime
+	agent.Spec.Threads = threads
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
@@ -339,8 +373,22 @@ func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, b
 	return user, true
 }
 
+// parseAgentRuntime reads the runtime section of a submission, or leaves the agent's runtime
+// alone in an environment where the portal does not offer it. Without that guard a form posted
+// against a portal with the runtime disabled would silently clear an existing runtime.
+func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
+	if !s.cfg.AgentRuntime {
+		if current == nil {
+			return nil, nil, nil
+		}
+		return current.Spec.Runtime, current.Spec.Threads, nil
+	}
+	return parseRuntime(r, current, s.cfg.Limits)
+}
+
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
 	data.BasePath = s.basePath
+	data.RuntimeOffered = s.cfg.AgentRuntime
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {

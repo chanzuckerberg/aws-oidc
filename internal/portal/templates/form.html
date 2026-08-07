@@ -25,6 +25,53 @@
     <p class="muted">You have no AWS access to grant.</p>
     {{end}}
 
+    {{if .RuntimeOffered}}
+    {{with .Runtime}}
+    <fieldset>
+      <legend>Run in the cluster</legend>
+      <label class="grant">
+        <input type="checkbox" name="runtime" value="on" {{if .Enabled}}checked{{end}}>
+        Run this agent as pods in the cluster
+      </label>
+      <p class="muted">
+        Each thread gets its own pod and its own persistent workspace, and assumes the access
+        granted above. Sizing applies to every thread.
+      </p>
+
+      <p class="sizing">
+        <label>CPU <input name="cpu" value="{{.CPU}}" placeholder="500m" size="8"></label>
+        <label>Memory <input name="memory" value="{{.Memory}}" placeholder="1Gi" size="8"></label>
+        <label>Storage <input name="storage" value="{{.Storage}}" placeholder="20Gi" size="8"></label>
+        <span class="muted">up to {{.Limits.MaxCPU}} CPU, {{.Limits.MaxMemory}} memory, {{.Limits.MaxStorage}} storage</span>
+      </p>
+      <p class="muted">Storage can be increased but not reduced, because a provisioned volume cannot shrink.</p>
+
+      {{if .Threads}}
+      <table>
+        <tr><th>Thread</th><th>State</th><th>Suspend</th><th>Remove</th></tr>
+        {{range .Threads}}
+        <tr>
+          <td>{{.Name}}<input type="hidden" name="thread" value="{{.Name}}"></td>
+          <td>{{if .State}}{{.State}}{{else}}<span class="muted">—</span>{{end}}
+            {{if .Message}}<span class="muted">{{.Message}}</span>{{end}}</td>
+          <td><input type="checkbox" name="suspended" value="{{.Name}}" {{if .Suspended}}checked{{end}}></td>
+          <td><input type="checkbox" name="remove-thread" value="{{.Name}}"></td>
+        </tr>
+        {{end}}
+      </table>
+      <p class="muted">Suspending a thread stops its pod and keeps its workspace. Removing it deletes both.</p>
+      {{end}}
+
+      <p>
+        <label>Add a thread
+          <input name="new-thread" value="{{.NewThread}}" pattern="[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?" maxlength="24" placeholder="review">
+        </label>
+        <span class="muted">up to {{.Limits.MaxThreads}} threads</span>
+      </p>
+    </fieldset>
+    {{end}}
+    {{end}}
+
     <p>
       <button class="btn primary" type="submit">Save</button>
       <a class="btn" href="{{.BasePath}}/">Cancel</a>
