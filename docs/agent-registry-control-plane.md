@@ -92,6 +92,26 @@ Per-agent IAM role trust policy conditions on both:
 
 The role gets the owner-selected catalog policy plus the permissions boundary, always. Free-form policy JSON is not allowed.
 
+## Running an agent in the cluster: threads
+
+An agent is not one session. A person runs several conversations with the same agent at once, so an agent that runs in the cluster runs as a set of threads. Each thread is one pod with its own persistent workspace, and every thread of an agent shares that agent's access.
+
+`spec.runtime` says how the agent runs and `spec.threads` says which threads to run. An agent without `spec.runtime` has no pods and is only the access granted to it, which is the laptop case. The operator maintains a headless service and the rendered AWS config per agent, then a service account, a StatefulSet, and an EBS-backed workspace per thread. `status.threads` reports each thread's service account, workload, workspace, and state, and the `RuntimeReady` condition summarizes them.
+
+`spec.runtime` is a curated subset of a pod spec rather than an embedded `PodSpec`. The operator owns the service account, the projected token, and the AWS config mount, so an owner can size their threads and set their image and environment, but cannot point a pod at another identity or mount a host path.
+
+A thread's pod gets its AWS credentials the same way any workload does, without a human in the loop:
+
+- The pod mounts a projected service account token with audience `sts.amazonaws.com`.
+- The agent's IAM roles trust the cluster's OIDC issuer for that agent's thread service accounts, alongside the existing Okta statement. The subject is matched with `StringLike` against a prefix built from the agent's uid, so adding a thread needs no IAM write. The prefix cannot be built from the agent's name, because an agent named `foo-bar` would produce service accounts matching agent `foo`'s pattern and inherit access that is not its owner's.
+- The operator renders an AWS config listing every provisioned grant as a profile with `role_arn` and `web_identity_token_file`. Profile names match the laptop rendering, so a prompt or script that works on a laptop works in a pod.
+
+Because the trust policy gains and loses the cluster statement as the runtime is turned on and off, the operator reconciles the trust policy of an existing role rather than leaving it at whatever it was created with. That is why the per-account `agent-provisioner` role needs `iam:UpdateAssumeRolePolicy`, and why the cluster's OIDC issuer has to be registered as a provider in every account holding agent roles.
+
+Suspending a thread scales it to zero and keeps its workspace, so an idle thread costs a volume rather than a pod. Removing a thread deletes both. Removing a thread from a list does not trigger Kubernetes garbage collection, since the agent still exists, so the operator prunes the objects of threads that are no longer declared. The workspace is owned by the Agent rather than the StatefulSet, both because a StatefulSet does not delete the claims it creates and because the set is replaced when a workspace grows.
+
+Storage can be increased but not reduced, because a provisioned volume cannot shrink. A volume claim template is immutable, so a resize patches the claim and recreates the StatefulSet with its pods orphaned, leaving the running pod and the grown workspace in place.
+
 ## Client-side enforcement (Claude Code enterprise managed settings)
 
 The portal is the server-side half. The client-side half is Claude Code enterprise managed settings that steer the agent onto its own scoped config and away from the human's credentials. This is the counterpart to the server-side trust conditions.
@@ -308,9 +328,21 @@ spec:
     - accountId: "359855083898"
       catalogPolicyId: athena-query
       region: us-east-1
+  runtime:                       # omit to run the agent only from a laptop
+    resources:
+      requests: { cpu: "500m", memory: 1Gi }
+      limits: { cpu: "500m", memory: 1Gi }
+    storage:
+      size: 20Gi
+  threads:
+    - name: main
+    - name: review
+      suspended: true            # zero replicas, workspace kept
 status:
   conditions:
     - type: Ready
+      status: "True"
+    - type: RuntimeReady
       status: "True"
   grants:
     - accountId: "533267185808"
@@ -319,10 +351,19 @@ status:
     - accountId: "359855083898"
       roleArn: arn:aws:iam::359855083898:role/agents/data-bot-athena
       state: Provisioned
+  threads:
+    - name: main
+      serviceAccountName: agent-0f8fad5bd9cb-main
+      statefulSetName: agent-data-bot-main
+      workspaceClaimName: workspace-agent-data-bot-main-0
+      readyReplicas: 1
+      state: Running
+    - name: review
+      state: Suspended
   observedGeneration: 3
 ```
 
-`spec.grants` is the desired state a human sets through the portal. `status.grants` is what the operator provisioned, including the role ARN the aws-oidc config endpoint reads.
+`spec.grants` is the desired state a human sets through the portal. `status.grants` is what the operator provisioned, including the role ARN the aws-oidc config endpoint reads. `spec.threads` and `status.threads` do the same for the pods the agent runs.
 
 ## API surface
 
@@ -391,5 +432,7 @@ Ordered so each PR is inert or additive on its own, per the stacked-PR conventio
 - [ ] Minimal server-rendered HTML UI (Go `html/template`) in the portal, no SPA or frontend build: register agent, pick accessible account and catalog policy, list own agents, admin view.
 - [ ] `config/crd` and namespaced RBAC in `.infra/*/templates/rbac.yaml` for the operator and portal, plus IRSA.
 - [ ] Deploy: add `portal` and `operator` services to the aws-oidc Argus app (same image, `serve-portal` and `operator` args).
+- [ ] Run agents in the cluster: `spec.runtime` and `spec.threads` on the CR, the cluster OIDC trust statement on each agent role, and `internal/agentpod` reconciling a service account, StatefulSet, and EBS workspace per thread. Cross-repo prerequisite in shared-infra: `iam:UpdateAssumeRolePolicy` on `agent-provisioner` and the cluster's OIDC provider registered per account.
+- [ ] Portal: size an agent's threads (CPU, memory, storage) and add, suspend, and remove threads.
 - [ ] `enterprise/claude-code/managed-settings.json` (soft-launch client-side enforcement).
 - [ ] `enterprise/claude-code/hooks/steer-aws-creds.sh` (PreToolUse steering hook).
