@@ -94,9 +94,9 @@ The role gets the owner-selected catalog policy plus the permissions boundary, a
 
 ## Running an agent in the cluster: threads
 
-An agent is not one session. A person runs several conversations with the same agent at once, so an agent that runs in the cluster runs as a set of threads. Each thread is one pod with its own persistent workspace, and every thread of an agent shares that agent's access.
+An agent is not one session. A person runs several conversations with the same agent at once, so an agent that runs in the cluster runs as a set of threads. Every thread of an agent shares that agent's access, and all threads of an agent share one persistent workspace backed by EFS.
 
-`spec.runtime` says how the agent runs and `spec.threads` says which threads to run. An agent without `spec.runtime` has no pods and is only the access granted to it, which is the laptop case. The operator maintains a headless service and the rendered AWS config per agent, then a service account, a StatefulSet, and an EBS-backed workspace per thread. `status.threads` reports each thread's service account, workload, workspace, and state, and the `RuntimeReady` condition summarizes them.
+`spec.runtime` says how the agent runs and `spec.threads` says which threads to run. An agent without `spec.runtime` has no pods and is only the access granted to it, which is the laptop case. The operator maintains a headless service, the rendered AWS config, and one ReadWriteMany PVC per agent, then a service account and a StatefulSet per thread. `status.threads` reports each thread's service account, workload, and state, and the `RuntimeReady` condition summarizes them. `status.workspaceClaimName` names the shared PVC.
 
 `spec.runtime` is a curated subset of a pod spec rather than an embedded `PodSpec`. The operator owns the service account, the projected token, and the AWS config mount, so an owner can size their threads and set their image and environment, but cannot point a pod at another identity or mount a host path.
 
@@ -108,9 +108,18 @@ A thread's pod gets its AWS credentials the same way any workload does, without 
 
 Because the trust policy gains and loses the cluster statement as the runtime is turned on and off, the operator reconciles the trust policy of an existing role rather than leaving it at whatever it was created with. That is why the per-account `agent-provisioner` role needs `iam:UpdateAssumeRolePolicy`, and why the cluster's OIDC issuer has to be registered as a provider in every account holding agent roles.
 
-Suspending a thread scales it to zero and keeps its workspace, so an idle thread costs a volume rather than a pod. Removing a thread deletes both. Removing a thread from a list does not trigger Kubernetes garbage collection, since the agent still exists, so the operator prunes the objects of threads that are no longer declared. The workspace is owned by the Agent rather than the StatefulSet, both because a StatefulSet does not delete the claims it creates and because the set is replaced when a workspace grows.
+### Workspace layout
 
-Storage can be increased but not reduced, because a provisioned volume cannot shrink. A volume claim template is immutable, so a resize patches the claim and recreates the StatefulSet with its pods orphaned, leaving the running pod and the grown workspace in place.
+Each agent gets one EFS-backed PVC. The EFS CSI driver provisions a fresh access point for each PVC, so no other agent's data is reachable inside it. Inside that volume, two layout conventions hold across every thread:
+
+- `threads/<thread-name>/` is mounted at `/workspace` in that thread's pod. This is the thread's isolated working tree; no other thread can see it directly.
+- `shared/` is mounted at `/shared` in every thread's pod. Threads use it to pass files between themselves (for example, one thread writes an artifact, another picks it up).
+
+Pods run as uid/gid 1000, matching the EFS access point's POSIX settings, so file writes land with consistent ownership.
+
+Suspending a thread scales it to zero and keeps the shared PVC intact, so an idle thread costs nothing beyond its share of the EFS filesystem. Removing a thread from the spec removes its StatefulSet and ServiceAccount but leaves its subdirectory inside the volume. Silently deleting a person's work on a spec edit is worse than leaving it for them to clean up. The whole PVC is released when the agent is deleted, via the owner reference the operator sets on it.
+
+Two reclamation gaps are accepted: removing a thread leaves an orphaned `threads/<thread-name>/` directory inside the volume until the agent is deleted, and the EFS filesystem itself has no hard quota — a CloudWatch alarm on the filesystem's `StorageBytes` is the backstop against unbounded growth.
 
 ## Client-side enforcement (Claude Code enterprise managed settings)
 
@@ -332,8 +341,6 @@ spec:
     resources:
       requests: { cpu: "500m", memory: 1Gi }
       limits: { cpu: "500m", memory: 1Gi }
-    storage:
-      size: 20Gi
   threads:
     - name: main
     - name: review
@@ -351,11 +358,11 @@ status:
     - accountId: "359855083898"
       roleArn: arn:aws:iam::359855083898:role/agents/data-bot-athena
       state: Provisioned
+  workspaceClaimName: agent-data-bot-workspace   # one shared EFS-backed PVC for all threads
   threads:
     - name: main
       serviceAccountName: agent-0f8fad5bd9cb-main
       statefulSetName: agent-data-bot-main
-      workspaceClaimName: workspace-agent-data-bot-main-0
       readyReplicas: 1
       state: Running
     - name: review
@@ -432,7 +439,7 @@ Ordered so each PR is inert or additive on its own, per the stacked-PR conventio
 - [ ] Minimal server-rendered HTML UI (Go `html/template`) in the portal, no SPA or frontend build: register agent, pick accessible account and catalog policy, list own agents, admin view.
 - [ ] `config/crd` and namespaced RBAC in `.infra/*/templates/rbac.yaml` for the operator and portal, plus IRSA.
 - [ ] Deploy: add `portal` and `operator` services to the aws-oidc Argus app (same image, `serve-portal` and `operator` args).
-- [ ] Run agents in the cluster: `spec.runtime` and `spec.threads` on the CR, the cluster OIDC trust statement on each agent role, and `internal/agentpod` reconciling a service account, StatefulSet, and EBS workspace per thread. Cross-repo prerequisite in shared-infra: `iam:UpdateAssumeRolePolicy` on `agent-provisioner` and the cluster's OIDC provider registered per account.
-- [ ] Portal: size an agent's threads (CPU, memory, storage) and add, suspend, and remove threads.
+- [ ] Run agents in the cluster: `spec.runtime` and `spec.threads` on the CR, the cluster OIDC trust statement on each agent role, and `internal/agentpod` reconciling a service account, StatefulSet, and shared EFS workspace per agent. Cross-repo prerequisite in shared-infra: `iam:UpdateAssumeRolePolicy` on `agent-provisioner` and the cluster's OIDC provider registered per account. Cross-repo in core-platform-infra: EFS filesystem, mount targets, security group, and `efs-agent-workspaces` StorageClass.
+- [ ] Portal: size an agent's threads (CPU, memory) and add, suspend, and remove threads.
 - [ ] `enterprise/claude-code/managed-settings.json` (soft-launch client-side enforcement).
 - [ ] `enterprise/claude-code/hooks/steer-aws-creds.sh` (PreToolUse steering hook).

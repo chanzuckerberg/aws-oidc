@@ -38,9 +38,8 @@ const (
 	flagClusterOIDCProvider = "cluster-oidc-provider"
 	flagAgentImage          = "agent-default-image"
 	flagAgentCommand        = "agent-default-command"
-	flagAgentStorageClass   = "agent-storage-class"
-	flagAgentStorageSize    = "agent-default-storage-size"
-	flagMaxThreadsPerAgent  = "max-threads-per-agent"
+	flagAgentStorageClass  = "agent-storage-class"
+	flagMaxThreadsPerAgent = "max-threads-per-agent"
 )
 
 func init() {
@@ -58,8 +57,7 @@ func init() {
 	operatorCmd.Flags().String(flagClusterOIDCProvider, "", "EKS cluster OIDC issuer without scheme (for example oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE); empty means agents do not run in the cluster")
 	operatorCmd.Flags().String(flagAgentImage, "", "Container image an agent thread runs when the agent does not name one")
 	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
-	operatorCmd.Flags().String(flagAgentStorageClass, "ebs-csi-encrypted-gp3", "Storage class each agent thread's workspace is provisioned from")
-	operatorCmd.Flags().String(flagAgentStorageSize, "20Gi", "Workspace size an agent thread gets when the agent does not ask for one")
+	operatorCmd.Flags().String(flagAgentStorageClass, "efs-agent-workspaces", "Storage class for the per-agent workspace PVC; must be a ReadWriteMany class backed by the EFS CSI driver")
 	operatorCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
 }
 
@@ -131,10 +129,6 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	agentStorageClass, err := cmd.Flags().GetString(flagAgentStorageClass)
 	if err != nil {
 		return fmt.Errorf("missing agent-storage-class flag: %w", err)
-	}
-	agentStorageSize, err := cmd.Flags().GetString(flagAgentStorageSize)
-	if err != nil {
-		return fmt.Errorf("missing agent-default-storage-size flag: %w", err)
 	}
 	maxThreads, err := cmd.Flags().GetInt(flagMaxThreadsPerAgent)
 	if err != nil {
@@ -212,8 +206,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 			Namespace:          namespace,
 			DefaultImage:       agentImage,
 			DefaultCommand:     agentCommand,
-			StorageClass:       agentStorageClass,
-			DefaultStorageSize: agentStorageSize,
+			StorageClass: agentStorageClass,
 			Region:             awsRegion,
 			MaxThreads:         maxThreads,
 		})

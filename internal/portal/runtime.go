@@ -21,9 +21,8 @@ const (
 	// naming one, so enabling the runtime is a single click.
 	firstThreadName = "main"
 
-	defaultCPU     = "500m"
-	defaultMemory  = "1Gi"
-	defaultStorage = "20Gi"
+	defaultCPU    = "500m"
+	defaultMemory = "1Gi"
 
 	threadNameMaxLength = 24
 )
@@ -31,9 +30,8 @@ const (
 // AgentLimits caps what an owner may ask for when running an agent in the cluster. The portal
 // is the only place a person sets these, so this is where the ceiling belongs.
 type AgentLimits struct {
-	MaxCPU     string
-	MaxMemory  string
-	MaxStorage string
+	MaxCPU    string
+	MaxMemory string
 	MaxThreads int
 }
 
@@ -44,9 +42,6 @@ func (l AgentLimits) defaults() AgentLimits {
 	}
 	if l.MaxMemory == "" {
 		l.MaxMemory = "16Gi"
-	}
-	if l.MaxStorage == "" {
-		l.MaxStorage = "200Gi"
 	}
 	if l.MaxThreads <= 0 {
 		l.MaxThreads = 5
@@ -60,7 +55,6 @@ type runtimeForm struct {
 	Enabled bool
 	CPU     string
 	Memory  string
-	Storage string
 	Threads []threadForm
 	// NewThread is the name typed into the add-a-thread box, kept so a rejected form does not
 	// lose it.
@@ -81,25 +75,21 @@ type threadForm struct {
 // that does not run in the cluster, yields the defaults with the runtime off.
 func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 	form := runtimeForm{
-		CPU:     defaultCPU,
-		Memory:  defaultMemory,
-		Storage: defaultStorage,
-		Limits:  limits,
+		CPU:    defaultCPU,
+		Memory: defaultMemory,
+		Limits: limits,
 	}
 	if agent == nil || agent.Spec.Runtime == nil {
 		return form
 	}
-	runtime := agent.Spec.Runtime
+	agentRuntime := agent.Spec.Runtime
 
 	form.Enabled = true
-	if cpu := runtime.Resources.Requests.Cpu(); !cpu.IsZero() {
+	if cpu := agentRuntime.Resources.Requests.Cpu(); !cpu.IsZero() {
 		form.CPU = cpu.String()
 	}
-	if memory := runtime.Resources.Requests.Memory(); !memory.IsZero() {
+	if memory := agentRuntime.Resources.Requests.Memory(); !memory.IsZero() {
 		form.Memory = memory.String()
-	}
-	if runtime.Storage != nil && runtime.Storage.Size != "" {
-		form.Storage = runtime.Storage.Size
 	}
 
 	states := make(map[string]agentsv1.ThreadStatus, len(agent.Status.Threads))
@@ -125,7 +115,6 @@ func runtimeFromForm(r *http.Request, limits AgentLimits) runtimeForm {
 		Enabled:   r.FormValue("runtime") != "",
 		CPU:       r.FormValue("cpu"),
 		Memory:    r.FormValue("memory"),
-		Storage:   r.FormValue("storage"),
 		NewThread: r.FormValue("new-thread"),
 		Limits:    limits,
 	}
@@ -162,17 +151,6 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) 
 	if err != nil {
 		return nil, nil, err
 	}
-	storage, err := parseQuantity(r, "storage", "Storage", defaultStorage, limits.MaxStorage)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// A provisioned volume cannot shrink, so a smaller request would be silently ignored.
-	// Refusing it says so instead of leaving the form disagreeing with reality.
-	err = rejectShrink(current, storage)
-	if err != nil {
-		return nil, nil, err
-	}
 
 	threads, err := parseThreads(r, limits.MaxThreads)
 	if err != nil {
@@ -180,11 +158,10 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) 
 	}
 
 	sizing := corev1.ResourceList{corev1.ResourceCPU: cpu, corev1.ResourceMemory: memory}
-	runtime := &agentsv1.AgentRuntime{
+	agentRuntime := &agentsv1.AgentRuntime{
 		Resources: corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
-		Storage:   &agentsv1.AgentStorage{Size: storage.String()},
 	}
-	return runtime, threads, nil
+	return agentRuntime, threads, nil
 }
 
 // parseThreads reads the threads table: the rows that came back, minus the ones marked for
@@ -265,20 +242,6 @@ func parseQuantity(r *http.Request, field, label, fallback, limit string) (resou
 		return resource.Quantity{}, fmt.Errorf("%s is limited to %s", label, ceiling.String())
 	}
 	return value, nil
-}
-
-func rejectShrink(current *agentsv1.Agent, storage resource.Quantity) error {
-	if current == nil || current.Spec.Runtime == nil || current.Spec.Runtime.Storage == nil {
-		return nil
-	}
-	existing, err := resource.ParseQuantity(current.Spec.Runtime.Storage.Size)
-	if err != nil {
-		return nil
-	}
-	if storage.Cmp(existing) < 0 {
-		return fmt.Errorf("storage cannot be reduced below the current %s", existing.String())
-	}
-	return nil
 }
 
 func selection(values []string) map[string]bool {

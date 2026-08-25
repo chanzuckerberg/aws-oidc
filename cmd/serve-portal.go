@@ -14,10 +14,9 @@ import (
 )
 
 const (
-	flagAgentRuntime    = "agent-runtime"
-	flagAgentMaxCPU     = "agent-max-cpu"
-	flagAgentMaxMemory  = "agent-max-memory"
-	flagAgentMaxStorage = "agent-max-storage"
+	flagAgentRuntime   = "agent-runtime"
+	flagAgentMaxCPU    = "agent-max-cpu"
+	flagAgentMaxMemory = "agent-max-memory"
 )
 
 var portalPort int
@@ -30,7 +29,6 @@ func init() {
 	servePortalCmd.Flags().Bool(flagAgentRuntime, false, "Offer running an agent's threads as pods in the cluster; set this only where the operator is configured to run them")
 	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent thread may request")
 	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent thread may request")
-	servePortalCmd.Flags().String(flagAgentMaxStorage, "200Gi", "Largest workspace an agent thread may request")
 	servePortalCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
 }
 
@@ -125,10 +123,6 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	if err != nil {
 		return portal.AgentLimits{}, fmt.Errorf("missing agent-max-memory flag: %w", err)
 	}
-	maxStorage, err := cmd.Flags().GetString(flagAgentMaxStorage)
-	if err != nil {
-		return portal.AgentLimits{}, fmt.Errorf("missing agent-max-storage flag: %w", err)
-	}
 	maxThreads, err := cmd.Flags().GetInt(flagMaxThreadsPerAgent)
 	if err != nil {
 		return portal.AgentLimits{}, fmt.Errorf("missing max-threads-per-agent flag: %w", err)
@@ -137,7 +131,6 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	return portal.AgentLimits{
 		MaxCPU:     maxCPU,
 		MaxMemory:  maxMemory,
-		MaxStorage: maxStorage,
 		MaxThreads: maxThreads,
 	}, nil
 }

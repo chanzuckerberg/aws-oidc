@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -251,77 +250,89 @@ func TestReconcileRefusesThreadsBeyondTheLimit(t *testing.T) {
 	require.Len(t, sets.Items, 2)
 }
 
-// A StatefulSet's volume claim template is immutable, so growing the workspace means patching
-// the claim and recreating the set with its pods orphaned.
-func TestWorkspaceGrowsAndRecreatesTheStatefulSet(t *testing.T) {
+// All threads share one ReadWriteMany PVC. Reconciling two threads creates exactly one claim,
+// owned by the agent and not bound to any individual thread.
+func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}}
-	agent.Spec.Runtime.Storage = &agentsv1.AgentStorage{Size: "20Gi"}
-
 	r, c := testReconciler(t, agent)
+
 	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
-	// The fake client does not run the StatefulSet controller, so stand in for the claim it
-	// would have created from the template.
-	claim := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: "workspace-agent-bot-main-0", Namespace: testNamespace},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("20Gi")},
-			},
-		},
-	}
-	require.NoError(t, c.Create(ctx, claim))
+	claims := &corev1.PersistentVolumeClaimList{}
+	require.NoError(t, c.List(ctx, claims, client.InNamespace(testNamespace)))
+	require.Len(t, claims.Items, 1, "one PVC regardless of thread count")
 
-	agent.Spec.Runtime.Storage.Size = "50Gi"
-	_, err = r.Reconcile(ctx, agent)
+	claim := claims.Items[0]
+	require.Equal(t, "agent-bot-workspace", claim.Name)
+	require.Equal(t, []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, claim.Spec.AccessModes)
+	require.Equal(t, "efs-agent-workspaces", *claim.Spec.StorageClassName)
+	require.Len(t, claim.OwnerReferences, 1)
+	require.Equal(t, "bot", claim.OwnerReferences[0].Name, "agent owns the PVC for GC")
+}
+
+// Each thread mounts the shared PVC at its own subPath for an isolated working tree, and at
+// the shared subPath for cross-thread file exchange.
+func TestReconcileThreadsGetIsolatedSubPaths(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	r, c := testReconciler(t, agent)
+
+	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
-
-	grown := &corev1.PersistentVolumeClaim{}
-	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(claim), grown))
-	require.Equal(t, "50Gi", grown.Spec.Resources.Requests.Storage().String())
-	// The claim is owned by the agent, so deleting the agent releases the EBS volume even
-	// though the StatefulSet was replaced.
-	require.Len(t, grown.OwnerReferences, 1)
-	require.Equal(t, "bot", grown.OwnerReferences[0].Name)
 
 	set := &appsv1.StatefulSet{}
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
-	require.Equal(t, "50Gi", set.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().String())
+
+	pod := set.Spec.Template.Spec
+	require.Empty(t, set.Spec.VolumeClaimTemplates, "no per-thread claim templates; one shared PVC is used instead")
+
+	var workspaceVolume *corev1.PersistentVolumeClaimVolumeSource
+	for _, v := range pod.Volumes {
+		if v.Name == agentsv1.WorkspaceVolumeName {
+			workspaceVolume = v.PersistentVolumeClaim
+		}
+	}
+	require.NotNil(t, workspaceVolume)
+	require.Equal(t, agent.WorkspaceClaimName(), workspaceVolume.ClaimName)
+
+	mounts := map[string]corev1.VolumeMount{}
+	for _, m := range pod.Containers[0].VolumeMounts {
+		if m.Name == agentsv1.WorkspaceVolumeName {
+			mounts[m.MountPath] = m
+		}
+	}
+	require.Equal(t, "threads/main", mounts[workspaceMountPath].SubPath)
+	require.Equal(t, "shared", mounts[sharedMountPath].SubPath)
+
+	// Pod security context matches the EFS access point uid/gid so writes land as uid 1000.
+	require.Equal(t, int64(1000), *pod.SecurityContext.RunAsUser)
+	require.Equal(t, int64(1000), *pod.SecurityContext.FSGroup)
 }
 
-// A smaller request cannot be applied to a provisioned volume, so it is ignored rather than
-// failing the thread.
-func TestWorkspaceIgnoresShrink(t *testing.T) {
+// Removing a thread removes its StatefulSet and ServiceAccount but keeps the shared PVC.
+// The thread's subdirectory inside the volume is intentionally left behind — silently deleting
+// a person's work on a spec edit is worse than leaving it for them to clean up.
+func TestReconcileThreadRemovalKeepsWorkspace(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}}
-	agent.Spec.Runtime.Storage = &agentsv1.AgentStorage{Size: "10Gi"}
+	r, c := testReconciler(t, agent)
 
-	claim := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "workspace-agent-bot-main-0",
-			Namespace: testNamespace,
-			Labels:    map[string]string{LabelAgent: "bot", LabelThread: "main"},
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("20Gi")},
-			},
-		},
-	}
-
-	r, c := testReconciler(t, agent, claim)
 	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
-	unchanged := &corev1.PersistentVolumeClaim{}
-	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(claim), unchanged))
-	require.Equal(t, "20Gi", unchanged.Spec.Resources.Requests.Storage().String())
+	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}}
+	_, err = r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	claims := &corev1.PersistentVolumeClaimList{}
+	require.NoError(t, c.List(ctx, claims, client.InNamespace(testNamespace)))
+	require.Len(t, claims.Items, 1, "PVC must survive thread removal")
+
+	sets := &appsv1.StatefulSetList{}
+	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
+	require.Len(t, sets.Items, 1, "removed thread's StatefulSet is pruned")
 }
 
 func TestReconcileReportsRunningThread(t *testing.T) {

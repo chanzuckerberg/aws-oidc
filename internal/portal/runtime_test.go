@@ -43,7 +43,6 @@ func TestParseRuntimeGivesAFirstThread(t *testing.T) {
 	// asked for.
 	require.Equal(t, defaultCPU, runtime.Resources.Requests.Cpu().String())
 	require.Equal(t, defaultCPU, runtime.Resources.Limits.Cpu().String())
-	require.Equal(t, defaultStorage, runtime.Storage.Size)
 }
 
 func TestParseRuntimeReadsSizing(t *testing.T) {
@@ -51,13 +50,11 @@ func TestParseRuntimeReadsSizing(t *testing.T) {
 		"runtime": {"on"},
 		"cpu":     {"2"},
 		"memory":  {"4Gi"},
-		"storage": {"50Gi"},
 	}), nil, AgentLimits{})
 	require.NoError(t, err)
 
 	require.Equal(t, "2", runtime.Resources.Requests.Cpu().String())
 	require.Equal(t, "4Gi", runtime.Resources.Requests.Memory().String())
-	require.Equal(t, "50Gi", runtime.Storage.Size)
 }
 
 func TestParseRuntimeRejectsOversizedRequests(t *testing.T) {
@@ -69,20 +66,6 @@ func TestParseRuntimeRejectsOversizedRequests(t *testing.T) {
 
 	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"a lot"}}), nil, AgentLimits{})
 	require.ErrorContains(t, err, "not a valid quantity")
-}
-
-// A provisioned volume cannot shrink, so a smaller request is refused rather than accepted and
-// then quietly ignored by the operator.
-func TestParseRuntimeRefusesToShrinkStorage(t *testing.T) {
-	current := &agentsv1.Agent{Spec: agentsv1.AgentSpec{
-		Runtime: &agentsv1.AgentRuntime{Storage: &agentsv1.AgentStorage{Size: "50Gi"}},
-	}}
-
-	_, _, err := parseRuntime(form(t, url.Values{"runtime": {"on"}, "storage": {"20Gi"}}), current, AgentLimits{})
-	require.ErrorContains(t, err, "cannot be reduced below the current 50Gi")
-
-	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "storage": {"100Gi"}}), current, AgentLimits{})
-	require.NoError(t, err)
 }
 
 func TestParseThreadsAddsSuspendsAndRemoves(t *testing.T) {
@@ -150,7 +133,7 @@ func TestParseThreadsRemovingTheLastThreadKeepsOne(t *testing.T) {
 
 func TestRuntimeFromAgentShowsStoredSizingAndState(t *testing.T) {
 	agent := &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}}
-	agent.Spec.Runtime = &agentsv1.AgentRuntime{Storage: &agentsv1.AgentStorage{Size: "50Gi"}}
+	agent.Spec.Runtime = &agentsv1.AgentRuntime{}
 	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}, {Name: "review", Suspended: true}}
 	agent.Status.Threads = []agentsv1.ThreadStatus{
 		{Name: "main", State: agentsv1.ThreadStateRunning},
@@ -159,7 +142,6 @@ func TestRuntimeFromAgentShowsStoredSizingAndState(t *testing.T) {
 
 	form := runtimeFromAgent(agent, AgentLimits{}.defaults())
 	require.True(t, form.Enabled)
-	require.Equal(t, "50Gi", form.Storage)
 	// Sizing the agent never set falls back to the default rather than rendering blank.
 	require.Equal(t, defaultCPU, form.CPU)
 	require.Equal(t, []threadForm{
@@ -187,7 +169,6 @@ func TestFormHidesRuntimeWhenNotOffered(t *testing.T) {
 	shown := httptest.NewRecorder()
 	withRuntime.render(shown, "form", data)
 	require.Contains(t, shown.Body.String(), "Run this agent as pods")
-	require.Contains(t, shown.Body.String(), `name="storage"`)
 
 	hidden := httptest.NewRecorder()
 	withoutRuntime.render(hidden, "form", data)
@@ -200,7 +181,7 @@ func TestParseAgentRuntimeLeavesStoredRuntimeAloneWhenNotOffered(t *testing.T) {
 	require.NoError(t, err)
 
 	current := &agentsv1.Agent{Spec: agentsv1.AgentSpec{
-		Runtime: &agentsv1.AgentRuntime{Storage: &agentsv1.AgentStorage{Size: "50Gi"}},
+		Runtime: &agentsv1.AgentRuntime{},
 		Threads: []agentsv1.AgentThread{{Name: "main"}},
 	}}
 

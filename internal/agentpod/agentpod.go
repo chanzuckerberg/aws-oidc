@@ -1,12 +1,14 @@
 // Package agentpod runs an agent's threads in the cluster. An agent is not a single session:
-// a person runs several threads of the same agent at once, so each thread gets its own pod and
-// its own persistent workspace, while sharing the agent's access.
+// a person runs several threads of the same agent at once, so each thread gets its own pod
+// while sharing the agent's access and its workspace.
 //
-// Per agent it maintains a headless Service (so each thread pod has a stable DNS name) and a
-// ConfigMap holding the rendered AWS config. Per thread it maintains a ServiceAccount, a
-// StatefulSet, and the EBS-backed workspace the StatefulSet claims. The thread's pod exchanges
-// its projected service account token for the agent's IAM roles, which trust the cluster's
-// OIDC issuer for exactly these service accounts.
+// Per agent it maintains a headless Service (so each thread pod has a stable DNS name), a
+// ConfigMap holding the rendered AWS config, and a single ReadWriteMany PVC backed by an EFS
+// access point. Per thread it maintains a ServiceAccount and a StatefulSet. Each thread pod
+// mounts the shared PVC at a thread-specific subPath for its working tree and at a common
+// subPath for files shared between threads. The thread's pod exchanges its projected service
+// account token for the agent's IAM roles, which trust the cluster's OIDC issuer for exactly
+// these service accounts.
 package agentpod
 
 import (
@@ -24,6 +26,10 @@ import (
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
+
+// workspacePlaceholderSize is the storage request we put on the EFS workspace PVC. The EFS
+// CSI driver ignores it — EFS is elastic — but the Kubernetes API requires a positive request.
+const workspacePlaceholderSize = "1Gi"
 
 const (
 	// LabelAgent and LabelThread identify which agent and thread an object belongs to. The
@@ -73,14 +79,13 @@ type Config struct {
 	// provides a long-running entrypoint. Without it a base image whose entrypoint exits
 	// leaves the pod crash-looping.
 	DefaultCommand []string
-	// StorageClass is the storage class each thread's workspace is provisioned from.
+	// StorageClass is the storage class the per-agent workspace PVC is provisioned from.
+	// It must be a ReadWriteMany class backed by the EFS CSI driver.
 	StorageClass string
-	// DefaultStorageSize is the workspace size used when spec.runtime.storage is unset.
-	DefaultStorageSize string
 	// Region is the AWS region written into the rendered AWS config.
 	Region string
 	// MaxThreads bounds how many threads one agent may run, so a single Agent write cannot
-	// ask for an unbounded number of pods and volumes.
+	// ask for an unbounded number of pods.
 	MaxThreads int
 }
 
@@ -94,10 +99,7 @@ type Reconciler struct {
 // New returns a Reconciler with defaults applied.
 func New(c client.Client, scheme *runtime.Scheme, cfg Config) *Reconciler {
 	if cfg.StorageClass == "" {
-		cfg.StorageClass = "ebs-csi-encrypted-gp3"
-	}
-	if cfg.DefaultStorageSize == "" {
-		cfg.DefaultStorageSize = "20Gi"
+		cfg.StorageClass = "efs-agent-workspaces"
 	}
 	if cfg.Region == "" {
 		cfg.Region = "us-west-2"
@@ -130,6 +132,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]ag
 		return nil, err
 	}
 	err = r.ensureAWSConfig(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
+	err = r.ensureWorkspace(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -170,14 +176,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]ag
 	return statuses, errors.Join(errs...)
 }
 
-// reconcileThread ensures one thread's service account, workload, and workspace, then reports
-// what it found.
+// reconcileThread ensures one thread's service account and workload, then reports what it
+// found. The shared workspace is created once per agent before any thread is reconciled.
 func (r *Reconciler) reconcileThread(ctx context.Context, agent *agentsv1.Agent, thread agentsv1.AgentThread) (agentsv1.ThreadStatus, error) {
 	status := agentsv1.ThreadStatus{
 		Name:               thread.Name,
 		ServiceAccountName: agent.ThreadServiceAccountName(thread.Name),
 		StatefulSetName:    agent.ThreadStatefulSetName(thread.Name),
-		WorkspaceClaimName: agent.ThreadWorkspaceClaimName(thread.Name),
 		State:              agentsv1.ThreadStatePending,
 	}
 
@@ -186,19 +191,7 @@ func (r *Reconciler) reconcileThread(ctx context.Context, agent *agentsv1.Agent,
 		return status, err
 	}
 
-	// A storage resize has to be applied to the claim before the workload, since a
-	// StatefulSet's volume claim template is immutable and the claim is what actually grows.
-	err = r.ensureWorkspaceSize(ctx, agent, thread)
-	if err != nil {
-		return status, err
-	}
-
 	set, err := r.ensureStatefulSet(ctx, agent, thread)
-	if err != nil {
-		return status, err
-	}
-
-	err = r.adoptWorkspace(ctx, agent, thread)
 	if err != nil {
 		return status, err
 	}
@@ -276,6 +269,36 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.A
 	return nil
 }
 
+// ensureWorkspace creates the shared ReadWriteMany PVC for the agent. All threads mount it:
+// each thread at its own subPath for an isolated working tree, and every thread at the shared
+// subPath for files passed between threads. The EFS CSI driver provisions a fresh access
+// point for this PVC, so no other agent's data is reachable inside it.
+//
+// The PVC is owned by the Agent, so it is garbage-collected when the agent is deleted.
+func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent) error {
+	placeholder := resource.MustParse(workspacePlaceholderSize)
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
+		Name:      agent.WorkspaceClaimName(),
+		Namespace: r.Namespace,
+	}}
+
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
+		pvc.Labels = agentLabels(agent)
+		if pvc.Spec.AccessModes == nil {
+			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
+			pvc.Spec.StorageClassName = ptr(r.StorageClass)
+			pvc.Spec.Resources = corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{corev1.ResourceStorage: placeholder},
+			}
+		}
+		return controllerutil.SetControllerReference(agent, pvc, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("ensuring workspace %s: %w", pvc.Name, err)
+	}
+	return nil
+}
+
 // agentLabels identifies every object belonging to one agent.
 func agentLabels(agent *agentsv1.Agent) map[string]string {
 	return map[string]string{
@@ -289,26 +312,6 @@ func threadLabels(agent *agentsv1.Agent, thread string) map[string]string {
 	labels := agentLabels(agent)
 	labels[LabelThread] = thread
 	return labels
-}
-
-// storageSize is the workspace size the agent asks for, falling back to the operator default.
-func (r *Reconciler) storageSize(agent *agentsv1.Agent) (resource.Quantity, error) {
-	size := r.DefaultStorageSize
-	if agent.Spec.Runtime.Storage != nil && agent.Spec.Runtime.Storage.Size != "" {
-		size = agent.Spec.Runtime.Storage.Size
-	}
-	quantity, err := resource.ParseQuantity(size)
-	if err != nil {
-		return resource.Quantity{}, fmt.Errorf("parsing storage size %q: %w", size, err)
-	}
-	return quantity, nil
-}
-
-func (r *Reconciler) storageClass(agent *agentsv1.Agent) string {
-	if agent.Spec.Runtime.Storage != nil && agent.Spec.Runtime.Storage.StorageClassName != "" {
-		return agent.Spec.Runtime.Storage.StorageClassName
-	}
-	return r.StorageClass
 }
 
 func (r *Reconciler) image(agent *agentsv1.Agent) string {

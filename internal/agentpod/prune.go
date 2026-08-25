@@ -14,10 +14,14 @@ import (
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
 
-// pruneThreads deletes the objects of threads the agent no longer declares. Owner references
-// do not cover this: the agent still exists, so nothing garbage-collects a thread that was
-// merely removed from the spec. The workspace is deleted explicitly, since that is what
-// releases the EBS volume.
+
+// pruneThreads deletes the StatefulSets and ServiceAccounts of threads the agent no longer
+// declares. Owner references do not cover this: the agent still exists, so nothing
+// garbage-collects a thread that was merely removed from the spec.
+//
+// The shared workspace PVC is not pruned per thread. Removing a thread leaves its subdirectory
+// in the volume, because silently deleting a person's work is worse than leaving it behind.
+// The whole PVC is released when the agent itself is deleted, via the owner reference on it.
 //
 // keep is the set of thread names to preserve; a nil or empty set removes every thread.
 func (r *Reconciler) pruneThreads(ctx context.Context, agent *agentsv1.Agent, keep map[string]bool) error {
@@ -38,12 +42,6 @@ func (r *Reconciler) pruneThreads(ctx context.Context, agent *agentsv1.Agent, ke
 		return fmt.Errorf("listing service accounts of agent %s: %w", agent.Name, err)
 	}
 
-	claims := &corev1.PersistentVolumeClaimList{}
-	err = r.List(ctx, claims, inNamespace, inAgent)
-	if err != nil {
-		return fmt.Errorf("listing workspaces of agent %s: %w", agent.Name, err)
-	}
-
 	var (
 		stale []client.Object
 		errs  []error
@@ -56,11 +54,6 @@ func (r *Reconciler) pruneThreads(ctx context.Context, agent *agentsv1.Agent, ke
 	for i := range accounts.Items {
 		if !keep[accounts.Items[i].Labels[LabelThread]] {
 			stale = append(stale, &accounts.Items[i])
-		}
-	}
-	for i := range claims.Items {
-		if !keep[claims.Items[i].Labels[LabelThread]] {
-			stale = append(stale, &claims.Items[i])
 		}
 	}
 

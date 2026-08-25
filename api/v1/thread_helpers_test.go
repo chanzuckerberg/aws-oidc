@@ -55,9 +55,20 @@ func TestObjectNamesStayValidLabels(t *testing.T) {
 	require.NotContains(t, dotted.ServiceName(), ".")
 }
 
-func TestWorkspaceClaimMatchesStatefulSetOrdinal(t *testing.T) {
+func TestWorkspaceClaimName(t *testing.T) {
 	agent := agentNamed("bot", "0f8fad5b-d9cb-469f-a165-70867728950e")
-	require.Equal(t, "workspace-agent-bot-main-0", agent.ThreadWorkspaceClaimName("main"))
+	require.Equal(t, "agent-bot-workspace", agent.WorkspaceClaimName())
+}
+
+func TestThreadWorkspaceSubPath(t *testing.T) {
+	agent := agentNamed("bot", "0f8fad5b-d9cb-469f-a165-70867728950e")
+	require.Equal(t, "threads/main", agent.ThreadWorkspaceSubPath("main"))
+	require.Equal(t, "threads/my-thread", agent.ThreadWorkspaceSubPath("my-thread"))
+}
+
+func TestSharedWorkspaceSubPath(t *testing.T) {
+	agent := agentNamed("bot", "0f8fad5b-d9cb-469f-a165-70867728950e")
+	require.Equal(t, "shared", agent.SharedWorkspaceSubPath())
 }
 
 func TestThreadLookup(t *testing.T) {

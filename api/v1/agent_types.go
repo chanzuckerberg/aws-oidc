@@ -65,19 +65,6 @@ type AgentEnvVar struct {
 	Value string `json:"value,omitempty"`
 }
 
-// AgentStorage sizes the workspace volume each thread gets. The volume is provisioned
-// dynamically by the EBS CSI driver.
-type AgentStorage struct {
-	// Size is the requested workspace size, for example "20Gi". It can be increased but not
-	// decreased, since a provisioned volume cannot shrink.
-	// +kubebuilder:validation:Pattern=`^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|K|M|G|T)?$`
-	Size string `json:"size"`
-
-	// StorageClassName overrides the operator's default storage class.
-	// +optional
-	StorageClassName string `json:"storageClassName,omitempty"`
-}
-
 // AgentRuntime is the shape every thread of an agent runs as. It is a curated subset of a
 // pod spec rather than an embedded PodSpec: the operator owns the service account, the
 // projected token volume, and the AWS config mount, so an owner cannot point their pod at
@@ -108,10 +95,6 @@ type AgentRuntime struct {
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
-	// Storage sizes each thread's workspace volume.
-	// +optional
-	Storage *AgentStorage `json:"storage,omitempty"`
-
 	// NodeSelector pins the pods to a class of node.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -129,8 +112,7 @@ type AgentThread struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
-	// Suspended scales the thread to zero replicas while keeping its workspace, so an idle
-	// thread costs a volume rather than a pod.
+	// Suspended scales the thread to zero replicas while keeping its workspace intact.
 	// +optional
 	Suspended bool `json:"suspended,omitempty"`
 }
@@ -242,10 +224,6 @@ type ThreadStatus struct {
 	// +optional
 	StatefulSetName string `json:"statefulSetName,omitempty"`
 
-	// WorkspaceClaimName is the thread's persistent workspace.
-	// +optional
-	WorkspaceClaimName string `json:"workspaceClaimName,omitempty"`
-
 	// ReadyReplicas is how many of the thread's pods are ready (zero or one).
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
@@ -284,6 +262,12 @@ type AgentStatus struct {
 	// +optional
 	// +listType=atomic
 	Grants []GrantStatus `json:"grants,omitempty"`
+
+	// WorkspaceClaimName is the PVC shared by all of the agent's threads. Each thread
+	// mounts it at its own subPath, so threads can share files through the shared directory
+	// while keeping their own working trees separate.
+	// +optional
+	WorkspaceClaimName string `json:"workspaceClaimName,omitempty"`
 
 	// Threads is the per-thread provisioning result, one entry per spec.threads entry.
 	// +optional

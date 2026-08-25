@@ -7,8 +7,7 @@ import (
 	"strings"
 )
 
-// WorkspaceVolumeName is the volume claim template every thread's StatefulSet declares for
-// its persistent workspace.
+// WorkspaceVolumeName is the name of the shared workspace volume in every thread's pod spec.
 const WorkspaceVolumeName = "workspace"
 
 const (
@@ -44,10 +43,22 @@ func (a *Agent) ThreadStatefulSetName(thread string) string {
 	return truncateName("agent-"+sanitizeName(a.Name)+"-"+sanitizeName(thread), statefulSetNameMaxLength)
 }
 
-// ThreadWorkspaceClaimName is the PVC the StatefulSet creates from its volume claim
-// template, which Kubernetes names <template>-<statefulset>-<ordinal>.
-func (a *Agent) ThreadWorkspaceClaimName(thread string) string {
-	return fmt.Sprintf("%s-%s-0", WorkspaceVolumeName, a.ThreadStatefulSetName(thread))
+// WorkspaceClaimName is the PVC shared by all threads of this agent. Each thread mounts it
+// at its own subPath so they get isolated working trees under the same EFS access point.
+func (a *Agent) WorkspaceClaimName() string {
+	return truncateName("agent-"+sanitizeName(a.Name)+"-workspace", objectNameMaxLength)
+}
+
+// ThreadWorkspaceSubPath is the directory within the shared workspace PVC where a thread's
+// own working tree lives. Threads never share this subtree.
+func (a *Agent) ThreadWorkspaceSubPath(thread string) string {
+	return "threads/" + sanitizeName(thread)
+}
+
+// SharedWorkspaceSubPath is the directory within the shared workspace PVC that every thread
+// can read and write. Threads use it to pass files between themselves.
+func (a *Agent) SharedWorkspaceSubPath() string {
+	return "shared"
 }
 
 // ThreadServiceAccountName is the identity one thread's pod runs as. It is keyed on the

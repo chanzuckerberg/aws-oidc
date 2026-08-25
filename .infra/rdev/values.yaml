@@ -38,7 +38,6 @@ stack:
         - --agent-runtime
         - --agent-max-cpu=4
         - --agent-max-memory=16Gi
-        - --agent-max-storage=200Gi
         - --max-threads-per-agent=5
         - -v
       gateway:
@@ -120,8 +119,7 @@ stack:
         # Placeholder base image until the real agent image (with the CLI preinstalled) exists.
         # It has no long-running entrypoint, so the default command keeps the pod up.
         - --agent-default-image=docker.io/library/ubuntu:24.04
-        - --agent-storage-class=ebs-csi-encrypted-gp3
-        - --agent-default-storage-size=20Gi
+        - --agent-storage-class=efs-agent-workspaces
         - --max-threads-per-agent=5
         - -v
       # The operator serves no traffic; it only needs the health endpoint.

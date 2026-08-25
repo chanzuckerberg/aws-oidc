@@ -1,14 +1,9 @@
-# Agent CRD, deployed with the stack so ArgoCD installs it (rather than a manual
-# kubectl apply). This is a copy of config/crd/agents.czi.team_agents.yaml; keep it in
-# sync when the API types change (make manifests, then copy the result here).
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
-    # Install the CRD before the workloads that depend on it (operator, portal).
-    argocd.argoproj.io/sync-wave: "-1"
   name: agents.agents.czi.team
 spec:
   group: agents.czi.team
@@ -232,22 +227,6 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
-                  storage:
-                    description: Storage sizes each thread's workspace volume.
-                    properties:
-                      size:
-                        description: |-
-                          Size is the requested workspace size, for example "20Gi". It can be increased but not
-                          decreased, since a provisioned volume cannot shrink.
-                        pattern: ^[0-9]+(\.[0-9]+)?(Ki|Mi|Gi|Ti|K|M|G|T)?$
-                        type: string
-                      storageClassName:
-                        description: StorageClassName overrides the operator's default
-                          storage class.
-                        type: string
-                    required:
-                    - size
-                    type: object
                 type: object
               threads:
                 description: |-
@@ -270,9 +249,8 @@ spec:
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     suspended:
-                      description: |-
-                        Suspended scales the thread to zero replicas while keeping its workspace, so an idle
-                        thread costs a volume rather than a pod.
+                      description: Suspended scales the thread to zero replicas while
+                        keeping its workspace intact.
                       type: boolean
                   required:
                   - name
@@ -426,9 +404,6 @@ spec:
                     statefulSetName:
                       description: StatefulSetName is the workload running the thread.
                       type: string
-                    workspaceClaimName:
-                      description: WorkspaceClaimName is the thread's persistent workspace.
-                      type: string
                   required:
                   - name
                   type: object
@@ -436,6 +411,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              workspaceClaimName:
+                description: |-
+                  WorkspaceClaimName is the PVC shared by all of the agent's threads. Each thread
+                  mounts it at its own subPath, so threads can share files through the shared directory
+                  while keeping their own working trees separate.
+                type: string
             type: object
         type: object
     served: true

@@ -41,10 +41,8 @@
       <p class="sizing">
         <label>CPU <input name="cpu" value="{{.CPU}}" placeholder="500m" size="8"></label>
         <label>Memory <input name="memory" value="{{.Memory}}" placeholder="1Gi" size="8"></label>
-        <label>Storage <input name="storage" value="{{.Storage}}" placeholder="20Gi" size="8"></label>
-        <span class="muted">up to {{.Limits.MaxCPU}} CPU, {{.Limits.MaxMemory}} memory, {{.Limits.MaxStorage}} storage</span>
+        <span class="muted">up to {{.Limits.MaxCPU}} CPU, {{.Limits.MaxMemory}} memory</span>
       </p>
-      <p class="muted">Storage can be increased but not reduced, because a provisioned volume cannot shrink.</p>
 
       {{if .Threads}}
       <table>
