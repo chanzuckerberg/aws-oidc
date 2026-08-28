@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -110,6 +111,13 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	}
 
 	addr := fmt.Sprintf(":%d", portalPort)
+	slog.Info("portal listening",
+		"addr", addr,
+		"base_path", os.Getenv("PORTAL_BASE_PATH"),
+		"namespace", namespace,
+		"rolemap_configmap", rolemapName,
+		"agent_runtime", agentRuntime,
+	)
 	return http.ListenAndServe(addr, srv.Handler())
 }
 

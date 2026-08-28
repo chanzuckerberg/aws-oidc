@@ -2,12 +2,16 @@ package portal
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -76,10 +80,19 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 	// the gateway from spoofing a user.
 	verifier := provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
 
+	devSub := os.Getenv("PORTAL_DEV_SUB")
+	adminGroups := parseAdminGroups(os.Getenv("PORTAL_ADMIN_GROUPS"))
+	slog.Info("portal identity resolver ready",
+		"issuer", issuerURL,
+		"expected_token_client_id", clientID,
+		"admin_groups", sortedKeys(adminGroups),
+		"dev_override", devSub != "",
+	)
+
 	return &IdentityResolver{
-		devSub:      os.Getenv("PORTAL_DEV_SUB"),
+		devSub:      devSub,
 		devEmail:    os.Getenv("PORTAL_DEV_EMAIL"),
-		adminGroups: parseAdminGroups(os.Getenv("PORTAL_ADMIN_GROUPS")),
+		adminGroups: adminGroups,
 		verifyToken: func(ctx context.Context, raw string) (string, error) {
 			token, err := verifier.Verify(ctx, raw)
 			if err != nil {
@@ -113,20 +126,28 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 // Resolve returns the current user, or errNoIdentity if none can be determined.
 func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*identity.User, error) {
 	if ir.devSub != "" {
+		slog.Info("portal identity taken from PORTAL_DEV_SUB override", "sub", ir.devSub, "email", ir.devEmail)
 		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
-	raw := identity.StripBearer(r.Header.Get("Authorization"))
+	header := r.Header.Get("Authorization")
+	raw := identity.StripBearer(header)
 	if raw == "" {
-		return nil, errNoIdentity
+		reason := "the gateway did not forward one"
+		if header != "" {
+			reason = "the header held no token after the Bearer prefix"
+		}
+		return nil, fmt.Errorf("%w: no access token in the Authorization header, %s (headers on the request: %s)",
+			errNoIdentity, reason, strings.Join(headerNames(r), ", "))
 	}
 
 	userID, err := ir.verifyToken(ctx, raw)
 	if err != nil {
-		return nil, err
+		slog.Warn("portal rejected an access token", "error", err, describeToken(raw))
+		return nil, fmt.Errorf("verifying forwarded access token: %w", err)
 	}
 	if userID == "" {
-		return nil, errNoIdentity
+		return nil, fmt.Errorf("%w: token verified but carried no user id", errNoIdentity)
 	}
 	user := &identity.User{Sub: userID}
 
@@ -135,12 +156,18 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 	// locking them out.
 	email, groups, err := ir.fetchUserInfo(ctx, raw)
 	if err != nil {
-		slog.Warn("fetching userinfo for portal user", "sub", userID, "error", err)
+		slog.Warn("fetching userinfo for portal user, continuing without groups", "sub", userID, "error", err)
 		return user, nil
 	}
 	user.Email = email
 	user.Groups = groups
 	user.Admin = isAdmin(groups, ir.adminGroups)
+	slog.Info("portal resolved a user",
+		"sub", userID,
+		"email", email,
+		"groups", groups,
+		"admin", user.Admin,
+	)
 	return user, nil
 }
 
@@ -164,6 +191,63 @@ func isAdmin(groups []string, adminGroups map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+func describeToken(raw string) slog.Attr {
+	parts := strings.Split(raw, ".")
+	if len(parts) != 3 {
+		return slog.String("token", "not a jwt, so the gateway may be forwarding an opaque token")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return slog.String("token", "jwt payload is not base64url")
+	}
+	claims := struct {
+		Issuer    string          `json:"iss"`
+		ClientID  string          `json:"cid"`
+		UserID    string          `json:"uid"`
+		Subject   string          `json:"sub"`
+		Audience  json.RawMessage `json:"aud"`
+		ExpiresAt int64           `json:"exp"`
+	}{}
+	err = json.Unmarshal(payload, &claims)
+	if err != nil {
+		return slog.String("token", "jwt payload is not json")
+	}
+
+	attrs := []any{
+		slog.String("iss", claims.Issuer),
+		slog.String("cid", claims.ClientID),
+		slog.String("uid", claims.UserID),
+		slog.String("sub", claims.Subject),
+		slog.String("aud", string(claims.Audience)),
+	}
+	if claims.ExpiresAt != 0 {
+		expiry := time.Unix(claims.ExpiresAt, 0).UTC()
+		attrs = append(attrs,
+			slog.Time("exp", expiry),
+			slog.Bool("expired", time.Now().After(expiry)),
+		)
+	}
+	return slog.Group("unverified_token_claims", attrs...)
+}
+
+func headerNames(r *http.Request) []string {
+	names := make([]string, 0, len(r.Header))
+	for name := range r.Header {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func sortedKeys(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func parseAdminGroups(raw string) map[string]bool {

@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gorilla/handlers"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +88,40 @@ func (s *Server) Handler() http.Handler {
 		handlers.PrintRecoveryStack(true),
 		handlers.RecoveryLogger(recoveryLogger{slog.Default()}),
 	)
-	return recovery(handler)
+	return logRequests(recovery(handler))
+}
+
+func logRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" || strings.HasSuffix(r.URL.Path, "/health") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		started := time.Now()
+		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(recorder, r)
+
+		slog.Info("portal request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", recorder.status,
+			"duration", time.Since(started),
+			"remote", r.RemoteAddr,
+			"forwarded_for", r.Header.Get("X-Forwarded-For"),
+			"has_authorization", r.Header.Get("Authorization") != "",
+		)
+	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusRecorder) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
 }
 
 func healthy(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }
@@ -346,10 +380,17 @@ func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *identi
 		return nil, false
 	}
 	if agent == nil {
+		slog.Warn("portal answered not found", "agent", name, "sub", user.Sub)
 		http.Error(w, "agent not found", http.StatusNotFound)
 		return nil, false
 	}
 	if agent.Spec.Owner != user.Sub && !user.Admin {
+		slog.Warn("portal answered forbidden",
+			"agent", name,
+			"sub", user.Sub,
+			"owner", agent.Spec.Owner,
+			"admin", user.Admin,
+		)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return nil, false
 	}
@@ -367,6 +408,12 @@ func (s *Server) entitlements(ctx context.Context, sub string) (*Entitlements, e
 func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
 	user, err := s.cfg.Identity.Resolve(r.Context(), r)
 	if err != nil {
+		slog.Warn("portal answered unauthorized",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"remote", r.RemoteAddr,
+			"error", err,
+		)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return nil, false
 	}
