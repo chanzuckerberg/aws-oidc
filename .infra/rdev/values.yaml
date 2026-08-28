@@ -116,9 +116,10 @@ stack:
         # thread's pod assumes the role with its projected token. The provider must also be
         # registered in every account holding agent roles (shared-infra).
         - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
-        # Placeholder base image until the real agent image (with the CLI preinstalled) exists.
-        # It has no long-running entrypoint, so the default command keeps the pod up.
-        - --agent-default-image=docker.io/library/ubuntu:24.04
+        # Placeholder base image until the real agent image exists. Includes the AWS CLI so
+        # you can exec into the pod and test role assumption directly.
+        # The image entrypoint is `aws`, so the default command keeps the pod alive.
+        - --agent-default-image=public.ecr.aws/aws-cli/aws-cli:latest
         - --agent-storage-class=efs-agent-workspaces
         - --max-threads-per-agent=5
         - -v
