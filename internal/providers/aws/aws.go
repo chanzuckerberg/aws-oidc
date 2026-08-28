@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -34,6 +35,7 @@ type IAMAPI interface {
 	GetRole(ctx context.Context, in *iam.GetRoleInput, opts ...func(*iam.Options)) (*iam.GetRoleOutput, error)
 	CreateRole(ctx context.Context, in *iam.CreateRoleInput, opts ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
 	DeleteRole(ctx context.Context, in *iam.DeleteRoleInput, opts ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	UpdateAssumeRolePolicy(ctx context.Context, in *iam.UpdateAssumeRolePolicyInput, opts ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error)
 	ListAttachedRolePolicies(ctx context.Context, in *iam.ListAttachedRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
 	AttachRolePolicy(ctx context.Context, in *iam.AttachRolePolicyInput, opts ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
 	DetachRolePolicy(ctx context.Context, in *iam.DetachRolePolicyInput, opts ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error)
@@ -54,6 +56,15 @@ type Config struct {
 	// OktaAppClientID is the shared agent Okta app client id used as the trust policy
 	// audience. The app lives in shared-infra under okta-czi (output oidc_agent_client_id).
 	OktaAppClientID string
+	// ClusterOIDCProvider is the EKS cluster's OIDC issuer without scheme (for example
+	// "oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE"). Agent roles trust it so an agent's
+	// thread pods can assume them with their projected service account tokens. Empty leaves
+	// the cluster statement off, which is what keeps the provider usable in accounts where
+	// the issuer is not registered yet.
+	ClusterOIDCProvider string
+	// PodNamespace is the namespace the agent's threads run in. It scopes the service account
+	// subject the cluster trust statement matches.
+	PodNamespace string
 	// RolePath is the IAM path every agent role lives under (must start and end with "/").
 	RolePath string
 	// BoundaryPolicyName is the permissions boundary policy name, resolved per account.
@@ -70,6 +81,10 @@ type Config struct {
 // managedByValue is the managedBy tag value for roles this operator creates, matching the
 // standard tagging convention (Terraform-managed resources use "terraform").
 const managedByValue = "aws-oidc-agent-operator"
+
+// clusterTokenAudience is the audience the agent pods' projected service account tokens carry
+// and the only one the cluster trust statement accepts.
+const clusterTokenAudience = "sts.amazonaws.com"
 
 // Provider provisions AWS grants.
 type Provider struct {
@@ -115,19 +130,27 @@ func (p *Provider) Ensure(ctx context.Context, agent *agentsv1.Agent, grant agen
 	roleName := p.roleName(agent, g)
 	sourceRole := sourceRoleName(g)
 
+	trust, err := p.trustPolicy(g.AccountID, agent)
+	if err != nil {
+		return status, err
+	}
+
 	existing, err := client.GetRole(ctx, &iam.GetRoleInput{RoleName: awssdk.String(roleName)})
 	roleARN := ""
 	if err == nil {
 		roleARN = awssdk.ToString(existing.Role.Arn)
+
+		// The trust policy is not static: it gains and loses the cluster statement as the
+		// agent's runtime is enabled and disabled, so an existing role has to be corrected
+		// rather than left at whatever it was created with.
+		err = p.reconcileTrust(ctx, client, roleName, awssdk.ToString(existing.Role.AssumeRolePolicyDocument), trust)
+		if err != nil {
+			return status, err
+		}
 	} else {
 		var notFound *iamtypes.NoSuchEntityException
 		if !errors.As(err, &notFound) {
 			return status, fmt.Errorf("getting role %s: %w", roleName, err)
-		}
-
-		trust, trustErr := p.trustPolicy(g.AccountID, agent.Spec.Owner)
-		if trustErr != nil {
-			return status, trustErr
 		}
 
 		input := &iam.CreateRoleInput{
@@ -397,29 +420,108 @@ func coalesceUnknown(v string) string {
 	return v
 }
 
-// trustPolicy builds the web-identity trust document: the account's Okta OIDC provider,
-// conditioned on the agent app audience and the owner subject.
-func (p *Provider) trustPolicy(accountID, owner string) (string, error) {
-	providerARN := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", accountID, p.cfg.IssuerHost)
+// trustPolicy builds the web-identity trust document. It always trusts the account's Okta
+// OIDC provider, conditioned on the agent app audience and the owner subject, which is the
+// path a human's agent takes on a laptop. When the agent also runs in the cluster it trusts
+// the cluster's OIDC issuer as well, so the thread pods can assume the role directly.
+func (p *Provider) trustPolicy(accountID string, agent *agentsv1.Agent) (string, error) {
+	statements := []map[string]any{p.oktaStatement(accountID, agent.Spec.Owner)}
+
+	if p.cfg.ClusterOIDCProvider != "" && agent.Spec.Runtime != nil {
+		statements = append(statements, p.clusterStatement(accountID, agent))
+	}
+
 	doc := map[string]any{
-		"Version": "2012-10-17",
-		"Statement": []map[string]any{{
-			"Effect":    "Allow",
-			"Principal": map[string]any{"Federated": providerARN},
-			"Action":    "sts:AssumeRoleWithWebIdentity",
-			"Condition": map[string]any{
-				"StringEquals": map[string]string{
-					p.cfg.IssuerHost + ":aud": p.cfg.OktaAppClientID,
-					p.cfg.IssuerHost + ":sub": owner,
-				},
-			},
-		}},
+		"Version":   "2012-10-17",
+		"Statement": statements,
 	}
 	raw, err := json.Marshal(doc)
 	if err != nil {
 		return "", fmt.Errorf("marshalling trust policy: %w", err)
 	}
 	return string(raw), nil
+}
+
+// oktaStatement trusts the shared agent Okta app, scoped to the owning subject.
+func (p *Provider) oktaStatement(accountID, owner string) map[string]any {
+	return map[string]any{
+		"Sid":       "OktaAgentApp",
+		"Effect":    "Allow",
+		"Principal": map[string]any{"Federated": oidcProviderARN(accountID, p.cfg.IssuerHost)},
+		"Action":    "sts:AssumeRoleWithWebIdentity",
+		"Condition": map[string]any{
+			"StringEquals": map[string]string{
+				p.cfg.IssuerHost + ":aud": p.cfg.OktaAppClientID,
+				p.cfg.IssuerHost + ":sub": owner,
+			},
+		},
+	}
+}
+
+// clusterStatement trusts the EKS cluster's OIDC issuer for every thread of this agent. The
+// subject is matched with StringLike against a prefix built from the agent's uid, so adding a
+// thread needs no IAM write. The prefix cannot be name-based: an agent named "foo-bar" would
+// produce service accounts matching an agent "foo"'s prefix and inherit access that is not
+// its owner's.
+func (p *Provider) clusterStatement(accountID string, agent *agentsv1.Agent) map[string]any {
+	return map[string]any{
+		"Sid":       "AgentThreadServiceAccounts",
+		"Effect":    "Allow",
+		"Principal": map[string]any{"Federated": oidcProviderARN(accountID, p.cfg.ClusterOIDCProvider)},
+		"Action":    "sts:AssumeRoleWithWebIdentity",
+		"Condition": map[string]any{
+			"StringEquals": map[string]string{
+				p.cfg.ClusterOIDCProvider + ":aud": clusterTokenAudience,
+			},
+			"StringLike": map[string]string{
+				p.cfg.ClusterOIDCProvider + ":sub": agent.ThreadSubjectPattern(p.cfg.PodNamespace),
+			},
+		},
+	}
+}
+
+// reconcileTrust rewrites the role's trust policy when it no longer matches the desired one.
+// IAM returns the current document URL-encoded, and formatting differs from what we sent, so
+// the comparison is on the parsed documents rather than the raw strings.
+func (p *Provider) reconcileTrust(ctx context.Context, client IAMAPI, roleName, current, desired string) error {
+	decoded, err := url.QueryUnescape(current)
+	if err != nil {
+		return fmt.Errorf("decoding trust policy of %s: %w", roleName, err)
+	}
+
+	same, err := sameJSON(decoded, desired)
+	if err != nil {
+		return fmt.Errorf("comparing trust policy of %s: %w", roleName, err)
+	}
+	if same {
+		return nil
+	}
+
+	_, err = client.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
+		RoleName:       awssdk.String(roleName),
+		PolicyDocument: awssdk.String(desired),
+	})
+	if err != nil {
+		return fmt.Errorf("updating trust policy of %s: %w", roleName, err)
+	}
+	return nil
+}
+
+func sameJSON(a, b string) (bool, error) {
+	var left, right any
+	err := json.Unmarshal([]byte(a), &left)
+	if err != nil {
+		return false, fmt.Errorf("unmarshalling current: %w", err)
+	}
+	err = json.Unmarshal([]byte(b), &right)
+	if err != nil {
+		return false, fmt.Errorf("unmarshalling desired: %w", err)
+	}
+	return reflect.DeepEqual(left, right), nil
+}
+
+func oidcProviderARN(accountID, issuerHost string) string {
+	return fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", accountID, issuerHost)
 }
 
 func roleNameFromARN(roleARN string) string {

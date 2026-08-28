@@ -45,6 +45,10 @@ func profilesForAgent(agent *agentsv1.Agent, agentClientID, issuerURL string) []
 			continue
 		}
 
+		roleName := specGrant.RoleName
+		if roleName == "" {
+			roleName = awsaccess.RoleNameFromARN(st.AWS.RoleARN)
+		}
 		profiles = append(profiles, server.AWSProfile{
 			ClientID: agentClientID,
 			RoleARN:  st.AWS.RoleARN,
@@ -54,7 +58,7 @@ func profilesForAgent(agent *agentsv1.Agent, agentClientID, issuerURL string) []
 				Alias: specGrant.AccountAlias,
 			},
 			IssuerURL: issuerURL,
-			RoleName:  awsaccess.RoleNameFromARN(st.AWS.RoleARN),
+			RoleName:  roleName,
 		})
 	}
 	return profiles

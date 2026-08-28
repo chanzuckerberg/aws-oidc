@@ -7,13 +7,18 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentpod"
 	"github.com/chanzuckerberg/aws-oidc/internal/controller"
 	awsprovider "github.com/chanzuckerberg/aws-oidc/internal/providers/aws"
 	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
@@ -30,6 +35,11 @@ const (
 	flagAWSRegion           = "aws-region"
 	flagGrantConcurrency    = "grant-concurrency"
 	flagRoleTags            = "role-tags"
+	flagClusterOIDCProvider = "cluster-oidc-provider"
+	flagAgentImage          = "agent-default-image"
+	flagAgentCommand        = "agent-default-command"
+	flagAgentStorageClass  = "agent-storage-class"
+	flagMaxThreadsPerAgent = "max-threads-per-agent"
 )
 
 func init() {
@@ -44,6 +54,11 @@ func init() {
 	operatorCmd.Flags().String(flagAWSRegion, "us-east-1", "Region used for STS and IAM calls")
 	operatorCmd.Flags().Int(flagGrantConcurrency, 8, "Maximum grants of one agent provisioned in parallel")
 	operatorCmd.Flags().StringToString(flagRoleTags, nil, "Standard tags applied to every agent role (for example project=agent-registry,env=rdev,service=aws-oidc)")
+	operatorCmd.Flags().String(flagClusterOIDCProvider, "", "EKS cluster OIDC issuer without scheme (for example oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE); empty means agents do not run in the cluster")
+	operatorCmd.Flags().String(flagAgentImage, "", "Container image an agent thread runs when the agent does not name one")
+	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
+	operatorCmd.Flags().String(flagAgentStorageClass, "efs-agent-workspaces", "Storage class for the per-agent workspace PVC; must be a ReadWriteMany class backed by the EFS CSI driver")
+	operatorCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -99,6 +114,26 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing role-tags flag: %w", err)
 	}
+	clusterOIDCProvider, err := cmd.Flags().GetString(flagClusterOIDCProvider)
+	if err != nil {
+		return fmt.Errorf("missing cluster-oidc-provider flag: %w", err)
+	}
+	agentImage, err := cmd.Flags().GetString(flagAgentImage)
+	if err != nil {
+		return fmt.Errorf("missing agent-default-image flag: %w", err)
+	}
+	agentCommand, err := cmd.Flags().GetStringSlice(flagAgentCommand)
+	if err != nil {
+		return fmt.Errorf("missing agent-default-command flag: %w", err)
+	}
+	agentStorageClass, err := cmd.Flags().GetString(flagAgentStorageClass)
+	if err != nil {
+		return fmt.Errorf("missing agent-storage-class flag: %w", err)
+	}
+	maxThreads, err := cmd.Flags().GetInt(flagMaxThreadsPerAgent)
+	if err != nil {
+		return fmt.Errorf("missing max-threads-per-agent flag: %w", err)
+	}
 
 	// Route controller-runtime's logr logging through the repo's slog logger set up in
 	// PersistentPreRunE, so the operator logs the same way as the rest of the binary.
@@ -126,6 +161,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		LeaderElectionNamespace: namespace,
 		HealthProbeBindAddress:  healthAddr,
 		Metrics:                 metricsserver.Options{BindAddress: "0"},
+		Cache:                   cache.Options{ByObject: threadObjectCache(namespace)},
 	})
 	if err != nil {
 		return fmt.Errorf("creating manager: %w", err)
@@ -154,16 +190,33 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	// AWS is the only provider today. Additional providers are appended here as they are
 	// implemented; the reconciler dispatches each grant to the one that handles it.
 	awsProvider := awsprovider.NewProvider(awsprovider.Config{
-		IssuerHost:         issuerHost,
-		OktaAppClientID:    oktaAppClientID,
-		BoundaryPolicyName: boundaryPolicyName,
-		DefaultTags:        roleTags,
+		IssuerHost:          issuerHost,
+		OktaAppClientID:     oktaAppClientID,
+		BoundaryPolicyName:  boundaryPolicyName,
+		DefaultTags:         roleTags,
+		ClusterOIDCProvider: clusterOIDCProvider,
+		PodNamespace:        namespace,
 	}, clientFactory)
+
+	// Threads only run where the cluster's OIDC issuer is configured, since without it their
+	// pods have no way to assume the agent's roles.
+	var threads controller.ThreadReconciler
+	if clusterOIDCProvider != "" {
+		threads = agentpod.New(mgr.GetClient(), mgr.GetScheme(), agentpod.Config{
+			Namespace:          namespace,
+			DefaultImage:       agentImage,
+			DefaultCommand:     agentCommand,
+			StorageClass: agentStorageClass,
+			Region:             awsRegion,
+			MaxThreads:         maxThreads,
+		})
+	}
 
 	reconciler := &controller.AgentReconciler{
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
 		Providers:           []controller.Provider{awsProvider},
+		Threads:             threads,
 		MaxConcurrentGrants: grantConcurrency,
 	}
 	err = reconciler.SetupWithManager(mgr)
@@ -176,4 +229,19 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("running manager: %w", err)
 	}
 	return nil
+}
+
+// threadObjectCache confines the caches for the objects an agent's threads are made of to the
+// operator's own namespace. Agents are still watched cluster-wide, but the operator's access to
+// workloads is deliberately namespaced, so a cluster-wide informer for these would be refused
+// and the controller would never start.
+func threadObjectCache(namespace string) map[client.Object]cache.ByObject {
+	own := cache.ByObject{Namespaces: map[string]cache.Config{namespace: {}}}
+	return map[client.Object]cache.ByObject{
+		&appsv1.StatefulSet{}:           own,
+		&corev1.ServiceAccount{}:        own,
+		&corev1.Service{}:               own,
+		&corev1.ConfigMap{}:             own,
+		&corev1.PersistentVolumeClaim{}: own,
+	}
 }

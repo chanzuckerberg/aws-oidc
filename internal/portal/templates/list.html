@@ -7,6 +7,7 @@
       <th>Name</th>
       {{if .User.Admin}}<th>Owner</th>{{end}}
       <th>Granted access (account / role)</th>
+      {{if .RuntimeOffered}}<th>Threads</th>{{end}}
       <th></th>
     </tr>
     {{range .Agents}}
@@ -16,6 +17,11 @@
       <td>
         {{range .Spec.Grants}}{{with .AWS}}{{.AccountAlias}} / {{.RoleName}}<br>{{end}}{{else}}<span class="muted">none</span>{{end}}
       </td>
+      {{if $.RuntimeOffered}}
+      <td>
+        {{range .Status.Threads}}{{.Name}} <span class="muted">{{.State}}</span><br>{{else}}<span class="muted">not running</span>{{end}}
+      </td>
+      {{end}}
       <td>
         <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}">edit</a>
         <form class="inline" method="post" action="{{$.BasePath}}/agents/{{.Name}}/delete" onsubmit="return confirm('Delete {{.Name}}?');">

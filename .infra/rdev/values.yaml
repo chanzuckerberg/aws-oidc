@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-5193973
+        tag: sha-c07bb58
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -20,7 +20,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-5193973
+        tag: sha-c07bb58
       serviceAccount:
         create: true
         name: portal
@@ -33,6 +33,12 @@ stack:
           memory: 500Mi
       args:
         - serve-portal
+        # Offer running agents as pods. The operator below is configured with the cluster's
+        # OIDC issuer, so a thread's pod can assume the agent's roles.
+        - --agent-runtime
+        - --agent-max-cpu=4
+        - --agent-max-memory=16Gi
+        - --max-threads-per-agent=5
         - -v
       gateway:
         oidcProtected: true
@@ -62,7 +68,7 @@ stack:
         # app). The forwarded access token's cid must match this, which binds the token to the
         # gateway app. This is not the portal's own OKTA_CLIENT_ID above.
         - name: PORTAL_OIDC_CLIENT_ID
-          value: 0oa1d7mtwjsTbgIKJ1t8
+          value: 0oa1dq1cyypCpOau01t8
         - name: PORTAL_BASE_PATH
           value: /portal
         # Groups are not in the access token, so the portal reads them from Okta userinfo to
@@ -80,7 +86,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-5193973
+        tag: sha-c07bb58
       serviceAccount:
         create: true
         name: agent-operator
@@ -105,6 +111,17 @@ stack:
         # Standard tags applied to every agent role, alongside the operator's own
         # managedBy/owner and per-agent tags.
         - --role-tags=project=agent-registry,env=rdev,service=aws-oidc
+        # dev-central's OIDC issuer. Setting it is what turns on running agents in the cluster:
+        # each agent role trusts this issuer for that agent's thread service accounts, so a
+        # thread's pod assumes the role with its projected token. The provider must also be
+        # registered in every account holding agent roles (shared-infra).
+        - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
+        # Placeholder base image until the real agent image exists. Includes the AWS CLI so
+        # you can exec into the pod and test role assumption directly.
+        # The image entrypoint is `aws`, so the default command keeps the pod alive.
+        - --agent-default-image=public.ecr.aws/aws-cli/aws-cli:latest
+        - --agent-storage-class=efs-agent-workspaces
+        - --max-threads-per-agent=5
         - -v
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
