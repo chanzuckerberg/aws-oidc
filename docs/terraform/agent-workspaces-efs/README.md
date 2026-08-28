@@ -58,4 +58,10 @@ A write that fails with permission denied means the access point POSIX user and 
 
 ## Where this should end up
 
-The natural home is the `eks` workspace in core-platform-infra, which already owns the cluster and can read the VPC and worker security group from its own module outputs instead of the data source lookups used here. See [core-platform-infra#574](https://github.com/chanzuckerberg/core-platform-infra/pull/574) for that version. Whichever way it lands, this directory should be deleted and the filesystem created here destroyed.
+Not in core-platform-infra. [core-platform-infra#574](https://github.com/chanzuckerberg/core-platform-infra/pull/574) puts this in `terraform/envs/dev/eks` and `terraform/envs/prod/eks`, and those workspaces own `core-platform-nonprod-eks` and `core-platform-prod-eks`. The operator runs on `dev-central`. That PR is valid Terraform and would apply cleanly, but it would build the filesystem and the StorageClass on clusters nothing is asking for, and leave the first agent's claim `Pending` on `dev-central` because `efs-agent-workspaces` would not exist there.
+
+`dev-central` is owned by argus-infra-stacks, at `terraform/envs/dev-central/eks`. That workspace can read the VPC and private subnets from `data.terraform_remote_state.cloud-env` and the node security group from `module.eks-cluster-v2.worker_security_group`, which replaces every data source lookup used here.
+
+That repository also has a `terraform/modules/efs-storage-class` module which at first glance looks like the right thing to reuse. It creates no security group and passes none to its mount targets, so they land in the VPC default security group. Fix that before reaching for it.
+
+Whichever way it lands, delete this directory and destroy the filesystem created here.
