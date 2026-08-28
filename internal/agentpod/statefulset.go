@@ -114,58 +114,96 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: ptr(false),
 			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      agentsv1.WorkspaceVolumeName,
-					MountPath: workspaceMountPath,
-					SubPath:   agent.ThreadWorkspaceSubPath(thread.Name),
-				},
-				{
-					Name:      agentsv1.WorkspaceVolumeName,
-					MountPath: sharedMountPath,
-					SubPath:   agent.SharedWorkspaceSubPath(),
-				},
-				{Name: awsConfigVolume, MountPath: awsConfigMountPath, ReadOnly: true},
-				{Name: tokenVolume, MountPath: tokenMountPath, ReadOnly: true},
-			},
+			VolumeMounts: r.volumeMounts(agent, thread),
 		}},
-		Volumes: []corev1.Volume{
-			{
-				Name: agentsv1.WorkspaceVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: agent.WorkspaceClaimName(),
-					},
+		Volumes: r.volumes(agent),
+	}
+}
+
+// volumeMounts returns the container's volume mounts, including the Anthropic token when WIF
+// is configured.
+func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      agentsv1.WorkspaceVolumeName,
+			MountPath: workspaceMountPath,
+			SubPath:   agent.ThreadWorkspaceSubPath(thread.Name),
+		},
+		{
+			Name:      agentsv1.WorkspaceVolumeName,
+			MountPath: sharedMountPath,
+			SubPath:   agent.SharedWorkspaceSubPath(),
+		},
+		{Name: awsConfigVolume, MountPath: awsConfigMountPath, ReadOnly: true},
+		{Name: tokenVolume, MountPath: tokenMountPath, ReadOnly: true},
+	}
+	if r.anthropicWIFConfigured() {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      anthropicTokenVolume,
+			MountPath: anthropicTokenMountPath,
+			ReadOnly:  true,
+		})
+	}
+	return mounts
+}
+
+// volumes returns the pod volumes, including the Anthropic projected token when WIF is
+// configured.
+func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
+	vols := []corev1.Volume{
+		{
+			Name: agentsv1.WorkspaceVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: agent.WorkspaceClaimName(),
 				},
 			},
-			{
-				Name: awsConfigVolume,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{Name: agent.AWSConfigMapName()},
-					},
+		},
+		{
+			Name: awsConfigVolume,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: agent.AWSConfigMapName()},
 				},
 			},
-			{
-				Name: tokenVolume,
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: []corev1.VolumeProjection{{
-							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-								Audience:          tokenAudience,
-								ExpirationSeconds: ptr(tokenExpirationSeconds),
-								Path:              "token",
-							},
-						}},
-					},
+		},
+		{
+			Name: tokenVolume,
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Audience:          tokenAudience,
+							ExpirationSeconds: ptr(tokenExpirationSeconds),
+							Path:              "token",
+						},
+					}},
 				},
 			},
 		},
 	}
+	if r.anthropicWIFConfigured() {
+		vols = append(vols, corev1.Volume{
+			Name: anthropicTokenVolume,
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Audience:          r.AnthropicTokenAudience,
+							ExpirationSeconds: ptr(anthropicTokenExpirationSecs),
+							Path:              "token",
+						},
+					}},
+				},
+			},
+		})
+	}
+	return vols
 }
 
 // env points the AWS SDK at the rendered config and tells the agent which agent and thread it
-// is. The agent's own variables come last so they cannot overwrite these.
+// is. Anthropic WIF env vars are injected when the operator is configured for Claude WIF. The
+// agent's own variables come last so they cannot overwrite these reserved names.
 func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		// HOME must be writable so the AWS CLI can cache STS credentials and SSO tokens.
@@ -179,6 +217,14 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 		{Name: "AGENT_THREAD", Value: thread.Name},
 		{Name: "AGENT_OWNER_EMAIL", Value: agent.Spec.OwnerEmail},
 	}
+	if r.anthropicWIFConfigured() {
+		env = append(env,
+			corev1.EnvVar{Name: "ANTHROPIC_IDENTITY_TOKEN_FILE", Value: anthropicTokenFilePath},
+			corev1.EnvVar{Name: "ANTHROPIC_FEDERATION_RULE_ID", Value: r.AnthropicFederationRuleID},
+			corev1.EnvVar{Name: "ANTHROPIC_ORGANIZATION_ID", Value: r.AnthropicOrganizationID},
+			corev1.EnvVar{Name: "ANTHROPIC_SERVICE_ACCOUNT_ID", Value: r.AnthropicServiceAccountID},
+		)
+	}
 
 	reserved := make(map[string]bool, len(env))
 	for _, e := range env {
@@ -191,6 +237,15 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 		env = append(env, corev1.EnvVar{Name: e.Name, Value: e.Value})
 	}
 	return env
+}
+
+// anthropicWIFConfigured reports whether the operator has all four fields needed to project
+// an Anthropic token into pods.
+func (r *Reconciler) anthropicWIFConfigured() bool {
+	return r.AnthropicFederationRuleID != "" &&
+		r.AnthropicOrganizationID != "" &&
+		r.AnthropicServiceAccountID != "" &&
+		r.AnthropicTokenAudience != ""
 }
 
 // equalStatefulSets compares the parts of a set this reconciler owns, so a steady-state

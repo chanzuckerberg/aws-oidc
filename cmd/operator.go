@@ -40,6 +40,11 @@ const (
 	flagAgentCommand        = "agent-default-command"
 	flagAgentStorageClass  = "agent-storage-class"
 	flagMaxThreadsPerAgent = "max-threads-per-agent"
+
+	flagAnthropicFederationRuleID  = "anthropic-federation-rule-id"
+	flagAnthropicOrganizationID    = "anthropic-organization-id"
+	flagAnthropicServiceAccountID  = "anthropic-service-account-id"
+	flagAnthropicTokenAudience     = "anthropic-token-audience"
 )
 
 func init() {
@@ -59,6 +64,10 @@ func init() {
 	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
 	operatorCmd.Flags().String(flagAgentStorageClass, "efs-agent-workspaces", "Storage class for the per-agent workspace PVC; must be a ReadWriteMany class backed by the EFS CSI driver")
 	operatorCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
+	operatorCmd.Flags().String(flagAnthropicFederationRuleID, "", "Anthropic WIF federation rule ID (fdrl_...); when set with the other three anthropic flags, every thread pod receives a Claude WIF token and the four ANTHROPIC_* env vars")
+	operatorCmd.Flags().String(flagAnthropicOrganizationID, "", "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
+	operatorCmd.Flags().String(flagAnthropicServiceAccountID, "", "Anthropic service account ID (svac_...) the minted Claude token acts as")
+	operatorCmd.Flags().String(flagAnthropicTokenAudience, "anthropic.com", "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -134,6 +143,22 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing max-threads-per-agent flag: %w", err)
 	}
+	anthropicFederationRuleID, err := cmd.Flags().GetString(flagAnthropicFederationRuleID)
+	if err != nil {
+		return fmt.Errorf("missing anthropic-federation-rule-id flag: %w", err)
+	}
+	anthropicOrganizationID, err := cmd.Flags().GetString(flagAnthropicOrganizationID)
+	if err != nil {
+		return fmt.Errorf("missing anthropic-organization-id flag: %w", err)
+	}
+	anthropicServiceAccountID, err := cmd.Flags().GetString(flagAnthropicServiceAccountID)
+	if err != nil {
+		return fmt.Errorf("missing anthropic-service-account-id flag: %w", err)
+	}
+	anthropicTokenAudience, err := cmd.Flags().GetString(flagAnthropicTokenAudience)
+	if err != nil {
+		return fmt.Errorf("missing anthropic-token-audience flag: %w", err)
+	}
 
 	// Route controller-runtime's logr logging through the repo's slog logger set up in
 	// PersistentPreRunE, so the operator logs the same way as the rest of the binary.
@@ -203,12 +228,16 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	var threads controller.ThreadReconciler
 	if clusterOIDCProvider != "" {
 		threads = agentpod.New(mgr.GetClient(), mgr.GetScheme(), agentpod.Config{
-			Namespace:          namespace,
-			DefaultImage:       agentImage,
-			DefaultCommand:     agentCommand,
-			StorageClass: agentStorageClass,
-			Region:             awsRegion,
-			MaxThreads:         maxThreads,
+			Namespace:                 namespace,
+			DefaultImage:              agentImage,
+			DefaultCommand:            agentCommand,
+			StorageClass:              agentStorageClass,
+			Region:                    awsRegion,
+			MaxThreads:                maxThreads,
+			AnthropicFederationRuleID: anthropicFederationRuleID,
+			AnthropicOrganizationID:   anthropicOrganizationID,
+			AnthropicServiceAccountID: anthropicServiceAccountID,
+			AnthropicTokenAudience:    anthropicTokenAudience,
 		})
 	}
 
