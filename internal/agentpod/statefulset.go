@@ -168,6 +168,10 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 // is. The agent's own variables come last so they cannot overwrite these.
 func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.EnvVar {
 	env := []corev1.EnvVar{
+		// HOME must be writable so the AWS CLI can cache STS credentials and SSO tokens.
+		// /workspace is the thread's own persistent directory; using it keeps the cache across
+		// pod restarts without needing a separate writable volume.
+		{Name: "HOME", Value: workspaceMountPath},
 		{Name: "AWS_CONFIG_FILE", Value: awsConfigFilePath},
 		{Name: "AWS_PROFILE", Value: awsconfigclient.AgentScopedProfile},
 		{Name: "AWS_REGION", Value: r.Region},
