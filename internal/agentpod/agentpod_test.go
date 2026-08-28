@@ -154,10 +154,9 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.Contains(t, configMap.Data["config"], "arn:aws:iam::111111111111:role/agents/jheath-agent-bot-readonly")
 	require.Contains(t, configMap.Data["config"], "[profile agent-scoped]")
 	// Profile names come from the same builder the laptop rendering uses, so a prompt written
-	// against a laptop config finds the same profile in a pod.
-	require.Contains(t, configMap.Data["config"], "[profile playground-agents-jheath-agent-bot-readonly]")
+	require.Contains(t, configMap.Data["config"], "[profile playground-readonly]")
 	// Sessions are named after the agent, so CloudTrail says which agent acted.
-	require.Regexp(t, `role_session_name\s+= agent-bot`, configMap.Data["config"])
+	require.Regexp(t, `role_session_name\s+= agent-bot/jheath@chanzuckerberg\.com`, configMap.Data["config"])
 }
 
 func TestReconcileIsIdempotent(t *testing.T) {

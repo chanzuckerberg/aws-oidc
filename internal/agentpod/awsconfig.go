@@ -32,7 +32,7 @@ func (r *Reconciler) renderAWSConfig(agent *agentsv1.Agent) (string, error) {
 	for i := range profiles {
 		profile := profiles[i]
 
-		err := r.addProfile(out, awsconfigclient.AgentProfileName(profile), profile.RoleARN, agent.Name)
+		err := r.addProfile(out, awsconfigclient.AgentProfileName(profile), profile.RoleARN, agent)
 		if err != nil {
 			return "", err
 		}
@@ -40,7 +40,7 @@ func (r *Reconciler) renderAWSConfig(agent *agentsv1.Agent) (string, error) {
 		// The first grant doubles as the default profile so a bare `aws` call works, matching
 		// what the laptop rendering does.
 		if i == 0 {
-			err = r.addProfile(out, awsconfigclient.AgentScopedProfile, profile.RoleARN, agent.Name)
+			err = r.addProfile(out, awsconfigclient.AgentScopedProfile, profile.RoleARN, agent)
 			if err != nil {
 				return "", err
 			}
@@ -55,7 +55,7 @@ func (r *Reconciler) renderAWSConfig(agent *agentsv1.Agent) (string, error) {
 	return rendered.String(), nil
 }
 
-func (r *Reconciler) addProfile(out *ini.File, name, roleARN, agentName string) error {
+func (r *Reconciler) addProfile(out *ini.File, name, roleARN string, agent *agentsv1.Agent) error {
 	section, err := out.NewSection("profile " + name)
 	if err != nil {
 		return fmt.Errorf("creating profile %s: %w", name, err)
@@ -64,15 +64,18 @@ func (r *Reconciler) addProfile(out *ini.File, name, roleARN, agentName string) 
 	section.Key(awsconfigclient.AWSConfigSectionRegion).SetValue(r.Region)
 	section.Key("role_arn").SetValue(roleARN)
 	section.Key("web_identity_token_file").SetValue(tokenFilePath)
-	// Naming the session after the agent is what makes CloudTrail readable. Which thread acted
-	// is still recoverable from the token subject STS records.
-	section.Key("role_session_name").SetValue(sessionName(agentName))
+	section.Key("role_session_name").SetValue(sessionName(agent))
 	return nil
 }
 
-// sessionName fits an agent name into the 64 characters STS allows for a session name.
-func sessionName(agentName string) string {
-	name := "agent-" + agentName
+// sessionName builds the STS session name for the agent. It encodes the agent name and
+// owner email so CloudTrail entries are attributable without inspecting the token subject.
+// STS caps session names at 64 characters; the value is truncated if needed.
+func sessionName(agent *agentsv1.Agent) string {
+	name := "agent-" + agent.Name
+	if agent.Spec.OwnerEmail != "" {
+		name = name + "/" + agent.Spec.OwnerEmail
+	}
 	if len(name) > 64 {
 		return name[:64]
 	}
