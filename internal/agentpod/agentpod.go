@@ -66,6 +66,20 @@ const (
 	agentContainerName = "agent"
 	awsConfigVolume    = "aws-config"
 	tokenVolume        = "aws-token"
+
+	// anthropicTokenVolume and its paths are the separate projected token the Anthropic SDK
+	// exchanges for a short-lived Claude access token via WIF. It uses a different audience
+	// than the AWS token and a shorter lifetime so the kubelet rotates it before JTI replay
+	// protection can reject a re-used assertion.
+	anthropicTokenVolume    = "anthropic-token"
+	anthropicTokenMountPath = "/var/run/secrets/anthropic.com"
+	anthropicTokenFilePath  = anthropicTokenMountPath + "/token"
+
+	// anthropicTokenExpirationSecs is the Anthropic projected token's lifetime. At 80% of
+	// this (480 s) the kubelet rotates the file. The Anthropic SDK advisory refresh also
+	// fires at token_lifetime - 120 s = 480 s, so the file always holds a fresh jti by the
+	// time the SDK re-reads it.
+	anthropicTokenExpirationSecs int64 = 600
 )
 
 // Config is the operator-level policy for running agent threads, the same for every agent.
@@ -87,6 +101,18 @@ type Config struct {
 	// MaxThreads bounds how many threads one agent may run, so a single Agent write cannot
 	// ask for an unbounded number of pods.
 	MaxThreads int
+
+	// AnthropicFederationRuleID, AnthropicOrganizationID, AnthropicServiceAccountID, and
+	// AnthropicTokenAudience configure Workload Identity Federation with Anthropic. When all
+	// four are non-empty the operator adds a second projected token (audience
+	// AnthropicTokenAudience) to every thread pod and sets the four ANTHROPIC_* env vars the
+	// Claude SDK and CLI need to exchange it for a Claude access token. When any field is
+	// empty the Anthropic token and env vars are omitted, so the operator degrades gracefully
+	// in clusters that have not yet configured Claude WIF.
+	AnthropicFederationRuleID string
+	AnthropicOrganizationID   string
+	AnthropicServiceAccountID string
+	AnthropicTokenAudience    string
 }
 
 // Reconciler drives an agent's threads toward the spec.
