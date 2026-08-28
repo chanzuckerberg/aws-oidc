@@ -74,7 +74,7 @@ func (r *Reconciler) addProfile(out *ini.File, name, roleARN string, agent *agen
 func sessionName(agent *agentsv1.Agent) string {
 	name := "agent-" + agent.Name
 	if agent.Spec.OwnerEmail != "" {
-		name = name + "/" + agent.Spec.OwnerEmail
+		name = name + "-" + agent.Spec.OwnerEmail
 	}
 	if len(name) > 64 {
 		return name[:64]
