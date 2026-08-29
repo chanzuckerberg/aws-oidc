@@ -133,7 +133,7 @@ stack:
         - name: ANTHROPIC_SERVICE_ACCOUNT_ID
           value: svac_01EpQjQEhcsene64iA8AkyGZ
         - name: ANTHROPIC_TOKEN_AUDIENCE
-          value: anthropic.com
+          value: https://api.anthropic.com
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
         enabled: false

@@ -102,7 +102,7 @@ func TestReconcileCreatesOneStatefulSetPerThread(t *testing.T) {
 	require.Equal(t, "agent-bot", main.Spec.ServiceName)
 	// Each thread runs as its own service account, which is what the role trust matches and
 	// what makes a thread's AWS activity attributable.
-	require.Equal(t, "agent-0f8fad5bd9cb-main", main.Spec.Template.Spec.ServiceAccountName)
+	require.Equal(t, "remote-agent-0f8fad5bd9cb-main", main.Spec.Template.Spec.ServiceAccountName)
 
 	// Suspended means zero replicas, not deleted, so the workspace survives.
 	require.Equal(t, int32(0), *byName["agent-bot-review"].Spec.Replicas)
