@@ -122,17 +122,18 @@ stack:
         - --agent-default-image=533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent:sha-e246c09
         - --agent-storage-class=efs-agent-workspaces
         - --max-threads-per-agent=5
-        # Claude Workload Identity Federation. All four values come from the Claude Console
-        # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev).
-        # fdrl_...: federation rule ID from the rule detail page.
-        # org UUID: Settings > Organization > Organization ID.
-        # svac_...: service account ID from the rule detail page.
-        # audience: the aud value the rule's audience matcher expects; anthropic.com if unset.
-        - --anthropic-federation-rule-id=fdrl_TODO
-        - --anthropic-organization-id=TODO-org-uuid
-        - --anthropic-service-account-id=svac_TODO
-        - --anthropic-token-audience=anthropic.com
         - -v
+      env:
+        # Claude Workload Identity Federation. Non-secret identifiers from the Claude Console
+        # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev).
+        - name: ANTHROPIC_FEDERATION_RULE_ID
+          value: fdrl_01JvnDmJXHSgUteRh5DNky25
+        - name: ANTHROPIC_ORGANIZATION_ID
+          value: b46fb0b7-0e07-435c-9bea-a59af9f39043
+        - name: ANTHROPIC_SERVICE_ACCOUNT_ID
+          value: svac_01EpQjQEhcsene64iA8AkyGZ
+        - name: ANTHROPIC_TOKEN_AUDIENCE
+          value: anthropic.com
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
         enabled: false

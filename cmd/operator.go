@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -64,10 +65,10 @@ func init() {
 	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
 	operatorCmd.Flags().String(flagAgentStorageClass, "efs-agent-workspaces", "Storage class for the per-agent workspace PVC; must be a ReadWriteMany class backed by the EFS CSI driver")
 	operatorCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
-	operatorCmd.Flags().String(flagAnthropicFederationRuleID, "", "Anthropic WIF federation rule ID (fdrl_...); when set with the other three anthropic flags, every thread pod receives a Claude WIF token and the four ANTHROPIC_* env vars")
-	operatorCmd.Flags().String(flagAnthropicOrganizationID, "", "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
-	operatorCmd.Flags().String(flagAnthropicServiceAccountID, "", "Anthropic service account ID (svac_...) the minted Claude token acts as")
-	operatorCmd.Flags().String(flagAnthropicTokenAudience, "anthropic.com", "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
+	operatorCmd.Flags().String(flagAnthropicFederationRuleID, os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"), "Anthropic WIF federation rule ID (fdrl_...); when set with the other three anthropic flags, every thread pod receives a Claude WIF token and the four ANTHROPIC_* env vars")
+	operatorCmd.Flags().String(flagAnthropicOrganizationID, os.Getenv("ANTHROPIC_ORGANIZATION_ID"), "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
+	operatorCmd.Flags().String(flagAnthropicServiceAccountID, os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"), "Anthropic service account ID (svac_...) the minted Claude token acts as")
+	operatorCmd.Flags().String(flagAnthropicTokenAudience, os.Getenv("ANTHROPIC_TOKEN_AUDIENCE"), "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
