@@ -5,11 +5,36 @@ ARG TARGETARCH
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
+        bash \
         ca-certificates \
         curl \
+        dnsutils \
+        file \
+        findutils \
         git \
+        gnupg \
+        grep \
+        gzip \
+        iputils-ping \
+        jq \
+        less \
+        make \
+        net-tools \
         openssh-client \
+        patch \
+        procps \
+        python3 \
+        python3-pip \
+        python3-venv \
+        ripgrep \
+        rsync \
+        sed \
+        tar \
+        tree \
         unzip \
+        vim-tiny \
+        wget \
+        xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Install AWS CLI v2 — architecture-aware to support both amd64 and arm64 nodes.
