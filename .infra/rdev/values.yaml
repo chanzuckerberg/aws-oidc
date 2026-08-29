@@ -119,7 +119,7 @@ stack:
         # Placeholder base image until the real agent image exists. Includes the AWS CLI so
         # you can exec into the pod and test role assumption directly.
         # The image entrypoint is `aws`, so the default command keeps the pod alive.
-        - --agent-default-image=533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent:latest
+        - --agent-default-image=533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent:sha-e246c09
         - --agent-storage-class=efs-agent-workspaces
         - --max-threads-per-agent=5
         # Claude Workload Identity Federation. All four values come from the Claude Console
