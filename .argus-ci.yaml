@@ -10,6 +10,9 @@ apps:
         aws-oidc:
           context: .
           dockerfile: ./Dockerfile
+        agent:
+          context: .
+          dockerfile: ./Dockerfile.agent
     envs:
       rdev: {}
       prod: {}

@@ -1,0 +1,53 @@
+FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/debian:bookworm-slim
+
+ARG CLAUDE_CODE_VERSION=2.1.251
+ARG TARGETARCH
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        openssh-client \
+        unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install AWS CLI v2 — architecture-aware to support both amd64 and arm64 nodes.
+RUN case "${TARGETARCH}" in \
+        amd64) AWS_ARCH=x86_64 ;; \
+        arm64) AWS_ARCH=aarch64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o /tmp/awscliv2.zip \
+    && unzip -q /tmp/awscliv2.zip -d /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/awscliv2.zip /tmp/aws \
+    && aws --version
+
+# Install Claude Code CLI from the official release location.
+RUN case "${TARGETARCH}" in \
+        amd64) CLAUDE_ARCH=linux-x64 ;; \
+        arm64) CLAUDE_ARCH=linux-arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://downloads.claude.ai/claude-code-releases/${CLAUDE_CODE_VERSION}/${CLAUDE_ARCH}/claude" \
+        -o /usr/local/bin/claude \
+    && chmod +x /usr/local/bin/claude \
+    && claude --version
+
+# Git identity required for any commit a session makes.
+RUN git config --system user.name "Claude" \
+    && git config --system user.email "noreply@anthropic.com" \
+    && git config --system --add safe.directory '*'
+
+# Create a non-root user matching the pod security context (runAsUser: 1000).
+RUN groupadd --gid 1000 agent && useradd --uid 1000 --gid 1000 --no-create-home --shell /bin/bash agent
+
+# Containers never auto-update; disable the background check so sessions don't
+# waste time or network on it.
+ENV DISABLE_AUTOUPDATER=1
+
+WORKDIR /workspace
+USER agent
+
+ENTRYPOINT ["claude"]
