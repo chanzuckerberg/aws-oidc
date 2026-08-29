@@ -3,7 +3,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-e246c09
+        tag: sha-0a90742
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -20,7 +20,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-e246c09
+        tag: sha-0a90742
       serviceAccount:
         create: true
         name: portal
@@ -86,7 +86,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-e246c09
+        tag: sha-0a90742
       serviceAccount:
         create: true
         name: agent-operator
