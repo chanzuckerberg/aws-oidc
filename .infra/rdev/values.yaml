@@ -146,14 +146,13 @@ stack:
           value: svac_01EpQjQEhcsene64iA8AkyGZ
         - name: ANTHROPIC_TOKEN_AUDIENCE
           value: https://api.anthropic.com
-        # PLACEHOLDER: the shared GitHub App agents clone and open pull requests as. Replace
-        # both ids with the real ones once the app exists (Settings > Developer settings >
-        # GitHub Apps > czi-remote-agent). Neither is a secret. The private key is not here.
-        # It reaches the operator as GITHUB_APP_PRIVATE_KEY, set with `argus set secret`.
+        # The shared GitHub App agents clone and open pull requests as. Neither id is a
+        # secret. The private key is not here: it reaches the operator as
+        # GITHUB_APP_PRIVATE_KEY, set with `argus set secret`.
         - name: GITHUB_APP_ID
-          value: "000000"
+          value: "4783816"
         - name: GITHUB_APP_INSTALLATION_ID
-          value: "00000000"
+          value: "158028824"
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
         enabled: false
