@@ -53,6 +53,7 @@ type Server struct {
 	cfg      Config
 	tmpl     *template.Template
 	basePath string
+	entCache *EntitlementsCache
 }
 
 // NewServer parses templates and returns a portal server.
@@ -62,7 +63,9 @@ func NewServer(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("parsing templates: %w", err)
 	}
 	cfg.Limits = cfg.Limits.defaults()
-	return &Server{cfg: cfg, tmpl: tmpl, basePath: strings.TrimRight(cfg.BasePath, "/")}, nil
+	s := &Server{cfg: cfg, tmpl: tmpl, basePath: strings.TrimRight(cfg.BasePath, "/")}
+	s.entCache = newEntitlementsCache(0, s.fetchEntitlements)
+	return s, nil
 }
 
 // Handler returns the HTTP handler for the portal.
@@ -398,6 +401,10 @@ func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *identi
 }
 
 func (s *Server) entitlements(ctx context.Context, sub string) (*Entitlements, error) {
+	return s.entCache.Get(ctx, sub)
+}
+
+func (s *Server) fetchEntitlements(ctx context.Context, sub string) (*Entitlements, error) {
 	mappings, err := s.cfg.MappingsProvider(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("reading rolemap: %w", err)
