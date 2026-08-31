@@ -164,6 +164,13 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	}
 	_, hasAnthropicToken := env["ANTHROPIC_IDENTITY_TOKEN_FILE"]
 	require.False(t, hasAnthropicToken, "no Anthropic env vars without WIF config")
+
+	// The same goes for the GitHub App: an operator without one still runs agents.
+	for _, v := range pod.Volumes {
+		require.NotEqual(t, githubAppKeyVolume, v.Name, "no GitHub App volume without app config")
+	}
+	_, hasGitHubApp := env["GITHUB_APP_ID"]
+	require.False(t, hasGitHubApp, "no GitHub App env vars without app config")
 }
 
 func TestReconcileAnthropicWIF(t *testing.T) {
@@ -216,6 +223,90 @@ func TestReconcileAnthropicWIF(t *testing.T) {
 	require.Equal(t, "fdrl_test", env["ANTHROPIC_FEDERATION_RULE_ID"])
 	require.Equal(t, "org-uuid-test", env["ANTHROPIC_ORGANIZATION_ID"])
 	require.Equal(t, "svac_test", env["ANTHROPIC_SERVICE_ACCOUNT_ID"])
+}
+
+func TestReconcileGitHubApp(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:                 testNamespace,
+		DefaultImage:              "ubuntu:24.04",
+		GitHubAppID:               "123456",
+		GitHubAppInstallationID:   "87654321",
+		GitHubAppPrivateKeySecret: "agent-github-app",
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	pod := set.Spec.Template.Spec
+
+	var keySecret *corev1.SecretVolumeSource
+	for _, v := range pod.Volumes {
+		if v.Name == githubAppKeyVolume {
+			keySecret = v.Secret
+		}
+	}
+	require.NotNil(t, keySecret, "the GitHub App private key must be mounted from a Secret")
+	require.Equal(t, "agent-github-app", keySecret.SecretName)
+	require.Equal(t, int32(0o440), *keySecret.DefaultMode)
+	// Only the private key is projected, so an unrelated key in the same Secret is not exposed.
+	require.Equal(t, []corev1.KeyToPath{{Key: "private-key.pem", Path: "private-key.pem"}}, keySecret.Items)
+
+	var hasKeyMount bool
+	for _, m := range pod.Containers[0].VolumeMounts {
+		if m.Name == githubAppKeyVolume {
+			require.Equal(t, githubAppKeyMountPath, m.MountPath)
+			require.True(t, m.ReadOnly)
+			hasKeyMount = true
+		}
+	}
+	require.True(t, hasKeyMount, "the GitHub App key must be mounted into the container")
+
+	env := map[string]string{}
+	for _, e := range pod.Containers[0].Env {
+		env[e.Name] = e.Value
+	}
+	require.Equal(t, "123456", env["GITHUB_APP_ID"])
+	require.Equal(t, "87654321", env["GITHUB_APP_INSTALLATION_ID"])
+	require.Equal(t, githubAppKeyFilePath, env["GITHUB_APP_PRIVATE_KEY_FILE"])
+	// The key itself never becomes an env var; the credential helper reads the mounted file.
+	require.NotContains(t, env, "GITHUB_APP_PRIVATE_KEY")
+	// github.com needs no override, so the env var is left out rather than set to a default.
+	require.NotContains(t, env, "GITHUB_API_URL")
+}
+
+// A GitHub App is only wired in when all three fields are present, so a half-configured
+// operator cannot produce a pod that fails at credential-helper time.
+func TestReconcileGitHubAppRequiresEveryField(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:               testNamespace,
+		DefaultImage:            "ubuntu:24.04",
+		GitHubAppID:             "123456",
+		GitHubAppInstallationID: "87654321",
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	for _, v := range set.Spec.Template.Spec.Volumes {
+		require.NotEqual(t, githubAppKeyVolume, v.Name)
+	}
+	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
+		require.NotEqual(t, "GITHUB_APP_ID", e.Name)
+	}
 }
 
 func TestReconcileIsIdempotent(t *testing.T) {

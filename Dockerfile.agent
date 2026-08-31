@@ -1,6 +1,7 @@
 FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/debian:bookworm-slim
 
 ARG CLAUDE_CODE_VERSION=2.1.251
+ARG GH_CLI_VERSION=2.98.0
 ARG TARGETARCH
 
 RUN apt-get update \
@@ -21,6 +22,7 @@ RUN apt-get update \
         make \
         net-tools \
         openssh-client \
+        openssl \
         patch \
         procps \
         python3 \
@@ -60,10 +62,25 @@ RUN case "${TARGETARCH}" in \
     && chmod +x /usr/local/bin/claude \
     && claude --version
 
+# Install the GitHub CLI, which the agent uses to open and review pull requests.
+RUN curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_${TARGETARCH}.tar.gz" \
+        -o /tmp/gh.tar.gz \
+    && mkdir -p /usr/local/lib/gh \
+    && tar -xzf /tmp/gh.tar.gz -C /usr/local/lib/gh --strip-components=1 \
+    && rm -f /tmp/gh.tar.gz
+
+# Mint an installation access token per call, so neither git nor gh ever holds a stale one.
+COPY docker/agent/github-app-token.sh /usr/local/bin/github-app-token
+COPY docker/agent/git-credential-github-app.sh /usr/local/bin/git-credential-github-app
+COPY docker/agent/gh.sh /usr/local/bin/gh
+RUN chmod 0755 /usr/local/bin/github-app-token /usr/local/bin/git-credential-github-app /usr/local/bin/gh \
+    && gh --version
+
 # Git identity required for any commit a session makes.
 RUN git config --system user.name "Claude" \
     && git config --system user.email "noreply@anthropic.com" \
-    && git config --system --add safe.directory '*'
+    && git config --system --add safe.directory '*' \
+    && git config --system credential.https://github.com.helper github-app
 
 # Create a non-root user matching the pod security context (runAsUser: 1000).
 RUN groupadd --gid 1000 agent && useradd --uid 1000 --gid 1000 --no-create-home --shell /bin/bash agent

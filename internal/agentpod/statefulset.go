@@ -144,6 +144,13 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 			ReadOnly:  true,
 		})
 	}
+	if r.githubAppConfigured() {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      githubAppKeyVolume,
+			MountPath: githubAppKeyMountPath,
+			ReadOnly:  true,
+		})
+	}
 	return mounts
 }
 
@@ -198,6 +205,21 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 			},
 		})
 	}
+	if r.githubAppConfigured() {
+		vols = append(vols, corev1.Volume{
+			Name: githubAppKeyVolume,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  r.GitHubAppPrivateKeySecret,
+					DefaultMode: ptr(githubAppKeyMode),
+					Items: []corev1.KeyToPath{{
+						Key:  r.GitHubAppPrivateKeySecretKey,
+						Path: githubAppKeyFileName,
+					}},
+				},
+			},
+		})
+	}
 	return vols
 }
 
@@ -225,6 +247,16 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 			corev1.EnvVar{Name: "ANTHROPIC_SERVICE_ACCOUNT_ID", Value: r.AnthropicServiceAccountID},
 		)
 	}
+	if r.githubAppConfigured() {
+		env = append(env,
+			corev1.EnvVar{Name: "GITHUB_APP_ID", Value: r.GitHubAppID},
+			corev1.EnvVar{Name: "GITHUB_APP_INSTALLATION_ID", Value: r.GitHubAppInstallationID},
+			corev1.EnvVar{Name: "GITHUB_APP_PRIVATE_KEY_FILE", Value: githubAppKeyFilePath},
+		)
+		if r.GitHubAPIURL != "" {
+			env = append(env, corev1.EnvVar{Name: "GITHUB_API_URL", Value: r.GitHubAPIURL})
+		}
+	}
 
 	reserved := make(map[string]bool, len(env))
 	for _, e := range env {
@@ -246,6 +278,14 @@ func (r *Reconciler) anthropicWIFConfigured() bool {
 		r.AnthropicOrganizationID != "" &&
 		r.AnthropicServiceAccountID != "" &&
 		r.AnthropicTokenAudience != ""
+}
+
+// githubAppConfigured reports whether the operator has everything needed to give a thread the
+// GitHub App's identity.
+func (r *Reconciler) githubAppConfigured() bool {
+	return r.GitHubAppID != "" &&
+		r.GitHubAppInstallationID != "" &&
+		r.GitHubAppPrivateKeySecret != ""
 }
 
 // equalStatefulSets compares the parts of a set this reconciler owns, so a steady-state

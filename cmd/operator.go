@@ -40,13 +40,19 @@ const (
 	flagClusterOIDCProvider = "cluster-oidc-provider"
 	flagAgentImage          = "agent-default-image"
 	flagAgentCommand        = "agent-default-command"
-	flagAgentStorageClass  = "agent-storage-class"
-	flagMaxThreadsPerAgent = "max-threads-per-agent"
+	flagAgentStorageClass   = "agent-storage-class"
+	flagMaxThreadsPerAgent  = "max-threads-per-agent"
 
-	flagAnthropicFederationRuleID  = "anthropic-federation-rule-id"
-	flagAnthropicOrganizationID    = "anthropic-organization-id"
-	flagAnthropicServiceAccountID  = "anthropic-service-account-id"
-	flagAnthropicTokenAudience     = "anthropic-token-audience"
+	flagAnthropicFederationRuleID = "anthropic-federation-rule-id"
+	flagAnthropicOrganizationID   = "anthropic-organization-id"
+	flagAnthropicServiceAccountID = "anthropic-service-account-id"
+	flagAnthropicTokenAudience    = "anthropic-token-audience"
+
+	flagGitHubAppID                  = "github-app-id"
+	flagGitHubAppInstallationID      = "github-app-installation-id"
+	flagGitHubAppPrivateKeySecret    = "github-app-private-key-secret"
+	flagGitHubAppPrivateKeySecretKey = "github-app-private-key-secret-key"
+	flagGitHubAPIURL                 = "github-api-url"
 
 	flagDefaultsConfig = "defaults-config"
 )
@@ -72,6 +78,11 @@ func init() {
 	operatorCmd.Flags().String(flagAnthropicOrganizationID, os.Getenv("ANTHROPIC_ORGANIZATION_ID"), "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
 	operatorCmd.Flags().String(flagAnthropicServiceAccountID, os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"), "Anthropic service account ID (svac_...) the minted Claude token acts as")
 	operatorCmd.Flags().String(flagAnthropicTokenAudience, os.Getenv("ANTHROPIC_TOKEN_AUDIENCE"), "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
+	operatorCmd.Flags().String(flagGitHubAppID, os.Getenv("GITHUB_APP_ID"), "Numeric app ID of the shared GitHub App agents clone and open pull requests as; when set with the installation id and key secret, every thread pod receives the app's credentials")
+	operatorCmd.Flags().String(flagGitHubAppInstallationID, os.Getenv("GITHUB_APP_INSTALLATION_ID"), "Installation ID of that GitHub App on the organization whose repositories agents may reach")
+	operatorCmd.Flags().String(flagGitHubAppPrivateKeySecret, os.Getenv("GITHUB_APP_PRIVATE_KEY_SECRET"), "Name of the Kubernetes Secret in the operator's namespace holding the GitHub App's PEM private key")
+	operatorCmd.Flags().String(flagGitHubAppPrivateKeySecretKey, "private-key.pem", "Key inside that Secret holding the PEM private key")
+	operatorCmd.Flags().String(flagGitHubAPIURL, "", "GitHub API base URL; empty means https://api.github.com")
 	operatorCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
 }
 
@@ -164,6 +175,26 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing anthropic-token-audience flag: %w", err)
 	}
+	githubAppID, err := cmd.Flags().GetString(flagGitHubAppID)
+	if err != nil {
+		return fmt.Errorf("missing github-app-id flag: %w", err)
+	}
+	githubAppInstallationID, err := cmd.Flags().GetString(flagGitHubAppInstallationID)
+	if err != nil {
+		return fmt.Errorf("missing github-app-installation-id flag: %w", err)
+	}
+	githubAppPrivateKeySecret, err := cmd.Flags().GetString(flagGitHubAppPrivateKeySecret)
+	if err != nil {
+		return fmt.Errorf("missing github-app-private-key-secret flag: %w", err)
+	}
+	githubAppPrivateKeySecretKey, err := cmd.Flags().GetString(flagGitHubAppPrivateKeySecretKey)
+	if err != nil {
+		return fmt.Errorf("missing github-app-private-key-secret-key flag: %w", err)
+	}
+	githubAPIURL, err := cmd.Flags().GetString(flagGitHubAPIURL)
+	if err != nil {
+		return fmt.Errorf("missing github-api-url flag: %w", err)
+	}
 	defaultsConfigPath, err := cmd.Flags().GetString(flagDefaultsConfig)
 	if err != nil {
 		return fmt.Errorf("missing defaults-config flag: %w", err)
@@ -248,6 +279,12 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 			AnthropicOrganizationID:   anthropicOrganizationID,
 			AnthropicServiceAccountID: anthropicServiceAccountID,
 			AnthropicTokenAudience:    anthropicTokenAudience,
+
+			GitHubAppID:                  githubAppID,
+			GitHubAppInstallationID:      githubAppInstallationID,
+			GitHubAppPrivateKeySecret:    githubAppPrivateKeySecret,
+			GitHubAppPrivateKeySecretKey: githubAppPrivateKeySecretKey,
+			GitHubAPIURL:                 githubAPIURL,
 		})
 	}
 

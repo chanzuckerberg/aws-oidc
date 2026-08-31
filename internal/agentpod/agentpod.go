@@ -83,6 +83,18 @@ const (
 	// fires at token_lifetime - 120 s = 480 s, so the file always holds a fresh jti by the
 	// time the SDK re-reads it.
 	anthropicTokenExpirationSecs int64 = 600
+
+	// githubAppKeyVolume mounts the GitHub App's RSA private key. The key itself is never an
+	// env var: the image's credential helper reads the file and exchanges it for an
+	// installation access token that expires in an hour.
+	githubAppKeyVolume    = "github-app-key"
+	githubAppKeyMountPath = "/var/run/secrets/github.com"
+	githubAppKeyFileName  = "private-key.pem"
+	githubAppKeyFilePath  = githubAppKeyMountPath + "/" + githubAppKeyFileName
+
+	// githubAppKeyMode is 0440. Secret volume files are owned by root and grouped to the pod's
+	// fsGroup, so group-read is what makes the key readable to uid 1000 and nothing wider.
+	githubAppKeyMode int32 = 0o440
 )
 
 // Config is the operator-level policy for running agent threads, the same for every agent.
@@ -120,6 +132,23 @@ type Config struct {
 	AnthropicOrganizationID   string
 	AnthropicServiceAccountID string
 	AnthropicTokenAudience    string
+
+	// GitHubAppID, GitHubAppInstallationID and GitHubAppPrivateKeySecret configure the shared
+	// GitHub App every thread clones and opens pull requests as. When all three are non-empty
+	// the operator mounts the app's private key from the named Secret and sets the GITHUB_APP_*
+	// env vars the image's git credential helper and gh wrapper read. When any is empty the
+	// mount and env vars are omitted, so a cluster without a GitHub App still runs agents.
+	//
+	// The Secret is not managed here. It is created out of band in the operator's namespace so
+	// the private key never passes through an Agent spec or a values file.
+	GitHubAppID               string
+	GitHubAppInstallationID   string
+	GitHubAppPrivateKeySecret string
+	// GitHubAppPrivateKeySecretKey is the key inside that Secret holding the PEM. Defaults to
+	// private-key.pem.
+	GitHubAppPrivateKeySecretKey string
+	// GitHubAPIURL overrides the API endpoint for GitHub Enterprise. Empty means github.com.
+	GitHubAPIURL string
 }
 
 // Reconciler drives an agent's threads toward the spec.
@@ -139,6 +168,9 @@ func New(c client.Client, scheme *runtime.Scheme, cfg Config) *Reconciler {
 	}
 	if cfg.MaxThreads <= 0 {
 		cfg.MaxThreads = defaultMaxThreads
+	}
+	if cfg.GitHubAppPrivateKeySecretKey == "" {
+		cfg.GitHubAppPrivateKeySecretKey = githubAppKeyFileName
 	}
 	return &Reconciler{Client: c, Scheme: scheme, Config: cfg}
 }
