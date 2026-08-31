@@ -146,6 +146,13 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.Equal(t, "agent-scoped", env["AWS_PROFILE"])
 	require.Equal(t, "main", env["AGENT_THREAD"])
 
+	// Commits name the person the agent acts for, so nothing in a repository's history is
+	// attributed to an anonymous bot.
+	require.Equal(t, "jheath's agent (bot)", env["GIT_AUTHOR_NAME"])
+	require.Equal(t, "jheath@chanzuckerberg.com", env["GIT_AUTHOR_EMAIL"])
+	require.Equal(t, "jheath's agent (bot)", env["GIT_COMMITTER_NAME"])
+	require.Equal(t, "jheath@chanzuckerberg.com", env["GIT_COMMITTER_EMAIL"])
+
 	// The rendered config points every profile at the projected token, and all threads of the
 	// agent share it.
 	configMap := &corev1.ConfigMap{}
@@ -279,6 +286,47 @@ func TestReconcileGitHubApp(t *testing.T) {
 	require.NotContains(t, env, "GITHUB_APP_PRIVATE_KEY")
 	// github.com needs no override, so the env var is left out rather than set to a default.
 	require.NotContains(t, env, "GITHUB_API_URL")
+}
+
+func TestGitIdentityName(t *testing.T) {
+	cases := map[string]struct {
+		email string
+		agent string
+		want  string
+	}{
+		"plain":             {"jheath@chanzuckerberg.com", "bot", "jheath's agent (bot)"},
+		"sub-addressed":     {"jheath+agents@chanzuckerberg.com", "reviewer", "jheath's agent (reviewer)"},
+		"no domain":         {"jheath", "bot", "jheath's agent (bot)"},
+		"dotted local part": {"jake.heath@chanzuckerberg.com", "bot", "jake.heath's agent (bot)"},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			agent := testAgent()
+			agent.Name = tc.agent
+			agent.Spec.OwnerEmail = tc.email
+			require.Equal(t, tc.want, gitIdentityName(agent))
+		})
+	}
+}
+
+// An agent with no owner email falls back to the image's own git identity rather than
+// committing as someone's agent when there is no someone.
+func TestReconcileWithoutOwnerEmailSetsNoGitIdentity(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	agent.Spec.OwnerEmail = ""
+	r, c := testReconciler(t, agent)
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
+		require.NotEqual(t, "GIT_AUTHOR_NAME", e.Name)
+		require.NotEqual(t, "GIT_AUTHOR_EMAIL", e.Name)
+	}
 }
 
 // A GitHub App is only wired in when all three fields are present, so a half-configured
