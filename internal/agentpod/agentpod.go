@@ -27,9 +27,10 @@ import (
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
 
-// workspacePlaceholderSize is the storage request we put on the EFS workspace PVC. The EFS
-// CSI driver ignores it — EFS is elastic — but the Kubernetes API requires a positive request.
-const workspacePlaceholderSize = "1Gi"
+// defaultWorkspaceSize is the storage request placed on the EFS workspace PVC when the agent
+// does not specify one. The EFS CSI driver ignores the value — EFS is elastic — but the
+// Kubernetes API requires a positive storage request.
+const defaultWorkspaceSize = "50Gi"
 
 const (
 	// LabelAgent and LabelThread identify which agent and thread an object belongs to. The
@@ -302,7 +303,6 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.A
 //
 // The PVC is owned by the Agent, so it is garbage-collected when the agent is deleted.
 func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent) error {
-	placeholder := resource.MustParse(workspacePlaceholderSize)
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
 		Name:      agent.WorkspaceClaimName(),
 		Namespace: r.Namespace,
@@ -312,9 +312,9 @@ func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent)
 		pvc.Labels = agentLabels(agent)
 		if pvc.Spec.AccessModes == nil {
 			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
-			pvc.Spec.StorageClassName = ptr(r.StorageClass)
+			pvc.Spec.StorageClassName = ptr(r.workspaceStorageClass(agent))
 			pvc.Spec.Resources = corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{corev1.ResourceStorage: placeholder},
+				Requests: corev1.ResourceList{corev1.ResourceStorage: r.workspaceSize(agent)},
 			}
 		}
 		return controllerutil.SetControllerReference(agent, pvc, r.Scheme)
@@ -352,6 +352,20 @@ func (r *Reconciler) command(agent *agentsv1.Agent) []string {
 		return agent.Spec.Runtime.Command
 	}
 	return r.DefaultCommand
+}
+
+func (r *Reconciler) workspaceStorageClass(agent *agentsv1.Agent) string {
+	if agent.Spec.Runtime != nil && agent.Spec.Runtime.StorageClass != "" {
+		return agent.Spec.Runtime.StorageClass
+	}
+	return r.StorageClass
+}
+
+func (r *Reconciler) workspaceSize(agent *agentsv1.Agent) resource.Quantity {
+	if agent.Spec.Runtime != nil && agent.Spec.Runtime.WorkspaceSize != nil {
+		return *agent.Spec.Runtime.WorkspaceSize
+	}
+	return resource.MustParse(defaultWorkspaceSize)
 }
 
 // ignoreNotFound treats an already-deleted object as success, so pruning is idempotent.

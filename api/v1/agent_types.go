@@ -2,6 +2,7 @@ package v1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -98,6 +99,18 @@ type AgentRuntime struct {
 	// NodeSelector pins the pods to a class of node.
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// StorageClass overrides the operator's default storage class for the agent's workspace
+	// PVC. Must be a ReadWriteMany class; on EFS the value is a billing-only placeholder and
+	// the filesystem grows without bound.
+	// +optional
+	StorageClass string `json:"storageClass,omitempty"`
+
+	// WorkspaceSize is the storage requested for the agent's shared workspace PVC. On EFS
+	// this is a placeholder only; the filesystem is not actually bounded by this value.
+	// Defaults to 50Gi when unset.
+	// +optional
+	WorkspaceSize *resource.Quantity `json:"workspaceSize,omitempty"`
 }
 
 // AgentThread is one running thread of an agent: its own pod and its own workspace, sharing

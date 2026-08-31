@@ -271,7 +271,7 @@ func TestTrustPolicyTrustsThreadServiceAccounts(t *testing.T) {
 	// One wildcard covers every thread, so adding a thread needs no IAM write. The prefix is
 	// the agent's uid, not its name, so it cannot match another agent's threads.
 	require.Equal(t,
-		"system:serviceaccount:argus-aws-oidc-rdev:agent-0f8fad5bd9cb-*",
+		"system:serviceaccount:argus-aws-oidc-rdev:remote-agent-0f8fad5bd9cb-*",
 		condition["StringLike"].(map[string]any)[clusterProvider+":sub"],
 	)
 }

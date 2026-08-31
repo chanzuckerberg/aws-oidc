@@ -21,8 +21,9 @@ const (
 	// naming one, so enabling the runtime is a single click.
 	firstThreadName = "main"
 
-	defaultCPU    = "500m"
-	defaultMemory = "1Gi"
+	defaultCPU           = "500m"
+	defaultMemory        = "1Gi"
+	defaultWorkspaceSize = "50Gi"
 
 	threadNameMaxLength = 24
 )
@@ -30,9 +31,12 @@ const (
 // AgentLimits caps what an owner may ask for when running an agent in the cluster. The portal
 // is the only place a person sets these, so this is where the ceiling belongs.
 type AgentLimits struct {
-	MaxCPU    string
-	MaxMemory string
-	MaxThreads int
+	MaxCPU          string
+	MaxMemory       string
+	MaxThreads      int
+	MaxWorkspace    string
+	DefaultImage    string
+	DefaultStorageClass string
 }
 
 // defaults fills the unset caps and is where the numbers live.
@@ -46,16 +50,22 @@ func (l AgentLimits) defaults() AgentLimits {
 	if l.MaxThreads <= 0 {
 		l.MaxThreads = 5
 	}
+	if l.MaxWorkspace == "" {
+		l.MaxWorkspace = "500Gi"
+	}
 	return l
 }
 
 // runtimeForm is the runtime section of the agent form, both what is rendered and what a
 // submission is read back into so a rejected form comes back with the values the person typed.
 type runtimeForm struct {
-	Enabled bool
-	CPU     string
-	Memory  string
-	Threads []threadForm
+	Enabled      bool
+	CPU          string
+	Memory       string
+	Image        string
+	StorageClass string
+	WorkspaceSize string
+	Threads      []threadForm
 	// NewThread is the name typed into the add-a-thread box, kept so a rejected form does not
 	// lose it.
 	NewThread string
@@ -75,9 +85,12 @@ type threadForm struct {
 // that does not run in the cluster, yields the defaults with the runtime off.
 func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 	form := runtimeForm{
-		CPU:    defaultCPU,
-		Memory: defaultMemory,
-		Limits: limits,
+		CPU:           defaultCPU,
+		Memory:        defaultMemory,
+		WorkspaceSize: defaultWorkspaceSize,
+		StorageClass:  limits.DefaultStorageClass,
+		Image:         limits.DefaultImage,
+		Limits:        limits,
 	}
 	if agent == nil || agent.Spec.Runtime == nil {
 		return form
@@ -90,6 +103,15 @@ func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 	}
 	if memory := agentRuntime.Resources.Requests.Memory(); !memory.IsZero() {
 		form.Memory = memory.String()
+	}
+	if agentRuntime.Image != "" {
+		form.Image = agentRuntime.Image
+	}
+	if agentRuntime.StorageClass != "" {
+		form.StorageClass = agentRuntime.StorageClass
+	}
+	if agentRuntime.WorkspaceSize != nil {
+		form.WorkspaceSize = agentRuntime.WorkspaceSize.String()
 	}
 
 	states := make(map[string]agentsv1.ThreadStatus, len(agent.Status.Threads))
@@ -112,11 +134,14 @@ func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 // that failed validation.
 func runtimeFromForm(r *http.Request, limits AgentLimits) runtimeForm {
 	form := runtimeForm{
-		Enabled:   r.FormValue("runtime") != "",
-		CPU:       r.FormValue("cpu"),
-		Memory:    r.FormValue("memory"),
-		NewThread: r.FormValue("new-thread"),
-		Limits:    limits,
+		Enabled:       r.FormValue("runtime") != "",
+		CPU:           r.FormValue("cpu"),
+		Memory:        r.FormValue("memory"),
+		Image:         r.FormValue("image"),
+		StorageClass:  r.FormValue("storage-class"),
+		WorkspaceSize: r.FormValue("workspace-size"),
+		NewThread:     r.FormValue("new-thread"),
+		Limits:        limits,
 	}
 
 	suspended := selection(r.Form["suspended"])
@@ -151,6 +176,10 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) 
 	if err != nil {
 		return nil, nil, err
 	}
+	workspaceSize, err := parseQuantity(r, "workspace-size", "Workspace size", defaultWorkspaceSize, limits.MaxWorkspace)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	threads, err := parseThreads(r, limits.MaxThreads)
 	if err != nil {
@@ -159,7 +188,10 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) 
 
 	sizing := corev1.ResourceList{corev1.ResourceCPU: cpu, corev1.ResourceMemory: memory}
 	agentRuntime := &agentsv1.AgentRuntime{
-		Resources: corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
+		Image:         strings.TrimSpace(r.FormValue("image")),
+		StorageClass:  strings.TrimSpace(r.FormValue("storage-class")),
+		WorkspaceSize: &workspaceSize,
+		Resources:     corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
 	}
 	return agentRuntime, threads, nil
 }

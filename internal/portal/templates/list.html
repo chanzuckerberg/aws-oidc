@@ -19,11 +19,26 @@
       </td>
       {{if $.RuntimeOffered}}
       <td>
-        {{range .Status.Threads}}{{.Name}} <span class="muted">{{.State}}</span><br>{{else}}<span class="muted">not running</span>{{end}}
+        {{range .Status.Threads}}
+          <div class="thread-row">
+            <span>{{.Name}} <span class="muted">{{.State}}</span></span>
+            {{if eq (print .State) "Running"}}
+            <details class="connect-details">
+              <summary class="btn small">connect</summary>
+              <div class="connect-panel">
+                <code>kubectl exec -it -n {{$.Namespace}} {{.StatefulSetName}}-0 -- /bin/bash</code>
+              </div>
+            </details>
+            {{end}}
+          </div>
+        {{else}}<span class="muted">not running</span>{{end}}
       </td>
       {{end}}
       <td>
         <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}">edit</a>
+        {{if $.RuntimeOffered}}
+        <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}/threads">threads</a>
+        {{end}}
         <form class="inline" method="post" action="{{$.BasePath}}/agents/{{.Name}}/delete" onsubmit="return confirm('Delete {{.Name}}?');">
           <button class="btn danger" type="submit">delete</button>
         </form>

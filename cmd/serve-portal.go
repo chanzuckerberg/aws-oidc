@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	flagAgentRuntime   = "agent-runtime"
-	flagAgentMaxCPU    = "agent-max-cpu"
-	flagAgentMaxMemory = "agent-max-memory"
+	flagAgentRuntime          = "agent-runtime"
+	flagAgentMaxCPU           = "agent-max-cpu"
+	flagAgentMaxMemory        = "agent-max-memory"
+	flagAgentDefaultImage     = "agent-default-image"
+	flagAgentDefaultStorageClass = "agent-default-storage-class"
 )
 
 var portalPort int
@@ -31,6 +33,8 @@ func init() {
 	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent thread may request")
 	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent thread may request")
 	servePortalCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
+	servePortalCmd.Flags().String(flagAgentDefaultImage, os.Getenv("AGENT_DEFAULT_IMAGE"), "Default container image shown in the agent form; blank means the form shows an empty placeholder")
+	servePortalCmd.Flags().String(flagAgentDefaultStorageClass, os.Getenv("AGENT_DEFAULT_STORAGE_CLASS"), "Default storage class pre-filled in the agent form")
 }
 
 var servePortalCmd = &cobra.Command{
@@ -105,6 +109,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		BasePath:         os.Getenv("PORTAL_BASE_PATH"),
 		AgentRuntime:     agentRuntime,
 		Limits:           limits,
+		Namespace:        namespace,
 	})
 	if err != nil {
 		return fmt.Errorf("creating portal server: %w", err)
@@ -135,10 +140,20 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	if err != nil {
 		return portal.AgentLimits{}, fmt.Errorf("missing max-threads-per-agent flag: %w", err)
 	}
+	defaultImage, err := cmd.Flags().GetString(flagAgentDefaultImage)
+	if err != nil {
+		return portal.AgentLimits{}, fmt.Errorf("missing agent-default-image flag: %w", err)
+	}
+	defaultStorageClass, err := cmd.Flags().GetString(flagAgentDefaultStorageClass)
+	if err != nil {
+		return portal.AgentLimits{}, fmt.Errorf("missing agent-default-storage-class flag: %w", err)
+	}
 
 	return portal.AgentLimits{
-		MaxCPU:     maxCPU,
-		MaxMemory:  maxMemory,
-		MaxThreads: maxThreads,
+		MaxCPU:              maxCPU,
+		MaxMemory:           maxMemory,
+		MaxThreads:          maxThreads,
+		DefaultImage:        defaultImage,
+		DefaultStorageClass: defaultStorageClass,
 	}, nil
 }
