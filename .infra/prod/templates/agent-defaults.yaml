@@ -4,4 +4,8 @@ metadata:
   name: agent-operator-defaults
   namespace: {{ .Release.Namespace }}
 data:
-{{ (.Files.Glob "config/defaults.yaml").AsConfig | indent 2 }}
+  defaults.yaml: |
+    # image is written by the Helm template so Argus CI can update it via values.yaml.
+    # Everything else comes from config/defaults.yaml and can be edited without a chart change.
+    image: "{{ .Values.agentImage.repository }}:{{ .Values.agentImage.tag }}"
+{{ (.Files.Glob "config/defaults.yaml").AsConfig | indent 4 }}
