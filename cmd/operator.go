@@ -48,11 +48,14 @@ const (
 	flagAnthropicServiceAccountID = "anthropic-service-account-id"
 	flagAnthropicTokenAudience    = "anthropic-token-audience"
 
-	flagGitHubAppID                  = "github-app-id"
-	flagGitHubAppInstallationID      = "github-app-installation-id"
-	flagGitHubAppPrivateKeySecret    = "github-app-private-key-secret"
-	flagGitHubAppPrivateKeySecretKey = "github-app-private-key-secret-key"
-	flagGitHubAPIURL                 = "github-api-url"
+	flagGitHubAppID             = "github-app-id"
+	flagGitHubAppInstallationID = "github-app-installation-id"
+	flagGitHubAPIURL            = "github-api-url"
+
+	// envGitHubAppPrivateKey carries the GitHub App's PEM private key, set with
+	// `argus set secret`. It is deliberately not a flag: a flag value is visible in the
+	// process list to anything that can read /proc in the pod.
+	envGitHubAppPrivateKey = "GITHUB_APP_PRIVATE_KEY"
 
 	flagDefaultsConfig = "defaults-config"
 )
@@ -78,10 +81,8 @@ func init() {
 	operatorCmd.Flags().String(flagAnthropicOrganizationID, os.Getenv("ANTHROPIC_ORGANIZATION_ID"), "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
 	operatorCmd.Flags().String(flagAnthropicServiceAccountID, os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"), "Anthropic service account ID (svac_...) the minted Claude token acts as")
 	operatorCmd.Flags().String(flagAnthropicTokenAudience, os.Getenv("ANTHROPIC_TOKEN_AUDIENCE"), "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
-	operatorCmd.Flags().String(flagGitHubAppID, os.Getenv("GITHUB_APP_ID"), "Numeric app ID of the shared GitHub App agents clone and open pull requests as; when set with the installation id and key secret, every thread pod receives the app's credentials")
+	operatorCmd.Flags().String(flagGitHubAppID, os.Getenv("GITHUB_APP_ID"), "Numeric app ID of the shared GitHub App agents clone and open pull requests as; when set with the installation id and the GITHUB_APP_PRIVATE_KEY environment variable, every thread pod receives the app's credentials")
 	operatorCmd.Flags().String(flagGitHubAppInstallationID, os.Getenv("GITHUB_APP_INSTALLATION_ID"), "Installation ID of that GitHub App on the organization whose repositories agents may reach")
-	operatorCmd.Flags().String(flagGitHubAppPrivateKeySecret, os.Getenv("GITHUB_APP_PRIVATE_KEY_SECRET"), "Name of the Kubernetes Secret in the operator's namespace holding the GitHub App's PEM private key")
-	operatorCmd.Flags().String(flagGitHubAppPrivateKeySecretKey, "private-key.pem", "Key inside that Secret holding the PEM private key")
 	operatorCmd.Flags().String(flagGitHubAPIURL, "", "GitHub API base URL; empty means https://api.github.com")
 	operatorCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
 }
@@ -183,14 +184,6 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing github-app-installation-id flag: %w", err)
 	}
-	githubAppPrivateKeySecret, err := cmd.Flags().GetString(flagGitHubAppPrivateKeySecret)
-	if err != nil {
-		return fmt.Errorf("missing github-app-private-key-secret flag: %w", err)
-	}
-	githubAppPrivateKeySecretKey, err := cmd.Flags().GetString(flagGitHubAppPrivateKeySecretKey)
-	if err != nil {
-		return fmt.Errorf("missing github-app-private-key-secret-key flag: %w", err)
-	}
 	githubAPIURL, err := cmd.Flags().GetString(flagGitHubAPIURL)
 	if err != nil {
 		return fmt.Errorf("missing github-api-url flag: %w", err)
@@ -217,6 +210,22 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	err = agentsv1.AddToScheme(scheme)
 	if err != nil {
 		return fmt.Errorf("registering agents scheme: %w", err)
+	}
+
+	// Republish the GitHub App key before the manager starts, with a client that reads
+	// straight from the API server. The manager's client reads through a cache, and caching
+	// Secrets would mean listing and watching every Secret in the namespace.
+	githubAppKeySecret := ""
+	githubAppPrivateKey := os.Getenv(envGitHubAppPrivateKey)
+	if githubAppPrivateKey != "" {
+		apiClient, err := client.New(restConfig, client.Options{Scheme: scheme})
+		if err != nil {
+			return fmt.Errorf("creating API client: %w", err)
+		}
+		githubAppKeySecret, err = agentpod.EnsureGitHubAppSecret(cmd.Context(), apiClient, namespace, githubAppPrivateKey)
+		if err != nil {
+			return fmt.Errorf("publishing github app key: %w", err)
+		}
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
@@ -280,11 +289,10 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 			AnthropicServiceAccountID: anthropicServiceAccountID,
 			AnthropicTokenAudience:    anthropicTokenAudience,
 
-			GitHubAppID:                  githubAppID,
-			GitHubAppInstallationID:      githubAppInstallationID,
-			GitHubAppPrivateKeySecret:    githubAppPrivateKeySecret,
-			GitHubAppPrivateKeySecretKey: githubAppPrivateKeySecretKey,
-			GitHubAPIURL:                 githubAPIURL,
+			GitHubAppID:               githubAppID,
+			GitHubAppInstallationID:   githubAppInstallationID,
+			GitHubAppPrivateKeySecret: githubAppKeySecret,
+			GitHubAPIURL:              githubAPIURL,
 		})
 	}
 

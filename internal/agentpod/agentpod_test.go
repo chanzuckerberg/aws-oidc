@@ -243,7 +243,7 @@ func TestReconcileGitHubApp(t *testing.T) {
 		DefaultImage:              "ubuntu:24.04",
 		GitHubAppID:               "123456",
 		GitHubAppInstallationID:   "87654321",
-		GitHubAppPrivateKeySecret: "agent-github-app",
+		GitHubAppPrivateKeySecret: GitHubAppSecretName,
 	})
 
 	_, err := r.Reconcile(ctx, agent)
@@ -260,7 +260,7 @@ func TestReconcileGitHubApp(t *testing.T) {
 		}
 	}
 	require.NotNil(t, keySecret, "the GitHub App private key must be mounted from a Secret")
-	require.Equal(t, "agent-github-app", keySecret.SecretName)
+	require.Equal(t, GitHubAppSecretName, keySecret.SecretName)
 	require.Equal(t, int32(0o440), *keySecret.DefaultMode)
 	// Only the private key is projected, so an unrelated key in the same Secret is not exposed.
 	require.Equal(t, []corev1.KeyToPath{{Key: "private-key.pem", Path: "private-key.pem"}}, keySecret.Items)

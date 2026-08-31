@@ -139,14 +139,10 @@ type Config struct {
 	// env vars the image's git credential helper and gh wrapper read. When any is empty the
 	// mount and env vars are omitted, so a cluster without a GitHub App still runs agents.
 	//
-	// The Secret is not managed here. It is created out of band in the operator's namespace so
-	// the private key never passes through an Agent spec or a values file.
+	// EnsureGitHubAppSecret writes that Secret at startup and returns its name.
 	GitHubAppID               string
 	GitHubAppInstallationID   string
 	GitHubAppPrivateKeySecret string
-	// GitHubAppPrivateKeySecretKey is the key inside that Secret holding the PEM. Defaults to
-	// private-key.pem.
-	GitHubAppPrivateKeySecretKey string
 	// GitHubAPIURL overrides the API endpoint for GitHub Enterprise. Empty means github.com.
 	GitHubAPIURL string
 }
@@ -168,9 +164,6 @@ func New(c client.Client, scheme *runtime.Scheme, cfg Config) *Reconciler {
 	}
 	if cfg.MaxThreads <= 0 {
 		cfg.MaxThreads = defaultMaxThreads
-	}
-	if cfg.GitHubAppPrivateKeySecretKey == "" {
-		cfg.GitHubAppPrivateKeySecretKey = githubAppKeyFileName
 	}
 	return &Reconciler{Client: c, Scheme: scheme, Config: cfg}
 }

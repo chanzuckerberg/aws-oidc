@@ -214,7 +214,7 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 					SecretName:  r.GitHubAppPrivateKeySecret,
 					DefaultMode: ptr(githubAppKeyMode),
 					Items: []corev1.KeyToPath{{
-						Key:  r.GitHubAppPrivateKeySecretKey,
+						Key:  githubAppKeyFileName,
 						Path: githubAppKeyFileName,
 					}},
 				},

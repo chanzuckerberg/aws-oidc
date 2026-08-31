@@ -108,6 +108,16 @@ rules:
   - apiGroups: [""]
     resources: ["serviceaccounts", "services", "configmaps", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # The operator republishes the GitHub App private key from its own environment into a Secret
+  # that thread pods mount. It is granted no read access to any other Secret in the namespace,
+  # which is why create is separate: resourceNames cannot restrict a create.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["agent-github-app"]
+    verbs: ["get", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
