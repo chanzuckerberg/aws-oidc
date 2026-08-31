@@ -1,9 +1,22 @@
 ###### Generated using `argus bootstrap` command ######
+
+# Agent image for thread pods. Updated automatically by Argus CI on every agent build.
+# The anchor is targeted by the 'agent' image entry in .argus-ci.yaml (anchors: [agent-image]).
+# The Helm template for agent-defaults.yaml composes repository + tag into the full image ref.
+agentImage:
+  repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent
+  tag: &agent-image sha-ad6884c
+
 stack:
+  global:
+    volumes:
+      - name: agent-defaults
+        configMap:
+          name: agent-operator-defaults
   services:
     aws-oidc:
       image:
-        tag: sha-d8e4d3a
+        tag: sha-ad6884c
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -20,7 +33,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-d8e4d3a
+        tag: sha-ad6884c
       serviceAccount:
         create: true
         name: portal
@@ -31,14 +44,15 @@ stack:
         requests:
           cpu: 300m
           memory: 500Mi
+      volumeMounts:
+        - name: agent-defaults
+          mountPath: /etc/aws-oidc
       args:
         - serve-portal
         # Offer running agents as pods. The operator below is configured with the cluster's
         # OIDC issuer, so a thread's pod can assume the agent's roles.
         - --agent-runtime
-        - --agent-max-cpu=4
-        - --agent-max-memory=16Gi
-        - --max-threads-per-agent=5
+        - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       gateway:
         oidcProtected: true
@@ -86,7 +100,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-d8e4d3a
+        tag: sha-ad6884c
       serviceAccount:
         create: true
         name: agent-operator
@@ -99,6 +113,9 @@ stack:
         requests:
           cpu: 100m
           memory: 128Mi
+      volumeMounts:
+        - name: agent-defaults
+          mountPath: /etc/aws-oidc
       args:
         - operator
         # Single replica in rdev, so leader election (and its lease RBAC) is not needed.
@@ -116,13 +133,19 @@ stack:
         # thread's pod assumes the role with its projected token. The provider must also be
         # registered in every account holding agent roles (shared-infra).
         - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
-        # Placeholder base image until the real agent image exists. Includes the AWS CLI so
-        # you can exec into the pod and test role assumption directly.
-        # The image entrypoint is `aws`, so the default command keeps the pod alive.
-        - --agent-default-image=public.ecr.aws/aws-cli/aws-cli:latest
-        - --agent-storage-class=efs-agent-workspaces
-        - --max-threads-per-agent=5
+        - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
+      env:
+        # Claude Workload Identity Federation. Non-secret identifiers from the Claude Console
+        # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev).
+        - name: ANTHROPIC_FEDERATION_RULE_ID
+          value: fdrl_01JvnDmJXHSgUteRh5DNky25
+        - name: ANTHROPIC_ORGANIZATION_ID
+          value: b46fb0b7-0e07-435c-9bea-a59af9f39043
+        - name: ANTHROPIC_SERVICE_ACCOUNT_ID
+          value: svac_01EpQjQEhcsene64iA8AkyGZ
+        - name: ANTHROPIC_TOKEN_AUDIENCE
+          value: https://api.anthropic.com
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
         enabled: false

@@ -97,7 +97,7 @@ func (a *Agent) identityPrefix() string {
 	if len(token) > uidPrefixLength {
 		token = token[:uidPrefixLength]
 	}
-	return "agent-" + token
+	return "remote-agent-" + token
 }
 
 // sanitizeName lowercases and replaces anything outside [a-z0-9-] so the result is usable as

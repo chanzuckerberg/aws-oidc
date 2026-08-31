@@ -102,7 +102,7 @@ func TestReconcileCreatesOneStatefulSetPerThread(t *testing.T) {
 	require.Equal(t, "agent-bot", main.Spec.ServiceName)
 	// Each thread runs as its own service account, which is what the role trust matches and
 	// what makes a thread's AWS activity attributable.
-	require.Equal(t, "agent-0f8fad5bd9cb-main", main.Spec.Template.Spec.ServiceAccountName)
+	require.Equal(t, "remote-agent-0f8fad5bd9cb-main", main.Spec.Template.Spec.ServiceAccountName)
 
 	// Suspended means zero replicas, not deleted, so the workspace survives.
 	require.Equal(t, int32(0), *byName["agent-bot-review"].Spec.Replicas)
@@ -157,6 +157,65 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.Contains(t, configMap.Data["config"], "[profile playground-readonly]")
 	// Sessions are named after the agent, so CloudTrail says which agent acted.
 	require.Regexp(t, `role_session_name\s+= agent-bot-jheath@chanzuckerberg\.com`, configMap.Data["config"])
+
+	// Without WIF configured the Anthropic token volume and env vars must not appear.
+	for _, v := range pod.Volumes {
+		require.NotEqual(t, anthropicTokenVolume, v.Name, "no Anthropic volume without WIF config")
+	}
+	_, hasAnthropicToken := env["ANTHROPIC_IDENTITY_TOKEN_FILE"]
+	require.False(t, hasAnthropicToken, "no Anthropic env vars without WIF config")
+}
+
+func TestReconcileAnthropicWIF(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:                 testNamespace,
+		DefaultImage:              "ubuntu:24.04",
+		AnthropicFederationRuleID: "fdrl_test",
+		AnthropicOrganizationID:   "org-uuid-test",
+		AnthropicServiceAccountID: "svac_test",
+		AnthropicTokenAudience:    "anthropic.com",
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	pod := set.Spec.Template.Spec
+
+	var anthropicProjected *corev1.ServiceAccountTokenProjection
+	for _, v := range pod.Volumes {
+		if v.Name == anthropicTokenVolume && v.Projected != nil && len(v.Projected.Sources) == 1 {
+			anthropicProjected = v.Projected.Sources[0].ServiceAccountToken
+		}
+	}
+	require.NotNil(t, anthropicProjected, "anthropic-token projected volume must be present")
+	require.Equal(t, "anthropic.com", anthropicProjected.Audience)
+	require.Equal(t, int64(600), *anthropicProjected.ExpirationSeconds)
+
+	var hasAnthropicMount bool
+	for _, m := range pod.Containers[0].VolumeMounts {
+		if m.Name == anthropicTokenVolume {
+			require.Equal(t, anthropicTokenMountPath, m.MountPath)
+			require.True(t, m.ReadOnly)
+			hasAnthropicMount = true
+		}
+	}
+	require.True(t, hasAnthropicMount, "anthropic-token must be mounted into the container")
+
+	env := map[string]string{}
+	for _, e := range pod.Containers[0].Env {
+		env[e.Name] = e.Value
+	}
+	require.Equal(t, anthropicTokenFilePath, env["ANTHROPIC_IDENTITY_TOKEN_FILE"])
+	require.Equal(t, "fdrl_test", env["ANTHROPIC_FEDERATION_RULE_ID"])
+	require.Equal(t, "org-uuid-test", env["ANTHROPIC_ORGANIZATION_ID"])
+	require.Equal(t, "svac_test", env["ANTHROPIC_SERVICE_ACCOUNT_ID"])
 }
 
 func TestReconcileIsIdempotent(t *testing.T) {

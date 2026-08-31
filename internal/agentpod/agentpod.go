@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,11 +26,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 )
 
-// workspacePlaceholderSize is the storage request we put on the EFS workspace PVC. The EFS
-// CSI driver ignores it — EFS is elastic — but the Kubernetes API requires a positive request.
-const workspacePlaceholderSize = "1Gi"
+// defaultWorkspaceSize is the storage request placed on the EFS workspace PVC when the agent
+// does not specify one. The EFS CSI driver ignores the value — EFS is elastic — but the
+// Kubernetes API requires a positive storage request.
+const defaultWorkspaceSize = "50Gi"
 
 const (
 	// LabelAgent and LabelThread identify which agent and thread an object belongs to. The
@@ -66,6 +69,20 @@ const (
 	agentContainerName = "agent"
 	awsConfigVolume    = "aws-config"
 	tokenVolume        = "aws-token"
+
+	// anthropicTokenVolume and its paths are the separate projected token the Anthropic SDK
+	// exchanges for a short-lived Claude access token via WIF. It uses a different audience
+	// than the AWS token and a shorter lifetime so the kubelet rotates it before JTI replay
+	// protection can reject a re-used assertion.
+	anthropicTokenVolume    = "anthropic-token"
+	anthropicTokenMountPath = "/var/run/secrets/anthropic.com"
+	anthropicTokenFilePath  = anthropicTokenMountPath + "/token"
+
+	// anthropicTokenExpirationSecs is the Anthropic projected token's lifetime. At 80% of
+	// this (480 s) the kubelet rotates the file. The Anthropic SDK advisory refresh also
+	// fires at token_lifetime - 120 s = 480 s, so the file always holds a fresh jti by the
+	// time the SDK re-reads it.
+	anthropicTokenExpirationSecs int64 = 600
 )
 
 // Config is the operator-level policy for running agent threads, the same for every agent.
@@ -73,7 +90,11 @@ type Config struct {
 	// Namespace is where the threads run. It is the operator's own namespace, so owner
 	// references garbage-collect an agent's objects when the agent is deleted.
 	Namespace string
-	// DefaultImage is the agent image used when spec.runtime.image is unset.
+	// DefaultsLoader reads live defaults from the agent-defaults ConfigMap. When set its
+	// values take precedence over the static fields below. CRD spec values always win.
+	DefaultsLoader *agentdefaults.Loader
+	// DefaultImage is the agent image used when spec.runtime.image is unset and the
+	// ConfigMap loader does not provide one.
 	DefaultImage string
 	// DefaultCommand is the command an agent thread runs when neither the agent nor the image
 	// provides a long-running entrypoint. Without it a base image whose entrypoint exits
@@ -87,6 +108,18 @@ type Config struct {
 	// MaxThreads bounds how many threads one agent may run, so a single Agent write cannot
 	// ask for an unbounded number of pods.
 	MaxThreads int
+
+	// AnthropicFederationRuleID, AnthropicOrganizationID, AnthropicServiceAccountID, and
+	// AnthropicTokenAudience configure Workload Identity Federation with Anthropic. When all
+	// four are non-empty the operator adds a second projected token (audience
+	// AnthropicTokenAudience) to every thread pod and sets the four ANTHROPIC_* env vars the
+	// Claude SDK and CLI need to exchange it for a Claude access token. When any field is
+	// empty the Anthropic token and env vars are omitted, so the operator degrades gracefully
+	// in clusters that have not yet configured Claude WIF.
+	AnthropicFederationRuleID string
+	AnthropicOrganizationID   string
+	AnthropicServiceAccountID string
+	AnthropicTokenAudience    string
 }
 
 // Reconciler drives an agent's threads toward the spec.
@@ -276,7 +309,6 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.A
 //
 // The PVC is owned by the Agent, so it is garbage-collected when the agent is deleted.
 func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent) error {
-	placeholder := resource.MustParse(workspacePlaceholderSize)
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
 		Name:      agent.WorkspaceClaimName(),
 		Namespace: r.Namespace,
@@ -286,9 +318,9 @@ func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent)
 		pvc.Labels = agentLabels(agent)
 		if pvc.Spec.AccessModes == nil {
 			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
-			pvc.Spec.StorageClassName = ptr(r.StorageClass)
+			pvc.Spec.StorageClassName = ptr(r.workspaceStorageClass(agent))
 			pvc.Spec.Resources = corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{corev1.ResourceStorage: placeholder},
+				Requests: corev1.ResourceList{corev1.ResourceStorage: r.workspaceSize(agent)},
 			}
 		}
 		return controllerutil.SetControllerReference(agent, pvc, r.Scheme)
@@ -314,9 +346,26 @@ func threadLabels(agent *agentsv1.Agent, thread string) map[string]string {
 	return labels
 }
 
+func (r *Reconciler) loadDefaults() *agentdefaults.Defaults {
+	if r.DefaultsLoader == nil {
+		return &agentdefaults.Defaults{}
+	}
+	d, err := r.DefaultsLoader.Load()
+	if err != nil {
+		slog.Warn("loading agent defaults", "error", err)
+	}
+	if d == nil {
+		return &agentdefaults.Defaults{}
+	}
+	return d
+}
+
 func (r *Reconciler) image(agent *agentsv1.Agent) string {
 	if agent.Spec.Runtime.Image != "" {
 		return agent.Spec.Runtime.Image
+	}
+	if d := r.loadDefaults(); d.Image != "" {
+		return d.Image
 	}
 	return r.DefaultImage
 }
@@ -325,7 +374,32 @@ func (r *Reconciler) command(agent *agentsv1.Agent) []string {
 	if len(agent.Spec.Runtime.Command) > 0 {
 		return agent.Spec.Runtime.Command
 	}
+	if d := r.loadDefaults(); len(d.Command) > 0 {
+		return d.Command
+	}
 	return r.DefaultCommand
+}
+
+func (r *Reconciler) workspaceStorageClass(agent *agentsv1.Agent) string {
+	if agent.Spec.Runtime != nil && agent.Spec.Runtime.StorageClass != "" {
+		return agent.Spec.Runtime.StorageClass
+	}
+	if d := r.loadDefaults(); d.StorageClass != "" {
+		return d.StorageClass
+	}
+	return r.StorageClass
+}
+
+func (r *Reconciler) workspaceSize(agent *agentsv1.Agent) resource.Quantity {
+	if agent.Spec.Runtime != nil && agent.Spec.Runtime.WorkspaceSize != nil {
+		return *agent.Spec.Runtime.WorkspaceSize
+	}
+	if d := r.loadDefaults(); d.WorkspaceSize != "" {
+		if q, err := resource.ParseQuantity(d.WorkspaceSize); err == nil {
+			return q
+		}
+	}
+	return resource.MustParse(defaultWorkspaceSize)
 }
 
 // ignoreNotFound treats an already-deleted object as success, so pruning is idempotent.

@@ -1,4 +1,11 @@
 ###### Generated using `argus bootstrap` command ######
+
+# Agent image for thread pods. Updated automatically by Argus CI on every agent build.
+# See .argus-ci.yaml anchors: [agent-image] for the update mechanism.
+agentImage:
+  repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent
+  tag: &agent-image sha-e246c09
+
 stack:
   services:
     aws-oidc:

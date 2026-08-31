@@ -1,0 +1,24 @@
+# Agent runtime defaults for prod. Edit this file and sync the chart to change defaults
+# without redeploying the operator or portal.
+#
+# Priority order (highest to lowest):
+#   1. Agent CRD spec.runtime fields set by the owner
+#   2. Values in this file (ConfigMap)
+#   3. Static --agent-default-* flags on the operator / portal deployments
+#
+# NOTE: The agent image is NOT here. It is injected by the Helm template from
+# .Values.agentImage so that Argus CI can update it automatically on each build.
+
+storageClass: "efs-agent-workspaces"
+workspaceSize: "50Gi"
+
+# Default pod resource requests. Owners can override per-agent up to the maxCPU / maxMemory
+# ceilings below.
+cpu: "500m"
+memory: "1Gi"
+
+# Ceilings enforced by the portal form. An owner cannot request more than these.
+maxCPU: "4"
+maxMemory: "16Gi"
+maxWorkspace: "500Gi"
+maxThreads: 5

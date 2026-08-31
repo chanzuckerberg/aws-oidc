@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 	"github.com/chanzuckerberg/aws-oidc/internal/agentstore"
 	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
@@ -46,6 +47,13 @@ type Config struct {
 	AgentRuntime bool
 	// Limits caps the sizing an owner may ask for. Unset fields fall back to defaults.
 	Limits AgentLimits
+	// Namespace is the Kubernetes namespace the operator and agent pods run in. It is shown
+	// in the connect widget so users can copy-paste kubectl exec commands.
+	Namespace string
+	// DefaultsLoader reads live defaults from the agent-defaults ConfigMap. When set its
+	// values pre-fill AgentLimits fields that are unset, so the form reflects the ConfigMap
+	// without a restart.
+	DefaultsLoader *agentdefaults.Loader
 }
 
 // Server is the agent-registry portal.
@@ -53,6 +61,7 @@ type Server struct {
 	cfg      Config
 	tmpl     *template.Template
 	basePath string
+	entCache *EntitlementsCache
 }
 
 // NewServer parses templates and returns a portal server.
@@ -62,7 +71,9 @@ func NewServer(cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("parsing templates: %w", err)
 	}
 	cfg.Limits = cfg.Limits.defaults()
-	return &Server{cfg: cfg, tmpl: tmpl, basePath: strings.TrimRight(cfg.BasePath, "/")}, nil
+	s := &Server{cfg: cfg, tmpl: tmpl, basePath: strings.TrimRight(cfg.BasePath, "/")}
+	s.entCache = newEntitlementsCache(0, s.fetchEntitlements)
+	return s, nil
 }
 
 // Handler returns the HTTP handler for the portal.
@@ -75,6 +86,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /agents/{name}", s.handleView)
 	mux.HandleFunc("POST /agents/{name}", s.handleUpdate)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
+	mux.HandleFunc("GET /agents/{name}/threads", s.handleThreadsView)
+	mux.HandleFunc("POST /agents/{name}/threads", s.handleSpawnThread)
+	mux.HandleFunc("POST /agents/{name}/threads/{thread}/suspend", s.handleToggleSuspend)
+	mux.HandleFunc("POST /agents/{name}/threads/{thread}/delete", s.handleDeleteThread)
 
 	handler := http.Handler(mux)
 	if s.basePath != "" {
@@ -133,6 +148,7 @@ func (s *Server) redirect(w http.ResponseWriter, r *http.Request, path string) {
 type pageData struct {
 	Title        string
 	BasePath     string
+	Namespace    string
 	User         *identity.User
 	Agents       []agentsv1.Agent
 	Agent        *agentsv1.Agent
@@ -186,7 +202,7 @@ func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
 		Entitlements: ent,
 		Checked:      map[string]bool{},
 		Action:       "/agents",
-		Runtime:      runtimeFromAgent(nil, s.cfg.Limits),
+		Runtime:      runtimeFromAgent(nil, s.limits()),
 	})
 }
 
@@ -214,7 +230,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "form", pageData{
 			Title: "Register agent", User: user, Entitlements: ent,
 			Checked: checkedFromForm(r), Action: "/agents", Error: msg,
-			Runtime: runtimeFromForm(r, s.cfg.Limits),
+			Runtime: runtimeFromForm(r, s.limits()),
 		})
 	}
 
@@ -291,7 +307,7 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 		Entitlements: ent,
 		Checked:      checkedFromAgent(agent),
 		Action:       "/agents/" + agent.Name,
-		Runtime:      runtimeFromAgent(agent, s.cfg.Limits),
+		Runtime:      runtimeFromAgent(agent, s.limits()),
 	})
 }
 
@@ -323,7 +339,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "form", pageData{
 			Title: "Edit " + agent.Name, User: user, Agent: agent, Entitlements: ent,
 			Checked: checkedFromForm(r), Action: "/agents/" + agent.Name, Error: msg,
-			Runtime: runtimeFromForm(r, s.cfg.Limits),
+			Runtime: runtimeFromForm(r, s.limits()),
 		})
 	}
 
@@ -370,6 +386,131 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	s.redirect(w, r, "/")
 }
 
+func (s *Server) handleThreadsView(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	s.render(w, "threads", pageData{
+		Title: "Threads — " + agent.Name,
+		User:  user,
+		Agent: agent,
+	})
+}
+
+func (s *Server) handleSpawnThread(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+
+	renderErr := func(msg string) {
+		s.render(w, "threads", pageData{
+			Title: "Threads — " + agent.Name,
+			User:  user, Agent: agent, Error: msg,
+		})
+	}
+
+	name := strings.ToLower(strings.TrimSpace(r.FormValue("new-thread")))
+	if name == "" {
+		renderErr("Thread name is required.")
+		return
+	}
+	if len(name) > threadNameMaxLength {
+		renderErr(fmt.Sprintf("Thread names are limited to %d characters.", threadNameMaxLength))
+		return
+	}
+	if !threadNameRe.MatchString(name) {
+		renderErr(fmt.Sprintf("Thread name %q must use only lowercase letters, numbers, and dashes.", name))
+		return
+	}
+	for _, t := range agent.Spec.Threads {
+		if t.Name == name {
+			renderErr(fmt.Sprintf("A thread named %q already exists.", name))
+			return
+		}
+	}
+	maxThreads := s.limits().defaults().MaxThreads
+	if len(agent.Spec.Threads)+1 > maxThreads {
+		renderErr(fmt.Sprintf("An agent is limited to %d threads.", maxThreads))
+		return
+	}
+
+	agent.Spec.Threads = append(agent.Spec.Threads, agentsv1.AgentThread{Name: name})
+	err = s.cfg.Store.Upsert(ctx, agent)
+	if err != nil {
+		s.fail(w, "spawning thread", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/threads")
+}
+
+func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	threadName := r.PathValue("thread")
+	for i, t := range agent.Spec.Threads {
+		if t.Name == threadName {
+			agent.Spec.Threads[i].Suspended = !agent.Spec.Threads[i].Suspended
+			err := s.cfg.Store.Upsert(ctx, agent)
+			if err != nil {
+				s.fail(w, "toggling thread suspend", err)
+				return
+			}
+			s.redirect(w, r, "/agents/"+agent.Name+"/threads")
+			return
+		}
+	}
+	http.Error(w, "thread not found", http.StatusNotFound)
+}
+
+func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	threadName := r.PathValue("thread")
+	threads := agent.Spec.Threads[:0]
+	for _, t := range agent.Spec.Threads {
+		if t.Name != threadName {
+			threads = append(threads, t)
+		}
+	}
+	agent.Spec.Threads = threads
+	err := s.cfg.Store.Upsert(ctx, agent)
+	if err != nil {
+		s.fail(w, "deleting thread", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/threads")
+}
+
 // ownedAgent loads the agent named in the path and enforces that the current user may act
 // on it (owner or admin). It writes the response and returns ok=false on any failure.
 func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *identity.User) (*agentsv1.Agent, bool) {
@@ -398,11 +539,48 @@ func (s *Server) ownedAgent(w http.ResponseWriter, r *http.Request, user *identi
 }
 
 func (s *Server) entitlements(ctx context.Context, sub string) (*Entitlements, error) {
+	return s.entCache.Get(ctx, sub)
+}
+
+func (s *Server) fetchEntitlements(ctx context.Context, sub string) (*Entitlements, error) {
 	mappings, err := s.cfg.MappingsProvider(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("reading rolemap: %w", err)
 	}
 	return ResolveEntitlements(ctx, sub, s.cfg.Apps, mappings)
+}
+
+// limits returns AgentLimits for the current request. ConfigMap loader values fill any zero
+// fields in the static Config.Limits, so a ConfigMap update propagates without a restart.
+func (s *Server) limits() AgentLimits {
+	l := s.cfg.Limits
+	if s.cfg.DefaultsLoader == nil {
+		return l
+	}
+	d, err := s.cfg.DefaultsLoader.Load()
+	if err != nil {
+		slog.Warn("loading agent defaults in portal", "error", err)
+		return l
+	}
+	if l.MaxCPU == "" {
+		l.MaxCPU = d.MaxCPU
+	}
+	if l.MaxMemory == "" {
+		l.MaxMemory = d.MaxMemory
+	}
+	if l.MaxWorkspace == "" {
+		l.MaxWorkspace = d.MaxWorkspace
+	}
+	if l.MaxThreads == 0 {
+		l.MaxThreads = d.MaxThreads
+	}
+	if l.DefaultImage == "" {
+		l.DefaultImage = d.Image
+	}
+	if l.DefaultStorageClass == "" {
+		l.DefaultStorageClass = d.StorageClass
+	}
+	return l
 }
 
 func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
@@ -430,11 +608,12 @@ func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent) (*a
 		}
 		return current.Spec.Runtime, current.Spec.Threads, nil
 	}
-	return parseRuntime(r, current, s.cfg.Limits)
+	return parseRuntime(r, current, s.limits())
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
 	data.BasePath = s.basePath
+	data.Namespace = s.cfg.Namespace
 	data.RuntimeOffered = s.cfg.AgentRuntime
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.tmpl.ExecuteTemplate(w, name, data)

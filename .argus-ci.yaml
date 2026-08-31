@@ -10,6 +10,12 @@ apps:
         aws-oidc:
           context: .
           dockerfile: ./Dockerfile
+        agent:
+          context: .
+          dockerfile: ./Dockerfile.agent
+          # anchors targets only the tag line with &agent-image in values.yaml, so this
+          # build never accidentally clobbers the operator/portal image tags.
+          anchors: [agent-image]
     envs:
       rdev: {}
       prod: {}

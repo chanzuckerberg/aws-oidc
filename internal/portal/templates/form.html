@@ -35,7 +35,7 @@
       </label>
       <p class="muted">
         Each thread gets its own pod and its own persistent workspace, and assumes the access
-        granted above. Sizing applies to every thread.
+        granted above. Sizing applies to every thread. Manage threads from the agent list.
       </p>
 
       <p class="sizing">
@@ -44,27 +44,21 @@
         <span class="muted">up to {{.Limits.MaxCPU}} CPU, {{.Limits.MaxMemory}} memory</span>
       </p>
 
-      {{if .Threads}}
-      <table>
-        <tr><th>Thread</th><th>State</th><th>Suspend</th><th>Remove</th></tr>
-        {{range .Threads}}
-        <tr>
-          <td>{{.Name}}<input type="hidden" name="thread" value="{{.Name}}"></td>
-          <td>{{if .State}}{{.State}}{{else}}<span class="muted">—</span>{{end}}
-            {{if .Message}}<span class="muted">{{.Message}}</span>{{end}}</td>
-          <td><input type="checkbox" name="suspended" value="{{.Name}}" {{if .Suspended}}checked{{end}}></td>
-          <td><input type="checkbox" name="remove-thread" value="{{.Name}}"></td>
-        </tr>
-        {{end}}
-      </table>
-      <p class="muted">Suspending a thread stops its pod and keeps its workspace. Removing it deletes both.</p>
-      {{end}}
+      <p class="sizing">
+        <label>Workspace <input name="workspace-size" value="{{.WorkspaceSize}}" placeholder="50Gi" size="8"></label>
+        <span class="muted">up to {{.Limits.MaxWorkspace}}</span>
+      </p>
 
       <p>
-        <label>Add a thread
-          <input name="new-thread" value="{{.NewThread}}" pattern="[a-zA-Z0-9]([-a-zA-Z0-9]*[a-zA-Z0-9])?" maxlength="24" placeholder="review">
+        <label>Image
+          <input name="image" value="{{.Image}}" placeholder="default" style="width:32rem">
         </label>
-        <span class="muted">up to {{.Limits.MaxThreads}} threads</span>
+      </p>
+
+      <p>
+        <label>Storage class
+          <input name="storage-class" value="{{.StorageClass}}" placeholder="efs-agent-workspaces" size="28">
+        </label>
       </p>
     </fieldset>
     {{end}}
@@ -77,6 +71,9 @@
   </form>
 
   {{if .Agent}}
+  {{if .RuntimeOffered}}
+  <p><a class="btn" href="{{.BasePath}}/agents/{{.Agent.Name}}/threads">Manage threads →</a></p>
+  {{end}}
   <form class="inline" method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/delete" onsubmit="return confirm('Delete {{.Agent.Name}}?');">
     <button class="btn danger" type="submit">Delete agent</button>
   </form>
