@@ -1,5 +1,10 @@
 ###### Generated using `argus bootstrap` command ######
 stack:
+  global:
+    volumes:
+      - name: agent-defaults
+        configMap:
+          name: agent-operator-defaults
   services:
     aws-oidc:
       image:
@@ -31,14 +36,15 @@ stack:
         requests:
           cpu: 300m
           memory: 500Mi
+      volumeMounts:
+        - name: agent-defaults
+          mountPath: /etc/aws-oidc
       args:
         - serve-portal
         # Offer running agents as pods. The operator below is configured with the cluster's
         # OIDC issuer, so a thread's pod can assume the agent's roles.
         - --agent-runtime
-        - --agent-max-cpu=4
-        - --agent-max-memory=16Gi
-        - --max-threads-per-agent=5
+        - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       gateway:
         oidcProtected: true
@@ -99,6 +105,9 @@ stack:
         requests:
           cpu: 100m
           memory: 128Mi
+      volumeMounts:
+        - name: agent-defaults
+          mountPath: /etc/aws-oidc
       args:
         - operator
         # Single replica in rdev, so leader election (and its lease RBAC) is not needed.
@@ -116,12 +125,7 @@ stack:
         # thread's pod assumes the role with its projected token. The provider must also be
         # registered in every account holding agent roles (shared-infra).
         - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
-        # Placeholder base image until the real agent image exists. Includes the AWS CLI so
-        # you can exec into the pod and test role assumption directly.
-        # The image entrypoint is `aws`, so the default command keeps the pod alive.
-        - --agent-default-image=533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent:sha-e246c09
-        - --agent-storage-class=efs-agent-workspaces
-        - --max-threads-per-agent=5
+        - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       env:
         # Claude Workload Identity Federation. Non-secret identifiers from the Claude Console

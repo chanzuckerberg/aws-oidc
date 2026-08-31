@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 	"github.com/chanzuckerberg/aws-oidc/internal/agentstore"
 	"github.com/chanzuckerberg/aws-oidc/internal/portal"
 	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
@@ -35,6 +36,7 @@ func init() {
 	servePortalCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
 	servePortalCmd.Flags().String(flagAgentDefaultImage, os.Getenv("AGENT_DEFAULT_IMAGE"), "Default container image shown in the agent form; blank means the form shows an empty placeholder")
 	servePortalCmd.Flags().String(flagAgentDefaultStorageClass, os.Getenv("AGENT_DEFAULT_STORAGE_CLASS"), "Default storage class pre-filled in the agent form")
+	servePortalCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
 }
 
 var servePortalCmd = &cobra.Command{
@@ -73,6 +75,10 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	defaultsConfigPath, err := cmd.Flags().GetString(flagDefaultsConfig)
+	if err != nil {
+		return fmt.Errorf("missing defaults-config flag: %w", err)
+	}
 
 	restConfig, namespace, err := configmap.NewInClusterConfig()
 	if err != nil {
@@ -110,6 +116,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		AgentRuntime:     agentRuntime,
 		Limits:           limits,
 		Namespace:        namespace,
+		DefaultsLoader:   agentdefaults.NewLoader(defaultsConfigPath),
 	})
 	if err != nil {
 		return fmt.Errorf("creating portal server: %w", err)

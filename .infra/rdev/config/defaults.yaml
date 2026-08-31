@@ -1,0 +1,22 @@
+# Agent runtime defaults for rdev. Edit this ConfigMap and sync it (argus or kubectl apply)
+# to change defaults without redeploying the operator or portal.
+#
+# Priority order (highest to lowest):
+#   1. Agent CRD spec.runtime fields set by the owner
+#   2. Values in this file (ConfigMap)
+#   3. Static --agent-default-* flags on the operator / portal deployments
+
+image: "533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent:sha-e246c09"
+storageClass: "efs-agent-workspaces"
+workspaceSize: "50Gi"
+
+# Default pod resource requests. Owners can override per-agent up to the maxCPU / maxMemory
+# ceilings below.
+cpu: "500m"
+memory: "1Gi"
+
+# Ceilings enforced by the portal form. An owner cannot request more than these.
+maxCPU: "4"
+maxMemory: "16Gi"
+maxWorkspace: "500Gi"
+maxThreads: 5

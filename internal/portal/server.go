@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 	"github.com/chanzuckerberg/aws-oidc/internal/agentstore"
 	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
@@ -49,6 +50,10 @@ type Config struct {
 	// Namespace is the Kubernetes namespace the operator and agent pods run in. It is shown
 	// in the connect widget so users can copy-paste kubectl exec commands.
 	Namespace string
+	// DefaultsLoader reads live defaults from the agent-defaults ConfigMap. When set its
+	// values pre-fill AgentLimits fields that are unset, so the form reflects the ConfigMap
+	// without a restart.
+	DefaultsLoader *agentdefaults.Loader
 }
 
 // Server is the agent-registry portal.
@@ -194,7 +199,7 @@ func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
 		Entitlements: ent,
 		Checked:      map[string]bool{},
 		Action:       "/agents",
-		Runtime:      runtimeFromAgent(nil, s.cfg.Limits),
+		Runtime:      runtimeFromAgent(nil, s.limits()),
 	})
 }
 
@@ -222,7 +227,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "form", pageData{
 			Title: "Register agent", User: user, Entitlements: ent,
 			Checked: checkedFromForm(r), Action: "/agents", Error: msg,
-			Runtime: runtimeFromForm(r, s.cfg.Limits),
+			Runtime: runtimeFromForm(r, s.limits()),
 		})
 	}
 
@@ -299,7 +304,7 @@ func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
 		Entitlements: ent,
 		Checked:      checkedFromAgent(agent),
 		Action:       "/agents/" + agent.Name,
-		Runtime:      runtimeFromAgent(agent, s.cfg.Limits),
+		Runtime:      runtimeFromAgent(agent, s.limits()),
 	})
 }
 
@@ -331,7 +336,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "form", pageData{
 			Title: "Edit " + agent.Name, User: user, Agent: agent, Entitlements: ent,
 			Checked: checkedFromForm(r), Action: "/agents/" + agent.Name, Error: msg,
-			Runtime: runtimeFromForm(r, s.cfg.Limits),
+			Runtime: runtimeFromForm(r, s.limits()),
 		})
 	}
 
@@ -436,7 +441,7 @@ func (s *Server) handleSpawnThread(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	maxThreads := s.cfg.Limits.defaults().MaxThreads
+	maxThreads := s.limits().defaults().MaxThreads
 	if len(agent.Spec.Threads)+1 > maxThreads {
 		renderErr(fmt.Sprintf("An agent is limited to %d threads.", maxThreads))
 		return
@@ -538,6 +543,39 @@ func (s *Server) entitlements(ctx context.Context, sub string) (*Entitlements, e
 	return ResolveEntitlements(ctx, sub, s.cfg.Apps, mappings)
 }
 
+// limits returns AgentLimits for the current request. ConfigMap loader values fill any zero
+// fields in the static Config.Limits, so a ConfigMap update propagates without a restart.
+func (s *Server) limits() AgentLimits {
+	l := s.cfg.Limits
+	if s.cfg.DefaultsLoader == nil {
+		return l
+	}
+	d, err := s.cfg.DefaultsLoader.Load()
+	if err != nil {
+		slog.Warn("loading agent defaults in portal", "error", err)
+		return l
+	}
+	if l.MaxCPU == "" {
+		l.MaxCPU = d.MaxCPU
+	}
+	if l.MaxMemory == "" {
+		l.MaxMemory = d.MaxMemory
+	}
+	if l.MaxWorkspace == "" {
+		l.MaxWorkspace = d.MaxWorkspace
+	}
+	if l.MaxThreads == 0 {
+		l.MaxThreads = d.MaxThreads
+	}
+	if l.DefaultImage == "" {
+		l.DefaultImage = d.Image
+	}
+	if l.DefaultStorageClass == "" {
+		l.DefaultStorageClass = d.StorageClass
+	}
+	return l
+}
+
 func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, bool) {
 	user, err := s.cfg.Identity.Resolve(r.Context(), r)
 	if err != nil {
@@ -563,7 +601,7 @@ func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent) (*a
 		}
 		return current.Spec.Runtime, current.Spec.Threads, nil
 	}
-	return parseRuntime(r, current, s.cfg.Limits)
+	return parseRuntime(r, current, s.limits())
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {

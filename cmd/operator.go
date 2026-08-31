@@ -19,6 +19,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 	"github.com/chanzuckerberg/aws-oidc/internal/agentpod"
 	"github.com/chanzuckerberg/aws-oidc/internal/controller"
 	awsprovider "github.com/chanzuckerberg/aws-oidc/internal/providers/aws"
@@ -46,6 +47,8 @@ const (
 	flagAnthropicOrganizationID    = "anthropic-organization-id"
 	flagAnthropicServiceAccountID  = "anthropic-service-account-id"
 	flagAnthropicTokenAudience     = "anthropic-token-audience"
+
+	flagDefaultsConfig = "defaults-config"
 )
 
 func init() {
@@ -69,6 +72,7 @@ func init() {
 	operatorCmd.Flags().String(flagAnthropicOrganizationID, os.Getenv("ANTHROPIC_ORGANIZATION_ID"), "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
 	operatorCmd.Flags().String(flagAnthropicServiceAccountID, os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"), "Anthropic service account ID (svac_...) the minted Claude token acts as")
 	operatorCmd.Flags().String(flagAnthropicTokenAudience, os.Getenv("ANTHROPIC_TOKEN_AUDIENCE"), "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
+	operatorCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -160,6 +164,10 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing anthropic-token-audience flag: %w", err)
 	}
+	defaultsConfigPath, err := cmd.Flags().GetString(flagDefaultsConfig)
+	if err != nil {
+		return fmt.Errorf("missing defaults-config flag: %w", err)
+	}
 
 	// Route controller-runtime's logr logging through the repo's slog logger set up in
 	// PersistentPreRunE, so the operator logs the same way as the rest of the binary.
@@ -230,6 +238,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if clusterOIDCProvider != "" {
 		threads = agentpod.New(mgr.GetClient(), mgr.GetScheme(), agentpod.Config{
 			Namespace:                 namespace,
+			DefaultsLoader:            agentdefaults.NewLoader(defaultsConfigPath),
 			DefaultImage:              agentImage,
 			DefaultCommand:            agentCommand,
 			StorageClass:              agentStorageClass,

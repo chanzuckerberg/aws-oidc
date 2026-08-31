@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-operator-defaults
+  namespace: {{ .Release.Namespace }}
+data:
+{{ (.Files.Glob "config/defaults.yaml").AsConfig | indent 2 }}

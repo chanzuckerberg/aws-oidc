@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 )
 
 // defaultWorkspaceSize is the storage request placed on the EFS workspace PVC when the agent
@@ -88,7 +90,11 @@ type Config struct {
 	// Namespace is where the threads run. It is the operator's own namespace, so owner
 	// references garbage-collect an agent's objects when the agent is deleted.
 	Namespace string
-	// DefaultImage is the agent image used when spec.runtime.image is unset.
+	// DefaultsLoader reads live defaults from the agent-defaults ConfigMap. When set its
+	// values take precedence over the static fields below. CRD spec values always win.
+	DefaultsLoader *agentdefaults.Loader
+	// DefaultImage is the agent image used when spec.runtime.image is unset and the
+	// ConfigMap loader does not provide one.
 	DefaultImage string
 	// DefaultCommand is the command an agent thread runs when neither the agent nor the image
 	// provides a long-running entrypoint. Without it a base image whose entrypoint exits
@@ -340,9 +346,26 @@ func threadLabels(agent *agentsv1.Agent, thread string) map[string]string {
 	return labels
 }
 
+func (r *Reconciler) loadDefaults() *agentdefaults.Defaults {
+	if r.DefaultsLoader == nil {
+		return &agentdefaults.Defaults{}
+	}
+	d, err := r.DefaultsLoader.Load()
+	if err != nil {
+		slog.Warn("loading agent defaults", "error", err)
+	}
+	if d == nil {
+		return &agentdefaults.Defaults{}
+	}
+	return d
+}
+
 func (r *Reconciler) image(agent *agentsv1.Agent) string {
 	if agent.Spec.Runtime.Image != "" {
 		return agent.Spec.Runtime.Image
+	}
+	if d := r.loadDefaults(); d.Image != "" {
+		return d.Image
 	}
 	return r.DefaultImage
 }
@@ -351,6 +374,9 @@ func (r *Reconciler) command(agent *agentsv1.Agent) []string {
 	if len(agent.Spec.Runtime.Command) > 0 {
 		return agent.Spec.Runtime.Command
 	}
+	if d := r.loadDefaults(); len(d.Command) > 0 {
+		return d.Command
+	}
 	return r.DefaultCommand
 }
 
@@ -358,12 +384,20 @@ func (r *Reconciler) workspaceStorageClass(agent *agentsv1.Agent) string {
 	if agent.Spec.Runtime != nil && agent.Spec.Runtime.StorageClass != "" {
 		return agent.Spec.Runtime.StorageClass
 	}
+	if d := r.loadDefaults(); d.StorageClass != "" {
+		return d.StorageClass
+	}
 	return r.StorageClass
 }
 
 func (r *Reconciler) workspaceSize(agent *agentsv1.Agent) resource.Quantity {
 	if agent.Spec.Runtime != nil && agent.Spec.Runtime.WorkspaceSize != nil {
 		return *agent.Spec.Runtime.WorkspaceSize
+	}
+	if d := r.loadDefaults(); d.WorkspaceSize != "" {
+		if q, err := resource.ParseQuantity(d.WorkspaceSize); err == nil {
+			return q
+		}
 	}
 	return resource.MustParse(defaultWorkspaceSize)
 }
