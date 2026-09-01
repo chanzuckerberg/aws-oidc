@@ -78,7 +78,7 @@ func init() {
 	operatorCmd.Flags().StringToString(flagRoleTags, nil, "Standard tags applied to every agent role (for example project=agent-registry,env=rdev,service=aws-oidc)")
 	operatorCmd.Flags().String(flagClusterOIDCProvider, "", "EKS cluster OIDC issuer without scheme (for example oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE); empty means agents do not run in the cluster")
 	operatorCmd.Flags().String(flagAgentImage, "", "Container image an agent thread runs when the agent does not name one")
-	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
+	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"agent-entrypoint"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
 	operatorCmd.Flags().String(flagAgentStorageClass, "efs-agent-workspaces", "Storage class for the per-agent workspace PVC; must be a ReadWriteMany class backed by the EFS CSI driver")
 	operatorCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
 	operatorCmd.Flags().String(flagAnthropicFederationRuleID, os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"), "Anthropic WIF federation rule ID (fdrl_...); when set with the other three anthropic flags, every thread pod receives a Claude WIF token and the four ANTHROPIC_* env vars")
