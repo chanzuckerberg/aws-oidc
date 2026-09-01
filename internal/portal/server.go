@@ -45,6 +45,9 @@ type Config struct {
 	// AgentRuntime offers the option of running an agent's threads as pods. It is off unless
 	// the operator can actually run them, so the form does not promise what it cannot deliver.
 	AgentRuntime bool
+	// AgentTailscale offers the Tailscale page. Off unless the operator is configured for
+	// tailnet enrollment, so the nav item is not shown in environments without tailscale.
+	AgentTailscale bool
 	// Limits caps the sizing an owner may ask for. Unset fields fall back to defaults.
 	Limits AgentLimits
 	// Namespace is the Kubernetes namespace the operator and agent pods run in. It is shown
@@ -83,8 +86,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.handleList)
 	mux.HandleFunc("GET /agents/new", s.handleNew)
 	mux.HandleFunc("POST /agents", s.handleCreate)
-	mux.HandleFunc("GET /agents/{name}", s.handleView)
-	mux.HandleFunc("POST /agents/{name}", s.handleUpdate)
+	mux.HandleFunc("GET /agents/{name}", s.handleGeneral)
+	mux.HandleFunc("POST /agents/{name}", s.handleUpdateGeneral)
+	mux.HandleFunc("GET /agents/{name}/aws", s.handleAWS)
+	mux.HandleFunc("POST /agents/{name}/aws", s.handleUpdateAWS)
+	mux.HandleFunc("GET /agents/{name}/tailscale", s.handleTailscale)
+	mux.HandleFunc("POST /agents/{name}/tailscale", s.handleUpdateTailscale)
+	mux.HandleFunc("GET /agents/{name}/runtime", s.handleRuntime)
+	mux.HandleFunc("POST /agents/{name}/runtime", s.handleUpdateRuntime)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
 	mux.HandleFunc("GET /agents/{name}/threads", s.handleThreadsView)
 	mux.HandleFunc("POST /agents/{name}/threads", s.handleSpawnThread)
@@ -156,10 +165,14 @@ type pageData struct {
 	Checked      map[string]bool
 	Action       string
 	Error        string
-	// RuntimeOffered mirrors Config.AgentRuntime, so the form hides the section entirely in an
-	// environment where agents do not run in the cluster.
+	// Nav is the active sidebar item (general, aws, tailscale, runtime, threads).
+	Nav string
+	// RuntimeOffered mirrors Config.AgentRuntime.
 	RuntimeOffered bool
-	Runtime        runtimeForm
+	// TailscaleOffered mirrors Config.AgentTailscale.
+	TailscaleOffered bool
+	Runtime          runtimeForm
+	TailscaleForm    tailscaleForm
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
@@ -191,19 +204,7 @@ func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ent, err := s.entitlements(r.Context(), user.Sub)
-	if err != nil {
-		s.fail(w, "resolving entitlements", err)
-		return
-	}
-	s.render(w, "form", pageData{
-		Title:        "Register agent",
-		User:         user,
-		Entitlements: ent,
-		Checked:      map[string]bool{},
-		Action:       "/agents",
-		Runtime:      runtimeFromAgent(nil, s.limits()),
-	})
+	s.render(w, "form", pageData{Title: "Register agent", User: user})
 }
 
 func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
@@ -219,21 +220,11 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ent, err := s.entitlements(ctx, user.Sub)
-	if err != nil {
-		s.fail(w, "resolving entitlements", err)
-		return
+	renderErr := func(msg string) {
+		s.render(w, "form", pageData{Title: "Register agent", User: user, Error: msg})
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
-	renderErr := func(msg string) {
-		s.render(w, "form", pageData{
-			Title: "Register agent", User: user, Entitlements: ent,
-			Checked: checkedFromForm(r), Action: "/agents", Error: msg,
-			Runtime: runtimeFromForm(r, s.limits()),
-		})
-	}
-
 	if !agentNameRe.MatchString(name) {
 		renderErr("Name must be non-empty and use only letters, numbers, dashes, or underscores.")
 		return
@@ -249,27 +240,17 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	grants, err := parseGrants(r, ent)
-	if err != nil {
-		renderErr(err.Error())
-		return
-	}
-
-	runtime, threads, err := s.parseAgentRuntime(r, nil)
-	if err != nil {
-		renderErr(err.Error())
-		return
+	displayName := strings.TrimSpace(r.FormValue("display-name"))
+	if displayName == "" {
+		displayName = name
 	}
 
 	agent := &agentsv1.Agent{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: agentsv1.AgentSpec{
-			DisplayName: name,
+			DisplayName: displayName,
 			Owner:       user.Sub,
 			OwnerEmail:  user.Email,
-			Grants:      grants,
-			Runtime:     runtime,
-			Threads:     threads,
 		},
 	}
 	err = s.cfg.Store.Upsert(ctx, agent)
@@ -278,84 +259,234 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.redirect(w, r, "/")
+	s.redirect(w, r, "/agents/"+name+"/aws")
 }
 
-func (s *Server) handleView(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGeneral(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
 		return
 	}
-	ctx := r.Context()
-
 	agent, ok := s.ownedAgent(w, r, user)
 	if !ok {
 		return
 	}
-
-	// Bound the choices by the owner's access, not the (possibly admin) editor's.
-	ent, err := s.entitlements(ctx, agent.Spec.Owner)
-	if err != nil {
-		s.fail(w, "resolving entitlements", err)
-		return
-	}
-
-	s.render(w, "form", pageData{
-		Title:        "Edit " + agent.Name,
-		User:         user,
-		Agent:        agent,
-		Entitlements: ent,
-		Checked:      checkedFromAgent(agent),
-		Action:       "/agents/" + agent.Name,
-		Runtime:      runtimeFromAgent(agent, s.limits()),
+	s.render(w, "agent_general", pageData{
+		Title: "Edit " + agent.Name,
+		User:  user,
+		Agent: agent,
+		Nav:   "general",
 	})
 }
 
-func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateGeneral(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
 		return
 	}
-	ctx := r.Context()
-
 	agent, ok := s.ownedAgent(w, r, user)
 	if !ok {
 		return
 	}
-
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
+	displayName := strings.TrimSpace(r.FormValue("display-name"))
+	if displayName == "" {
+		displayName = agent.Name
+	}
+	agent.Spec.DisplayName = displayName
+	err = s.cfg.Store.Upsert(r.Context(), agent)
+	if err != nil {
+		s.fail(w, "updating agent", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name)
+}
 
+func (s *Server) handleAWS(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	ent, err := s.entitlements(r.Context(), agent.Spec.Owner)
+	if err != nil {
+		s.fail(w, "resolving entitlements", err)
+		return
+	}
+	s.render(w, "agent_aws", pageData{
+		Title:        "AWS access — " + agent.Name,
+		User:         user,
+		Agent:        agent,
+		Nav:          "aws",
+		Entitlements: ent,
+		Checked:      checkedFromAgent(agent),
+	})
+}
+
+func (s *Server) handleUpdateAWS(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
 	ent, err := s.entitlements(ctx, agent.Spec.Owner)
 	if err != nil {
 		s.fail(w, "resolving entitlements", err)
 		return
 	}
-
 	renderErr := func(msg string) {
-		s.render(w, "form", pageData{
-			Title: "Edit " + agent.Name, User: user, Agent: agent, Entitlements: ent,
-			Checked: checkedFromForm(r), Action: "/agents/" + agent.Name, Error: msg,
-			Runtime: runtimeFromForm(r, s.limits()),
+		s.render(w, "agent_aws", pageData{
+			Title: "AWS access — " + agent.Name, User: user, Agent: agent, Nav: "aws",
+			Entitlements: ent, Checked: checkedFromForm(r), Error: msg,
 		})
 	}
-
 	grants, err := parseGrants(r, ent)
 	if err != nil {
 		renderErr(err.Error())
 		return
 	}
+	agent.Spec.Grants = grants
+	err = s.cfg.Store.Upsert(ctx, agent)
+	if err != nil {
+		s.fail(w, "updating agent", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/aws")
+}
 
+func (s *Server) handleTailscale(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.AgentTailscale {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	s.render(w, "agent_tailscale", pageData{
+		Title:         "Tailscale — " + agent.Name,
+		User:          user,
+		Agent:         agent,
+		Nav:           "tailscale",
+		TailscaleForm: tailscaleFormFromAgent(agent),
+	})
+}
+
+func (s *Server) handleUpdateTailscale(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.AgentTailscale {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	renderErr := func(msg string) {
+		s.render(w, "agent_tailscale", pageData{
+			Title: "Tailscale — " + agent.Name, User: user, Agent: agent, Nav: "tailscale",
+			TailscaleForm: tailscaleFormFromAgent(agent), Error: msg,
+		})
+	}
+	if r.FormValue("tailscale") == "on" {
+		sshUser, err := deriveTailscaleUser(agent.Spec.OwnerEmail)
+		if err != nil {
+			renderErr(err.Error())
+			return
+		}
+		agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: sshUser}
+	} else {
+		agent.Spec.Tailscale = nil
+	}
+	err = s.cfg.Store.Upsert(ctx, agent)
+	if err != nil {
+		s.fail(w, "updating agent", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/tailscale")
+}
+
+func (s *Server) handleRuntime(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.AgentRuntime {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	s.render(w, "agent_runtime", pageData{
+		Title:   "Runtime — " + agent.Name,
+		User:    user,
+		Agent:   agent,
+		Nav:     "runtime",
+		Runtime: runtimeFromAgent(agent, s.limits()),
+	})
+}
+
+func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
+	if !s.cfg.AgentRuntime {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	renderErr := func(msg string) {
+		s.render(w, "agent_runtime", pageData{
+			Title: "Runtime — " + agent.Name, User: user, Agent: agent, Nav: "runtime",
+			Runtime: runtimeFromForm(r, s.limits()), Error: msg,
+		})
+	}
 	runtime, threads, err := s.parseAgentRuntime(r, agent)
 	if err != nil {
 		renderErr(err.Error())
 		return
 	}
-
-	agent.Spec.Grants = grants
 	agent.Spec.Runtime = runtime
 	agent.Spec.Threads = threads
 	err = s.cfg.Store.Upsert(ctx, agent)
@@ -363,8 +494,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "updating agent", err)
 		return
 	}
-
-	s.redirect(w, r, "/")
+	s.redirect(w, r, "/agents/"+agent.Name+"/runtime")
 }
 
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
@@ -399,6 +529,7 @@ func (s *Server) handleThreadsView(w http.ResponseWriter, r *http.Request) {
 		Title: "Threads — " + agent.Name,
 		User:  user,
 		Agent: agent,
+		Nav:   "threads",
 	})
 }
 
@@ -421,7 +552,7 @@ func (s *Server) handleSpawnThread(w http.ResponseWriter, r *http.Request) {
 	renderErr := func(msg string) {
 		s.render(w, "threads", pageData{
 			Title: "Threads — " + agent.Name,
-			User:  user, Agent: agent, Error: msg,
+			User:  user, Agent: agent, Nav: "threads", Error: msg,
 		})
 	}
 
@@ -615,6 +746,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
 	data.BasePath = s.basePath
 	data.Namespace = s.cfg.Namespace
 	data.RuntimeOffered = s.cfg.AgentRuntime
+	data.TailscaleOffered = s.cfg.AgentTailscale
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {

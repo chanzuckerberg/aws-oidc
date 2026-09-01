@@ -1,81 +1,26 @@
 {{define "form"}}{{template "head" .}}
-  <h1>{{if .Agent}}Edit agent: {{.Agent.Name}}{{else}}Register new agent{{end}}</h1>
+<div class="page-full">
+  <h1>Register new agent</h1>
   {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
 
-  <form method="post" action="{{.BasePath}}{{.Action}}">
-    {{if not .Agent}}
-    <p><label>Name <input name="name" required pattern="[a-zA-Z0-9_-]+" placeholder="my-agent"></label></p>
-    {{end}}
-
-    <p class="muted">Select the access to grant. You can only grant access you already have.</p>
-
-    {{range .Entitlements.Accounts}}
-    {{$acct := .}}
-    <fieldset>
-      <legend>{{.Label}} <span class="muted">({{.ID}})</span></legend>
-      {{range .Roles}}
-      <label class="grant">
-        <input type="checkbox" name="grant" value="{{$acct.ID}}|{{.RoleARN}}"
-          {{if index $.Checked (printf "%s|%s" $acct.ID .RoleARN)}}checked{{end}}>
-        {{.RoleName}}
-      </label>
-      {{end}}
-    </fieldset>
-    {{else}}
-    <p class="muted">You have no AWS access to grant.</p>
-    {{end}}
-
-    {{if .RuntimeOffered}}
-    {{with .Runtime}}
-    <fieldset>
-      <legend>Run in the cluster</legend>
-      <label class="grant">
-        <input type="checkbox" name="runtime" value="on" {{if .Enabled}}checked{{end}}>
-        Run this agent as pods in the cluster
-      </label>
-      <p class="muted">
-        Each thread gets its own pod and its own persistent workspace, and assumes the access
-        granted above. Sizing applies to every thread. Manage threads from the agent list.
-      </p>
-
-      <p class="sizing">
-        <label>CPU <input name="cpu" value="{{.CPU}}" placeholder="500m" size="8"></label>
-        <label>Memory <input name="memory" value="{{.Memory}}" placeholder="1Gi" size="8"></label>
-        <span class="muted">up to {{.Limits.MaxCPU}} CPU, {{.Limits.MaxMemory}} memory</span>
-      </p>
-
-      <p class="sizing">
-        <label>Workspace <input name="workspace-size" value="{{.WorkspaceSize}}" placeholder="50Gi" size="8"></label>
-        <span class="muted">up to {{.Limits.MaxWorkspace}}</span>
-      </p>
-
+  <div class="card" style="max-width:480px;">
+    <form method="post" action="{{.BasePath}}/agents">
       <p>
-        <label>Image
-          <input name="image" value="{{.Image}}" placeholder="default" style="width:32rem">
+        <label>Name<br>
+          <input name="name" required pattern="[a-zA-Z0-9_-]+" placeholder="my-agent" size="32" autofocus>
+        </label>
+        <p class="hint">Letters, numbers, dashes and underscores only.</p>
+      </p>
+      <p>
+        <label>Display name (optional)<br>
+          <input name="display-name" placeholder="My Agent" size="32">
         </label>
       </p>
-
       <p>
-        <label>Storage class
-          <input name="storage-class" value="{{.StorageClass}}" placeholder="efs-agent-workspaces" size="28">
-        </label>
+        <button class="btn primary" type="submit">Create agent</button>
+        <a class="btn" href="{{.BasePath}}/">Cancel</a>
       </p>
-    </fieldset>
-    {{end}}
-    {{end}}
-
-    <p>
-      <button class="btn primary" type="submit">Save</button>
-      <a class="btn" href="{{.BasePath}}/">Cancel</a>
-    </p>
-  </form>
-
-  {{if .Agent}}
-  {{if .RuntimeOffered}}
-  <p><a class="btn" href="{{.BasePath}}/agents/{{.Agent.Name}}/threads">Manage threads →</a></p>
-  {{end}}
-  <form class="inline" method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/delete" onsubmit="return confirm('Delete {{.Agent.Name}}?');">
-    <button class="btn danger" type="submit">Delete agent</button>
-  </form>
-  {{end}}
+    </form>
+  </div>
+</div>
 {{template "foot" .}}{{end}}

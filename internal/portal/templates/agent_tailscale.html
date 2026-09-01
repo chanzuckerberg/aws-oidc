@@ -1,0 +1,35 @@
+{{define "agent_tailscale"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div class="card">
+      <h1>Tailscale</h1>
+      {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+      <p class="muted">
+        Enroll this agent's thread pods in the tailnet. The agent will authenticate using its
+        Kubernetes service-account OIDC token and advertise as <code>tag:mantis-shrimp</code>.
+      </p>
+
+      <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/tailscale">
+        <fieldset>
+          <legend>Tailnet access</legend>
+          <label class="grant">
+            <input type="checkbox" name="tailscale" value="on" {{if .TailscaleForm.Enabled}}checked{{end}}>
+            Enroll this agent in the tailnet
+          </label>
+
+          <p style="margin-top:.75rem;">
+            <label>Run as user<br>
+              <input type="text" name="ssh-user" value="{{.TailscaleForm.SSHUser}}" disabled size="28">
+            </label>
+            <p class="hint">Fixed to the owner's email local part. Root is not allowed.</p>
+          </p>
+        </fieldset>
+        <p>
+          <button class="btn primary" type="submit">Save</button>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}

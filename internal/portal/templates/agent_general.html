@@ -1,0 +1,29 @@
+{{define "agent_general"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div>
+      <div class="card">
+        <h1>{{.Agent.Name}}</h1>
+        {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+        <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}">
+          <p><label>Display name<br>
+            <input name="display-name" value="{{.Agent.Spec.DisplayName}}" placeholder="{{.Agent.Name}}" size="40">
+          </label></p>
+          <p class="muted">Owner: {{if .Agent.Spec.OwnerEmail}}{{.Agent.Spec.OwnerEmail}}{{else}}{{.Agent.Spec.Owner}}{{end}}</p>
+          <p>
+            <button class="btn primary" type="submit">Save</button>
+          </p>
+        </form>
+      </div>
+      <div class="card" style="margin-top:1rem;border-color:#f0c0c0;">
+        <h2 style="margin-top:0;color:#b00020;">Danger zone</h2>
+        <form class="inline" method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/delete"
+          onsubmit="return confirm('Delete {{.Agent.Name}} and all its threads?');">
+          <button class="btn danger" type="submit">Delete agent</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}

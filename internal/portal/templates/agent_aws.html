@@ -1,0 +1,33 @@
+{{define "agent_aws"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div class="card">
+      <h1>AWS access</h1>
+      {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+      <p class="muted">Select the AWS roles to grant. You can only grant access you already have.</p>
+
+      <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/aws">
+        {{range .Entitlements.Accounts}}
+        {{$acct := .}}
+        <fieldset>
+          <legend>{{.Label}} <span class="muted">({{.ID}})</span></legend>
+          {{range .Roles}}
+          <label class="grant">
+            <input type="checkbox" name="grant" value="{{$acct.ID}}|{{.RoleARN}}"
+              {{if index $.Checked (printf "%s|%s" $acct.ID .RoleARN)}}checked{{end}}>
+            {{.RoleName}}
+          </label>
+          {{end}}
+        </fieldset>
+        {{else}}
+        <p class="muted">You have no AWS access to grant.</p>
+        {{end}}
+        <p>
+          <button class="btn primary" type="submit">Save</button>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}

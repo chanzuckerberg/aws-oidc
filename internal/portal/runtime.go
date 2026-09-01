@@ -12,6 +12,38 @@ import (
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
 
+// tailscaleForm carries the state for the Tailscale page.
+type tailscaleForm struct {
+	Enabled bool
+	SSHUser string
+}
+
+// tailscaleFormFromAgent builds the Tailscale form state from a stored agent.
+func tailscaleFormFromAgent(agent *agentsv1.Agent) tailscaleForm {
+	if agent == nil || agent.Spec.Tailscale == nil {
+		return tailscaleForm{}
+	}
+	return tailscaleForm{
+		Enabled: true,
+		SSHUser: agent.Spec.Tailscale.SSHUser,
+	}
+}
+
+// deriveTailscaleUser returns the email local part to use as the SSH username. It rejects
+// empty values and "root".
+func deriveTailscaleUser(email string) (string, error) {
+	local, _, _ := strings.Cut(email, "@")
+	local, _, _ = strings.Cut(local, "+")
+	local = strings.TrimSpace(local)
+	if local == "" {
+		return "", fmt.Errorf("cannot determine SSH user: owner email is empty or malformed")
+	}
+	if local == "root" {
+		return "", fmt.Errorf("root is not allowed as the SSH user")
+	}
+	return local, nil
+}
+
 // threadNameRe matches the CRD's thread name pattern, so the portal rejects a bad name with a
 // message instead of surfacing an API server validation error.
 var threadNameRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)

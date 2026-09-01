@@ -1,66 +1,71 @@
 {{define "threads"}}{{template "head" .}}
-<h1>Threads — {{.Agent.Name}}</h1>
-{{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div>
+      <div class="card">
+        <h1>Threads</h1>
+        {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
 
-<p>
-  <a class="btn" href="{{.BasePath}}/agents/{{.Agent.Name}}">← Edit agent</a>
-</p>
+        {{$ns := .Namespace}}
+        {{$agent := .Agent}}
+        {{$base := .BasePath}}
 
-{{$ns := .Namespace}}
-{{$agent := .Agent}}
-{{$base := .BasePath}}
+        {{if .Agent.Status.Threads}}
+        <table>
+          <tr>
+            <th>Thread</th>
+            <th>State</th>
+            <th>Connect</th>
+            <th></th>
+          </tr>
+          {{range .Agent.Status.Threads}}
+          {{$tname := .Name}}
+          {{$suspended := false}}
+          {{range $agent.Spec.Threads}}{{if eq .Name $tname}}{{if .Suspended}}{{$suspended = true}}{{end}}{{end}}{{end}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>
+              {{if .State}}{{.State}}{{else}}<span class="muted">—</span>{{end}}
+              {{if .Message}}<br><span class="muted">{{.Message}}</span>{{end}}
+            </td>
+            <td>
+              {{if eq (print .State) "Running"}}
+              <details>
+                <summary class="btn">Connect</summary>
+                <div class="connect-panel">
+                  <code>kubectl exec -it -n {{$ns}} {{.StatefulSetName}}-0 -- claude</code>
+                </div>
+              </details>
+              {{else}}<span class="muted">not running</span>{{end}}
+            </td>
+            <td class="actions">
+              <form class="inline" method="post" action="{{$base}}/agents/{{$agent.Name}}/threads/{{.Name}}/suspend">
+                <button class="btn" type="submit">{{if $suspended}}Resume{{else}}Suspend{{end}}</button>
+              </form>
+              <form class="inline" method="post" action="{{$base}}/agents/{{$agent.Name}}/threads/{{.Name}}/delete"
+                onsubmit="return confirm('Delete thread {{.Name}} and its workspace?');">
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </table>
+        {{else}}
+        <p class="muted">No threads running yet. Spawn one below.</p>
+        {{end}}
 
-{{if .Agent.Status.Threads}}
-<table>
-  <tr>
-    <th>Thread</th>
-    <th>State</th>
-    <th>Connect</th>
-    <th></th>
-  </tr>
-  {{range .Agent.Status.Threads}}
-  {{$tname := .Name}}
-  {{$suspended := false}}
-  {{range $agent.Spec.Threads}}{{if eq .Name $tname}}{{if .Suspended}}{{$suspended = true}}{{end}}{{end}}{{end}}
-  <tr>
-    <td>{{.Name}}</td>
-    <td>
-      {{if .State}}{{.State}}{{else}}<span class="muted">—</span>{{end}}
-      {{if .Message}}<br><span class="muted">{{.Message}}</span>{{end}}
-    </td>
-    <td>
-      {{if eq (print .State) "Running"}}
-      <details>
-        <summary class="btn">Connect</summary>
-        <div class="connect-panel">
-          <code>kubectl exec -it -n {{$ns}} {{.StatefulSetName}}-0 -- claude</code>
-        </div>
-      </details>
-      {{else}}<span class="muted">not running</span>{{end}}
-    </td>
-    <td class="actions">
-      <form class="inline" method="post" action="{{$base}}/agents/{{$agent.Name}}/threads/{{.Name}}/suspend">
-        <button class="btn" type="submit">{{if $suspended}}Resume{{else}}Suspend{{end}}</button>
-      </form>
-      <form class="inline" method="post" action="{{$base}}/agents/{{$agent.Name}}/threads/{{.Name}}/delete"
-        onsubmit="return confirm('Delete thread {{.Name}} and its workspace?');">
-        <button class="btn danger" type="submit">Delete</button>
-      </form>
-    </td>
-  </tr>
-  {{end}}
-</table>
-{{else}}
-<p class="muted">No threads running yet. Spawn one below.</p>
-{{end}}
-
-<h2>Spawn a thread</h2>
-<form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/threads">
-  <p>
-    <label>Name
-      <input name="new-thread" required pattern="[a-z0-9]([-a-z0-9]*[a-z0-9])?" maxlength="24" placeholder="review">
-    </label>
-    <button class="btn primary" type="submit">Spawn</button>
-  </p>
-</form>
+        <h2>Spawn a thread</h2>
+        <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/threads">
+          <p>
+            <label>Name
+              <input name="new-thread" required pattern="[a-z0-9]([-a-z0-9]*[a-z0-9])?" maxlength="24" placeholder="review">
+            </label>
+            <button class="btn primary" type="submit">Spawn</button>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 {{template "foot" .}}{{end}}
