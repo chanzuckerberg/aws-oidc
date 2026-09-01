@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-managed-settings
+  namespace: {{ .Release.Namespace }}
+data:
+  managed-settings.json: |
+{{ (.Files.Get "docker/agent/managed-settings.json") | indent 4 }}
+  ssh-guard.sh: |
+{{ (.Files.Get "docker/agent/ssh-guard.sh") | indent 4 }}
