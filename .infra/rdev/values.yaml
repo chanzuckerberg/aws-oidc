@@ -5,7 +5,7 @@
 # The Helm template for agent-defaults.yaml composes repository + tag into the full image ref.
 agentImage:
   repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent
-  tag: &agent-image sha-ad6884c
+  tag: &agent-image sha-e141c7d
 
 stack:
   global:
@@ -16,7 +16,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-ad6884c
+        tag: sha-e141c7d
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -33,7 +33,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-ad6884c
+        tag: sha-e141c7d
       serviceAccount:
         create: true
         name: portal
@@ -100,7 +100,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-ad6884c
+        tag: sha-e141c7d
       serviceAccount:
         create: true
         name: agent-operator
@@ -146,6 +146,13 @@ stack:
           value: svac_01EpQjQEhcsene64iA8AkyGZ
         - name: ANTHROPIC_TOKEN_AUDIENCE
           value: https://api.anthropic.com
+        # The shared GitHub App agents clone and open pull requests as. Neither id is a
+        # secret. The private key is not here: it reaches the operator as
+        # GITHUB_APP_PRIVATE_KEY, set with `argus set secret`.
+        - name: GITHUB_APP_ID
+          value: "4783816"
+        - name: GITHUB_APP_INSTALLATION_ID
+          value: "158028824"
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
         enabled: false

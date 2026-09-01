@@ -3,6 +3,7 @@ package agentpod
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -144,6 +145,13 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 			ReadOnly:  true,
 		})
 	}
+	if r.githubAppConfigured() {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      githubAppKeyVolume,
+			MountPath: githubAppKeyMountPath,
+			ReadOnly:  true,
+		})
+	}
 	return mounts
 }
 
@@ -198,6 +206,21 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 			},
 		})
 	}
+	if r.githubAppConfigured() {
+		vols = append(vols, corev1.Volume{
+			Name: githubAppKeyVolume,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  r.GitHubAppPrivateKeySecret,
+					DefaultMode: ptr(githubAppKeyMode),
+					Items: []corev1.KeyToPath{{
+						Key:  githubAppKeyFileName,
+						Path: githubAppKeyFileName,
+					}},
+				},
+			},
+		})
+	}
 	return vols
 }
 
@@ -217,6 +240,15 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 		{Name: "AGENT_THREAD", Value: thread.Name},
 		{Name: "AGENT_OWNER_EMAIL", Value: agent.Spec.OwnerEmail},
 	}
+	if agent.Spec.OwnerEmail != "" {
+		name := gitIdentityName(agent)
+		env = append(env,
+			corev1.EnvVar{Name: "GIT_AUTHOR_NAME", Value: name},
+			corev1.EnvVar{Name: "GIT_AUTHOR_EMAIL", Value: agent.Spec.OwnerEmail},
+			corev1.EnvVar{Name: "GIT_COMMITTER_NAME", Value: name},
+			corev1.EnvVar{Name: "GIT_COMMITTER_EMAIL", Value: agent.Spec.OwnerEmail},
+		)
+	}
 	if r.anthropicWIFConfigured() {
 		env = append(env,
 			corev1.EnvVar{Name: "ANTHROPIC_IDENTITY_TOKEN_FILE", Value: anthropicTokenFilePath},
@@ -224,6 +256,16 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 			corev1.EnvVar{Name: "ANTHROPIC_ORGANIZATION_ID", Value: r.AnthropicOrganizationID},
 			corev1.EnvVar{Name: "ANTHROPIC_SERVICE_ACCOUNT_ID", Value: r.AnthropicServiceAccountID},
 		)
+	}
+	if r.githubAppConfigured() {
+		env = append(env,
+			corev1.EnvVar{Name: "GITHUB_APP_ID", Value: r.GitHubAppID},
+			corev1.EnvVar{Name: "GITHUB_APP_INSTALLATION_ID", Value: r.GitHubAppInstallationID},
+			corev1.EnvVar{Name: "GITHUB_APP_PRIVATE_KEY_FILE", Value: githubAppKeyFilePath},
+		)
+		if r.GitHubAPIURL != "" {
+			env = append(env, corev1.EnvVar{Name: "GITHUB_API_URL", Value: r.GitHubAPIURL})
+		}
 	}
 
 	reserved := make(map[string]bool, len(env))
@@ -239,6 +281,15 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 	return env
 }
 
+// gitIdentityName is the name on every commit a thread makes, for example
+// "jheath's agent (reviewer)". A commit has to name the person accountable for it, and the
+// agent is not that person, so the identity names both: whose agent it is, and which one.
+func gitIdentityName(agent *agentsv1.Agent) string {
+	owner, _, _ := strings.Cut(agent.Spec.OwnerEmail, "@")
+	owner, _, _ = strings.Cut(owner, "+")
+	return fmt.Sprintf("%s's agent (%s)", owner, agent.Name)
+}
+
 // anthropicWIFConfigured reports whether the operator has all four fields needed to project
 // an Anthropic token into pods.
 func (r *Reconciler) anthropicWIFConfigured() bool {
@@ -246,6 +297,14 @@ func (r *Reconciler) anthropicWIFConfigured() bool {
 		r.AnthropicOrganizationID != "" &&
 		r.AnthropicServiceAccountID != "" &&
 		r.AnthropicTokenAudience != ""
+}
+
+// githubAppConfigured reports whether the operator has everything needed to give a thread the
+// GitHub App's identity.
+func (r *Reconciler) githubAppConfigured() bool {
+	return r.GitHubAppID != "" &&
+		r.GitHubAppInstallationID != "" &&
+		r.GitHubAppPrivateKeySecret != ""
 }
 
 // equalStatefulSets compares the parts of a set this reconciler owns, so a steady-state
