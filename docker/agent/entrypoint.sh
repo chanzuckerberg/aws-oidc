@@ -7,7 +7,11 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
     log "tailscale token found at ${TAILSCALE_TOKEN_FILE}"
 
     log "starting tailscaled (userspace-networking)"
-    tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
+    tailscaled \
+        --tun=userspace-networking \
+        --socks5-server=localhost:1055 \
+        --state=mem: \
+        &
     TAILSCALED_PID=$!
     log "tailscaled started (pid=${TAILSCALED_PID})"
 
