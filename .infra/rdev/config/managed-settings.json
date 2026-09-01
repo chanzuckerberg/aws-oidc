@@ -1,0 +1,39 @@
+{
+  "allowManagedHooksOnly": true,
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /etc/claude-code/ssh-guard.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
+  "effortLevel": "high",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true,
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_TRACES_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": "cumulative",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "https://alloy-otlp.dev-central-o11y.dev.czi.team",
+    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Basic YWxsb3ktb3RscDpUNUhkSVE3SUMvQ0UwYzliQjFrajVkRmg1YlhSTnVtQg==",
+    "OTEL_METRIC_EXPORT_INTERVAL": "10000",
+    "OTEL_LOG_USER_PROMPTS": "1",
+    "OTEL_LOG_TOOL_DETAILS": "1",
+    "OTEL_LOG_TOOL_CONTENT": "1",
+    "OTEL_LOG_RAW_API_BODIES": "0"
+  }
+}
