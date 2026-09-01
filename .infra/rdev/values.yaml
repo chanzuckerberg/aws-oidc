@@ -164,7 +164,7 @@ stack:
         # (Settings > OAuth clients); fill in the real id before deploying.
         # Format: api.tailscale.com/<oidc-client-id>
         - name: TAILSCALE_TOKEN_AUDIENCE
-          value: "api.tailscale.com/<PLACEHOLDER-agent-oidc-client-id>"
+          value: "api.tailscale.com/TjHt1v2bSH11CNTRL-kz7ofAGpBJ11CNTRL"
         - name: TAILSCALE_TAG
           value: "tag:mantis-shrimp"
       # The operator serves no traffic; it only needs the health endpoint.

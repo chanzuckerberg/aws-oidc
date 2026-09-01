@@ -383,12 +383,18 @@ func (s *Server) handleTailscale(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	tf := tailscaleFormFromAgent(agent)
+	if tf.SSHUser == "" {
+		if derived, err := deriveTailscaleUser(agent.Spec.OwnerEmail); err == nil {
+			tf.SSHUser = derived
+		}
+	}
 	s.render(w, "agent_tailscale", pageData{
 		Title:         "Tailscale — " + agent.Name,
 		User:          user,
 		Agent:         agent,
 		Nav:           "tailscale",
-		TailscaleForm: tailscaleFormFromAgent(agent),
+		TailscaleForm: tf,
 	})
 }
 
