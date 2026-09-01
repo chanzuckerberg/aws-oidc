@@ -3,7 +3,9 @@ set -euo pipefail
 
 log() { echo "[entrypoint] $*" >&2; }
 
-TS_SOCKET=/tmp/tailscale/tailscaled.sock
+# TS_SOCKET is injected by the operator when Tailscale is enabled so that every
+# tailscale CLI call in this script and in kubectl exec sessions finds the socket.
+TS_SOCKET="${TS_SOCKET:-/tmp/tailscale/tailscaled.sock}"
 
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
     log "tailscale token found at ${TAILSCALE_TOKEN_FILE}"
