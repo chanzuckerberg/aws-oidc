@@ -152,6 +152,20 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 			ReadOnly:  true,
 		})
 	}
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      tailscaleTokenVolume,
+			MountPath: tailscaleTokenMountPath,
+			ReadOnly:  true,
+		})
+	}
+	if r.ManagedSettingsConfigMap != "" {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      managedSettingsVolume,
+			MountPath: managedSettingsMountPath,
+			ReadOnly:  true,
+		})
+	}
 	return mounts
 }
 
@@ -221,6 +235,33 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 			},
 		})
 	}
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		vols = append(vols, corev1.Volume{
+			Name: tailscaleTokenVolume,
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Audience:          r.TailscaleTokenAudience,
+							ExpirationSeconds: ptr(tailscaleTokenExpirationSecs),
+							Path:              "token",
+						},
+					}},
+				},
+			},
+		})
+	}
+	if r.ManagedSettingsConfigMap != "" {
+		vols = append(vols, corev1.Volume{
+			Name: managedSettingsVolume,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: r.ManagedSettingsConfigMap},
+					DefaultMode:          ptr(managedSettingsMode),
+				},
+			},
+		})
+	}
 	return vols
 }
 
@@ -267,6 +308,13 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 			env = append(env, corev1.EnvVar{Name: "GITHUB_API_URL", Value: r.GitHubAPIURL})
 		}
 	}
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		env = append(env,
+			corev1.EnvVar{Name: "AGENT_SSH_USER", Value: agent.Spec.Tailscale.SSHUser},
+			corev1.EnvVar{Name: "TAILSCALE_TAG", Value: r.TailscaleTag},
+			corev1.EnvVar{Name: "TAILSCALE_TOKEN_FILE", Value: tailscaleTokenFilePath},
+		)
+	}
 
 	reserved := make(map[string]bool, len(env))
 	for _, e := range env {
@@ -305,6 +353,11 @@ func (r *Reconciler) githubAppConfigured() bool {
 	return r.GitHubAppID != "" &&
 		r.GitHubAppInstallationID != "" &&
 		r.GitHubAppPrivateKeySecret != ""
+}
+
+// tailscaleConfigured reports whether the operator can project a tailscale token into pods.
+func (r *Reconciler) tailscaleConfigured() bool {
+	return r.TailscaleTokenAudience != ""
 }
 
 // equalStatefulSets compares the parts of a set this reconciler owns, so a steady-state

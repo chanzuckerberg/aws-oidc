@@ -58,6 +58,10 @@ const (
 	envGitHubAppPrivateKey = "GITHUB_APP_PRIVATE_KEY"
 
 	flagDefaultsConfig = "defaults-config"
+
+	flagTailscaleTokenAudience    = "tailscale-token-audience"
+	flagTailscaleTag              = "tailscale-tag"
+	flagManagedSettingsConfigMap  = "managed-settings-configmap"
 )
 
 func init() {
@@ -85,6 +89,9 @@ func init() {
 	operatorCmd.Flags().String(flagGitHubAppInstallationID, os.Getenv("GITHUB_APP_INSTALLATION_ID"), "Installation ID of that GitHub App on the organization whose repositories agents may reach")
 	operatorCmd.Flags().String(flagGitHubAPIURL, "", "GitHub API base URL; empty means https://api.github.com")
 	operatorCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
+	operatorCmd.Flags().String(flagTailscaleTokenAudience, os.Getenv("TAILSCALE_TOKEN_AUDIENCE"), "Tailscale OIDC audience (api.tailscale.com/<client-id>); when set, thread pods for Tailscale-enabled agents receive a projected token with this audience")
+	operatorCmd.Flags().String(flagTailscaleTag, os.Getenv("TAILSCALE_TAG"), "Tailscale advertise tag (e.g. tag:mantis-shrimp); injected as TAILSCALE_TAG into thread pods")
+	operatorCmd.Flags().String(flagManagedSettingsConfigMap, os.Getenv("MANAGED_SETTINGS_CONFIGMAP"), "Name of the ConfigMap holding managed-settings.json and ssh-guard.sh; when set, mounted at /etc/claude-code in every thread pod")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -192,6 +199,18 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing defaults-config flag: %w", err)
 	}
+	tailscaleTokenAudience, err := cmd.Flags().GetString(flagTailscaleTokenAudience)
+	if err != nil {
+		return fmt.Errorf("missing tailscale-token-audience flag: %w", err)
+	}
+	tailscaleTag, err := cmd.Flags().GetString(flagTailscaleTag)
+	if err != nil {
+		return fmt.Errorf("missing tailscale-tag flag: %w", err)
+	}
+	managedSettingsConfigMap, err := cmd.Flags().GetString(flagManagedSettingsConfigMap)
+	if err != nil {
+		return fmt.Errorf("missing managed-settings-configmap flag: %w", err)
+	}
 
 	// Route controller-runtime's logr logging through the repo's slog logger set up in
 	// PersistentPreRunE, so the operator logs the same way as the rest of the binary.
@@ -293,6 +312,10 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 			GitHubAppInstallationID:   githubAppInstallationID,
 			GitHubAppPrivateKeySecret: githubAppKeySecret,
 			GitHubAPIURL:              githubAPIURL,
+
+			TailscaleTokenAudience:   tailscaleTokenAudience,
+			TailscaleTag:             tailscaleTag,
+			ManagedSettingsConfigMap: managedSettingsConfigMap,
 		})
 	}
 

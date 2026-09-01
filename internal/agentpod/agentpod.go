@@ -95,6 +95,24 @@ const (
 	// githubAppKeyMode is 0440. Secret volume files are owned by root and grouped to the pod's
 	// fsGroup, so group-read is what makes the key readable to uid 1000 and nothing wider.
 	githubAppKeyMode int32 = 0o440
+
+	// tailscaleTokenVolume and tailscaleTokenMountPath are the projected SA token the
+	// entrypoint exchanges for a Tailscale machine key.
+	tailscaleTokenVolume    = "tailscale-token"
+	tailscaleTokenMountPath = "/var/run/secrets/tailscale.com"
+	tailscaleTokenFilePath  = tailscaleTokenMountPath + "/token"
+
+	// tailscaleTokenExpirationSecs is the tailscale token's lifetime. Shorter than the AWS
+	// token so the kubelet rotates it frequently; tailscale up re-reads the file on each
+	// re-enroll which the entrypoint handles on pod startup.
+	tailscaleTokenExpirationSecs int64 = 600
+
+	// managedSettingsVolume mounts the agent-managed-settings ConfigMap at the path Claude
+	// reads as its enterprise-managed settings layer.
+	managedSettingsVolume    = "managed-settings"
+	managedSettingsMountPath = "/etc/claude-code"
+	// managedSettingsMode 0755 makes shell scripts in the ConfigMap executable.
+	managedSettingsMode int32 = 0o755
 )
 
 // Config is the operator-level policy for running agent threads, the same for every agent.
@@ -145,6 +163,17 @@ type Config struct {
 	GitHubAppPrivateKeySecret string
 	// GitHubAPIURL overrides the API endpoint for GitHub Enterprise. Empty means github.com.
 	GitHubAPIURL string
+
+	// TailscaleTokenAudience is the audience placed on the projected service-account token
+	// the entrypoint passes to "tailscale up --id-token". The form is
+	// "api.tailscale.com/<oidc-client-id>". When empty tailscale enrollment is skipped.
+	TailscaleTokenAudience string
+	// TailscaleTag is the tailscale tag the pod advertises (e.g. "tag:mantis-shrimp").
+	TailscaleTag string
+	// ManagedSettingsConfigMap is the name of the ConfigMap holding managed-settings.json
+	// and ssh-guard.sh. When non-empty the ConfigMap is mounted at /etc/claude-code so
+	// Claude picks it up as its enterprise-managed settings layer.
+	ManagedSettingsConfigMap string
 }
 
 // Reconciler drives an agent's threads toward the spec.

@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	flagAgentRuntime          = "agent-runtime"
-	flagAgentMaxCPU           = "agent-max-cpu"
-	flagAgentMaxMemory        = "agent-max-memory"
-	flagAgentDefaultImage     = "agent-default-image"
+	flagAgentRuntime             = "agent-runtime"
+	flagAgentTailscale           = "tailscale"
+	flagAgentMaxCPU              = "agent-max-cpu"
+	flagAgentMaxMemory           = "agent-max-memory"
+	flagAgentDefaultImage        = "agent-default-image"
 	flagAgentDefaultStorageClass = "agent-default-storage-class"
 )
 
@@ -31,6 +32,7 @@ func init() {
 	servePortalCmd.Flags().String(flagConfigMapName, "rolemap", "Name of the ConfigMap to read the rolemap from")
 	servePortalCmd.Flags().String(flagConfigMapKey, "rolemap.yaml", "Key within the ConfigMap that holds the rolemap YAML")
 	servePortalCmd.Flags().Bool(flagAgentRuntime, false, "Offer running an agent's threads as pods in the cluster; set this only where the operator is configured to run them")
+	servePortalCmd.Flags().Bool(flagAgentTailscale, false, "Show the Tailscale page in the agent sidebar; set this only where the operator is configured for tailnet enrollment")
 	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent thread may request")
 	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent thread may request")
 	servePortalCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
@@ -70,6 +72,10 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	agentRuntime, err := cmd.Flags().GetBool(flagAgentRuntime)
 	if err != nil {
 		return fmt.Errorf("missing agent-runtime flag: %w", err)
+	}
+	agentTailscale, err := cmd.Flags().GetBool(flagAgentTailscale)
+	if err != nil {
+		return fmt.Errorf("missing tailscale flag: %w", err)
 	}
 	limits, err := agentLimits(cmd)
 	if err != nil {
@@ -114,6 +120,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		Identity:         identity,
 		BasePath:         os.Getenv("PORTAL_BASE_PATH"),
 		AgentRuntime:     agentRuntime,
+		AgentTailscale:   agentTailscale,
 		Limits:           limits,
 		Namespace:        namespace,
 		DefaultsLoader:   agentdefaults.NewLoader(defaultsConfigPath),
@@ -129,6 +136,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		"namespace", namespace,
 		"rolemap_configmap", rolemapName,
 		"agent_runtime", agentRuntime,
+		"agent_tailscale", agentTailscale,
 	)
 	return http.ListenAndServe(addr, srv.Handler())
 }
