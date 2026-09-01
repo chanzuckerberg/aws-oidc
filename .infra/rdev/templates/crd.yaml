@@ -228,6 +228,21 @@ spec:
                         type: object
                     type: object
                 type: object
+              tailscale:
+                description: |-
+                  Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
+                  owner's email local part. When nil the agent has no tailnet identity.
+                properties:
+                  sshUser:
+                    description: |-
+                      SSHUser is the only Linux username the agent may use when connecting to tailnet devices
+                      over SSH. The portal fixes this to the owner's email local part.
+                    minLength: 1
+                    pattern: ^[a-z_][a-z0-9_-]*$
+                    type: string
+                required:
+                - sshUser
+                type: object
               threads:
                 description: |-
                   Threads is the set of threads to run. Each gets its own pod and workspace. It is a map

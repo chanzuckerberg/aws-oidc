@@ -227,6 +227,37 @@ spec:
                           More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
                         type: object
                     type: object
+                  storageClass:
+                    description: |-
+                      StorageClass overrides the operator's default storage class for the agent's workspace
+                      PVC. Must be a ReadWriteMany class; on EFS the value is a billing-only placeholder and
+                      the filesystem grows without bound.
+                    type: string
+                  workspaceSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: |-
+                      WorkspaceSize is the storage requested for the agent's shared workspace PVC. On EFS
+                      this is a placeholder only; the filesystem is not actually bounded by this value.
+                      Defaults to 50Gi when unset.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                type: object
+              tailscale:
+                description: |-
+                  Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
+                  owner's email local part. When nil the agent has no tailnet identity.
+                properties:
+                  sshUser:
+                    description: |-
+                      SSHUser is the only Linux username the agent may use when connecting to tailnet devices
+                      over SSH. The portal fixes this to the owner's email local part.
+                    minLength: 1
+                    pattern: ^[a-z_][a-z0-9_-]*$
+                    type: string
+                required:
+                - sshUser
                 type: object
               threads:
                 description: |-

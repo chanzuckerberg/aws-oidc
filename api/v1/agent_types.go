@@ -55,6 +55,17 @@ type Grant struct {
 	// MinProperties/MaxProperties markers above.
 }
 
+// TailscaleAccess enrolls the agent's thread pods in the tailnet and pins the SSH login
+// name they may use. Presence of this field means tailnet access is enabled for the agent.
+// The portal derives SSHUser from the owner's email local part and never allows root.
+type TailscaleAccess struct {
+	// SSHUser is the only Linux username the agent may use when connecting to tailnet devices
+	// over SSH. The portal fixes this to the owner's email local part.
+	// +kubebuilder:validation:Pattern=`^[a-z_][a-z0-9_-]*$`
+	// +kubebuilder:validation:MinLength=1
+	SSHUser string `json:"sshUser"`
+}
+
 // AgentEnvVar is a plain environment variable for an agent's containers. It deliberately has
 // no valueFrom: an agent owner must not be able to project arbitrary namespace secrets into
 // their own pod.
@@ -151,6 +162,11 @@ type AgentSpec struct {
 	// +optional
 	// +listType=atomic
 	Grants []Grant `json:"grants,omitempty"`
+
+	// Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
+	// owner's email local part. When nil the agent has no tailnet identity.
+	// +optional
+	Tailscale *TailscaleAccess `json:"tailscale,omitempty"`
 
 	// Runtime describes how the agent runs in the cluster. When unset the agent has no pods
 	// and exists only as the access granted to it.
