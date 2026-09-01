@@ -313,10 +313,6 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 			corev1.EnvVar{Name: "AGENT_SSH_USER", Value: agent.Spec.Tailscale.SSHUser},
 			corev1.EnvVar{Name: "TAILSCALE_TAG", Value: r.TailscaleTag},
 			corev1.EnvVar{Name: "TAILSCALE_TOKEN_FILE", Value: tailscaleTokenFilePath},
-			// TS_SOCKET tells every tailscale CLI invocation (including kubectl exec
-			// sessions) where tailscaled's socket lives, since the default
-			// /var/run/tailscale/tailscaled.sock does not exist in the container.
-			corev1.EnvVar{Name: "TS_SOCKET", Value: "/tmp/tailscale/tailscaled.sock"},
 		)
 	}
 
