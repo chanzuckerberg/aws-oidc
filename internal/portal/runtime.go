@@ -44,6 +44,15 @@ func deriveTailscaleUser(email string) (string, error) {
 	return local, nil
 }
 
+// validSSHUserRe matches the CRD's sshUser pattern: starts with a letter or underscore,
+// followed by lowercase letters, digits, underscores or hyphens.
+var validSSHUserRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]*$`)
+
+// validSSHUser reports whether s is an acceptable run-as username.
+func validSSHUser(s string) bool {
+	return validSSHUserRe.MatchString(s)
+}
+
 // threadNameRe matches the CRD's thread name pattern, so the portal rejects a bad name with a
 // message instead of surfacing an API server validation error.
 var threadNameRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)

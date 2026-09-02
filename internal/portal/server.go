@@ -424,10 +424,24 @@ func (s *Server) handleUpdateTailscale(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	if r.FormValue("tailscale") == "on" {
-		sshUser, err := deriveTailscaleUser(agent.Spec.OwnerEmail)
-		if err != nil {
-			renderErr(err.Error())
-			return
+		var sshUser string
+		if user.Admin && r.FormValue("ssh-user") != "" {
+			sshUser = strings.TrimSpace(r.FormValue("ssh-user"))
+			if sshUser == "root" {
+				renderErr("root is not allowed as the run-as user")
+				return
+			}
+			if !validSSHUser(sshUser) {
+				renderErr("run-as user must start with a letter or underscore and contain only lowercase letters, digits, underscores and hyphens")
+				return
+			}
+		} else {
+			var err error
+			sshUser, err = deriveTailscaleUser(agent.Spec.OwnerEmail)
+			if err != nil {
+				renderErr(err.Error())
+				return
+			}
 		}
 		agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: sshUser}
 	} else {

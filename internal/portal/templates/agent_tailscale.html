@@ -20,9 +20,14 @@
 
           <p style="margin-top:.75rem;">
             <label>Run as user<br>
-              <input type="text" name="ssh-user" value="{{.TailscaleForm.SSHUser}}" disabled size="28">
+              <input type="text" name="ssh-user" value="{{.TailscaleForm.SSHUser}}"
+                {{if not .User.Admin}}disabled{{end}} size="28">
             </label>
+            {{if .User.Admin}}
+            <p class="hint">Defaults to the owner's email local part. Admins may override. Root is not allowed.</p>
+            {{else}}
             <p class="hint">Fixed to the owner's email local part. Root is not allowed.</p>
+            {{end}}
           </p>
         </fieldset>
         <p>
