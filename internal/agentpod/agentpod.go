@@ -103,15 +103,9 @@ const (
 	tailscaleTokenFilePath  = tailscaleTokenMountPath + "/token"
 
 	// tailscaleTokenExpirationSecs is the tailscale token's lifetime. Shorter than the AWS
-	// token so the kubelet rotates it frequently.
+	// token so the kubelet rotates it frequently. The entrypoint re-reads the file each time
+	// tailscale up is called, so the pod always enrolls with a fresh token.
 	tailscaleTokenExpirationSecs int64 = 600
-
-	// tailscaleSocketVolume is a pod-local emptyDir shared between the tailscaled sidecar,
-	// the tailscale-up init container, and the main container. Sharing via volume (not the
-	// image's /var/run/tailscale directory) is required because containers do not share a
-	// filesystem — only the network namespace — within a pod.
-	tailscaleSocketVolume    = "tailscale-socket"
-	tailscaleSocketMountPath = "/var/run/tailscale"
 
 	// managedSettingsVolume mounts the agent-managed-settings ConfigMap at the path Claude
 	// reads as its enterprise-managed settings layer.

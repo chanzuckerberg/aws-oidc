@@ -116,13 +116,18 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			FSGroup:        &uid,
 			SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 		},
-		InitContainers: r.initContainers(agent, thread),
 		Containers: []corev1.Container{{
-			Name:       agentContainerName,
-			Image:      r.image(agent),
-			Command:    r.command(agent),
-			Args:       agentRuntime.Args,
-			Resources:  agentRuntime.Resources,
+			Name:      agentContainerName,
+			Image:     r.image(agent),
+			Resources: agentRuntime.Resources,
+			// When Tailscale is active the Dockerfile ENTRYPOINT (agent-entrypoint) must run
+			// to start tailscaled and enroll the pod before handing off to the user's command.
+			// Leaving Command nil tells Kubernetes to use the image ENTRYPOINT; the user's
+			// command becomes Args, which agent-entrypoint receives as "$@" and execs.
+			// When Tailscale is not active we set Command directly to avoid any dependency on
+			// the image's ENTRYPOINT.
+			Command: r.containerCommand(agent),
+			Args:    r.containerArgs(agent, agentRuntime),
 			WorkingDir: workspaceMountPath,
 			Env:        r.env(agent, thread),
 			SecurityContext: &corev1.SecurityContext{
@@ -134,57 +139,25 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 	}
 }
 
-// initContainers returns the pod's init containers when Tailscale is active for this agent.
-// The sidecar (restartPolicy: Always) runs tailscaled for the pod's lifetime. The regular
-// init container runs tailscale-up-init to enroll the pod, then exits so the main container
-// can start with Tailscale already ready.
-func (r *Reconciler) initContainers(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.Container {
-	if !r.tailscaleConfigured() || agent.Spec.Tailscale == nil {
+// containerCommand returns the Kubernetes Command field for the agent container.
+// When Tailscale is active we return nil so Kubernetes uses the Dockerfile's ENTRYPOINT
+// (agent-entrypoint), which starts tailscaled before handing off to the user's command.
+// When Tailscale is not active we set the command directly.
+func (r *Reconciler) containerCommand(agent *agentsv1.Agent) []string {
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
 		return nil
 	}
+	return r.command(agent)
+}
 
-	sidecarPolicy := corev1.ContainerRestartPolicyAlways
-	socketMount := corev1.VolumeMount{Name: tailscaleSocketVolume, MountPath: tailscaleSocketMountPath}
-	noPrivEsc := &corev1.SecurityContext{AllowPrivilegeEscalation: ptr(false)}
-
-	return []corev1.Container{
-		{
-			Name:          "tailscaled",
-			Image:         r.image(agent),
-			RestartPolicy: &sidecarPolicy,
-			Command: []string{
-				"tailscaled",
-				"--tun=userspace-networking",
-				"--socks5-server=localhost:1055",
-				"--state=/workspace/.tailscale/state",
-			},
-			SecurityContext: noPrivEsc,
-			VolumeMounts: []corev1.VolumeMount{
-				socketMount,
-				{
-					Name:      agentsv1.WorkspaceVolumeName,
-					MountPath: workspaceMountPath,
-					SubPath:   agent.ThreadWorkspaceSubPath(thread.Name),
-				},
-			},
-		},
-		{
-			Name:    "tailscale-up",
-			Image:   r.image(agent),
-			Command: []string{"tailscale-up-init"},
-			Env: []corev1.EnvVar{
-				{Name: "AGENT_NAME", Value: agent.Name},
-				{Name: "AGENT_THREAD", Value: thread.Name},
-				{Name: "TAILSCALE_TAG", Value: r.TailscaleTag},
-				{Name: "TAILSCALE_TOKEN_FILE", Value: tailscaleTokenFilePath},
-			},
-			SecurityContext: noPrivEsc,
-			VolumeMounts: []corev1.VolumeMount{
-				socketMount,
-				{Name: tailscaleTokenVolume, MountPath: tailscaleTokenMountPath, ReadOnly: true},
-			},
-		},
+// containerArgs returns the Kubernetes Args field for the agent container.
+// When Tailscale is active the user's command becomes args to agent-entrypoint ("$@").
+// When Tailscale is not active the args are the extra flags from the runtime spec.
+func (r *Reconciler) containerArgs(agent *agentsv1.Agent, runtime *agentsv1.AgentRuntime) []string {
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		return append(r.command(agent), runtime.Args...)
 	}
+	return runtime.Args
 }
 
 // volumeMounts returns the container's volume mounts, including the Anthropic token when WIF
@@ -220,8 +193,9 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
 		mounts = append(mounts, corev1.VolumeMount{
-			Name:      tailscaleSocketVolume,
-			MountPath: tailscaleSocketMountPath,
+			Name:      tailscaleTokenVolume,
+			MountPath: tailscaleTokenMountPath,
+			ReadOnly:  true,
 		})
 	}
 	if r.ManagedSettingsConfigMap != "" {
@@ -301,26 +275,20 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 		})
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		vols = append(vols,
-			corev1.Volume{
-				Name: tailscaleTokenVolume,
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: []corev1.VolumeProjection{{
-							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-								Audience:          r.TailscaleTokenAudience,
-								ExpirationSeconds: ptr(tailscaleTokenExpirationSecs),
-								Path:              "token",
-							},
-						}},
-					},
+		vols = append(vols, corev1.Volume{
+			Name: tailscaleTokenVolume,
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{{
+						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+							Audience:          r.TailscaleTokenAudience,
+							ExpirationSeconds: ptr(tailscaleTokenExpirationSecs),
+							Path:              "token",
+						},
+					}},
 				},
 			},
-			corev1.Volume{
-				Name:         tailscaleSocketVolume,
-				VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
-			},
-		)
+		})
 	}
 	if r.ManagedSettingsConfigMap != "" {
 		vols = append(vols, corev1.Volume{
@@ -382,6 +350,8 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
 		env = append(env,
 			corev1.EnvVar{Name: "AGENT_SSH_USER", Value: agent.Spec.Tailscale.SSHUser},
+			corev1.EnvVar{Name: "TAILSCALE_TAG", Value: r.TailscaleTag},
+			corev1.EnvVar{Name: "TAILSCALE_TOKEN_FILE", Value: tailscaleTokenFilePath},
 		)
 	}
 
