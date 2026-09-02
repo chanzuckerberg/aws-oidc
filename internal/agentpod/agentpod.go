@@ -97,15 +97,21 @@ const (
 	githubAppKeyMode int32 = 0o440
 
 	// tailscaleTokenVolume and tailscaleTokenMountPath are the projected SA token the
-	// entrypoint exchanges for a Tailscale machine key.
+	// tailscale-up init container exchanges for a Tailscale machine key.
 	tailscaleTokenVolume    = "tailscale-token"
 	tailscaleTokenMountPath = "/var/run/secrets/tailscale.com"
 	tailscaleTokenFilePath  = tailscaleTokenMountPath + "/token"
 
 	// tailscaleTokenExpirationSecs is the tailscale token's lifetime. Shorter than the AWS
-	// token so the kubelet rotates it frequently; tailscale up re-reads the file on each
-	// re-enroll which the entrypoint handles on pod startup.
+	// token so the kubelet rotates it frequently.
 	tailscaleTokenExpirationSecs int64 = 600
+
+	// tailscaleSocketVolume is a pod-local emptyDir shared between the tailscaled sidecar,
+	// the tailscale-up init container, and the main container. Sharing via volume (not the
+	// image's /var/run/tailscale directory) is required because containers do not share a
+	// filesystem — only the network namespace — within a pod.
+	tailscaleSocketVolume    = "tailscale-socket"
+	tailscaleSocketMountPath = "/var/run/tailscale"
 
 	// managedSettingsVolume mounts the agent-managed-settings ConfigMap at the path Claude
 	// reads as its enterprise-managed settings layer.

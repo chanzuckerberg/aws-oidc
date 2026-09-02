@@ -107,7 +107,8 @@ RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
 ENV DISABLE_AUTOUPDATER=1
 
 COPY docker/agent/entrypoint.sh /usr/local/bin/agent-entrypoint
-RUN chmod 0755 /usr/local/bin/agent-entrypoint
+COPY docker/agent/tailscale-up-init.sh /usr/local/bin/tailscale-up-init
+RUN chmod 0755 /usr/local/bin/agent-entrypoint /usr/local/bin/tailscale-up-init
 
 WORKDIR /workspace
 USER agent

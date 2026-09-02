@@ -116,6 +116,7 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			FSGroup:        &uid,
 			SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 		},
+		InitContainers: r.initContainers(agent, thread),
 		Containers: []corev1.Container{{
 			Name:       agentContainerName,
 			Image:      r.image(agent),
@@ -130,6 +131,52 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			VolumeMounts: r.volumeMounts(agent, thread),
 		}},
 		Volumes: r.volumes(agent),
+	}
+}
+
+// initContainers returns the pod's init containers when Tailscale is active for this agent.
+// The sidecar (restartPolicy: Always) runs tailscaled for the pod's lifetime. The regular
+// init container runs tailscale-up-init to enroll the pod, then exits so the main container
+// can start with Tailscale already ready.
+func (r *Reconciler) initContainers(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.Container {
+	if !r.tailscaleConfigured() || agent.Spec.Tailscale == nil {
+		return nil
+	}
+
+	sidecarPolicy := corev1.ContainerRestartPolicyAlways
+	socketMount := corev1.VolumeMount{Name: tailscaleSocketVolume, MountPath: tailscaleSocketMountPath}
+	noPrivEsc := &corev1.SecurityContext{AllowPrivilegeEscalation: ptr(false)}
+
+	return []corev1.Container{
+		{
+			Name:          "tailscaled",
+			Image:         r.image(agent),
+			RestartPolicy: &sidecarPolicy,
+			Command: []string{
+				"tailscaled",
+				"--tun=userspace-networking",
+				"--socks5-server=localhost:1055",
+				"--state=mem:",
+			},
+			SecurityContext: noPrivEsc,
+			VolumeMounts:    []corev1.VolumeMount{socketMount},
+		},
+		{
+			Name:    "tailscale-up",
+			Image:   r.image(agent),
+			Command: []string{"tailscale-up-init"},
+			Env: []corev1.EnvVar{
+				{Name: "AGENT_NAME", Value: agent.Name},
+				{Name: "AGENT_THREAD", Value: thread.Name},
+				{Name: "TAILSCALE_TAG", Value: r.TailscaleTag},
+				{Name: "TAILSCALE_TOKEN_FILE", Value: tailscaleTokenFilePath},
+			},
+			SecurityContext: noPrivEsc,
+			VolumeMounts: []corev1.VolumeMount{
+				socketMount,
+				{Name: tailscaleTokenVolume, MountPath: tailscaleTokenMountPath, ReadOnly: true},
+			},
+		},
 	}
 }
 
@@ -166,9 +213,8 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
 		mounts = append(mounts, corev1.VolumeMount{
-			Name:      tailscaleTokenVolume,
-			MountPath: tailscaleTokenMountPath,
-			ReadOnly:  true,
+			Name:      tailscaleSocketVolume,
+			MountPath: tailscaleSocketMountPath,
 		})
 	}
 	if r.ManagedSettingsConfigMap != "" {
@@ -248,20 +294,26 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 		})
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		vols = append(vols, corev1.Volume{
-			Name: tailscaleTokenVolume,
-			VolumeSource: corev1.VolumeSource{
-				Projected: &corev1.ProjectedVolumeSource{
-					Sources: []corev1.VolumeProjection{{
-						ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
-							Audience:          r.TailscaleTokenAudience,
-							ExpirationSeconds: ptr(tailscaleTokenExpirationSecs),
-							Path:              "token",
-						},
-					}},
+		vols = append(vols,
+			corev1.Volume{
+				Name: tailscaleTokenVolume,
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: []corev1.VolumeProjection{{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          r.TailscaleTokenAudience,
+								ExpirationSeconds: ptr(tailscaleTokenExpirationSecs),
+								Path:              "token",
+							},
+						}},
+					},
 				},
 			},
-		})
+			corev1.Volume{
+				Name:         tailscaleSocketVolume,
+				VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			},
+		)
 	}
 	if r.ManagedSettingsConfigMap != "" {
 		vols = append(vols, corev1.Volume{
@@ -323,8 +375,6 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
 		env = append(env,
 			corev1.EnvVar{Name: "AGENT_SSH_USER", Value: agent.Spec.Tailscale.SSHUser},
-			corev1.EnvVar{Name: "TAILSCALE_TAG", Value: r.TailscaleTag},
-			corev1.EnvVar{Name: "TAILSCALE_TOKEN_FILE", Value: tailscaleTokenFilePath},
 		)
 	}
 
