@@ -25,9 +25,9 @@ func TestTemplatesRender(t *testing.T) {
 		allowed: map[string]agentsv1.AWSGrant{},
 	}
 
-	// Form renders, and the current grant is pre-checked.
+	// AWS page renders, and the current grant is pre-checked.
 	rec := httptest.NewRecorder()
-	s.render(rec, "form", pageData{
+	s.render(rec, "agent_aws", pageData{
 		Title:        "Edit",
 		User:         &identity.User{Sub: "s", Email: "a@example.com"},
 		Agent:        &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}},

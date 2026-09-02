@@ -5,7 +5,7 @@
     <div class="card">
       <h1>Runtime</h1>
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
-      {{with .Runtime}}
+      {{if .RuntimeOffered}}{{with .Runtime}}
       <form method="post" action="{{$.BasePath}}/agents/{{$.Agent.Name}}/runtime">
         <fieldset>
           <legend>Run in the cluster</legend>
@@ -49,7 +49,7 @@
           <button class="btn primary" type="submit">Save</button>
         </p>
       </form>
-      {{end}}
+      {{end}}{{end}}
     </div>
   </div>
 </div>

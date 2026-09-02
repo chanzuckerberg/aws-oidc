@@ -24,7 +24,7 @@ func form(t *testing.T, values url.Values) *http.Request {
 }
 
 func TestParseRuntimeDisabled(t *testing.T) {
-	runtime, threads, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{})
+	runtime, threads, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 	require.Nil(t, runtime)
 	require.Nil(t, threads)
@@ -33,7 +33,7 @@ func TestParseRuntimeDisabled(t *testing.T) {
 // Turning the runtime on without naming a thread gives the agent one, so enabling it is a
 // single click rather than two steps.
 func TestParseRuntimeGivesAFirstThread(t *testing.T) {
-	runtime, threads, err := parseRuntime(form(t, url.Values{"runtime": {"on"}}), nil, AgentLimits{})
+	runtime, threads, err := parseRuntime(form(t, url.Values{"runtime": {"on"}}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 	require.NotNil(t, runtime)
 	require.Len(t, threads, 1)
@@ -50,7 +50,7 @@ func TestParseRuntimeReadsSizing(t *testing.T) {
 		"runtime": {"on"},
 		"cpu":     {"2"},
 		"memory":  {"4Gi"},
-	}), nil, AgentLimits{})
+	}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 
 	require.Equal(t, "2", runtime.Resources.Requests.Cpu().String())
@@ -58,13 +58,13 @@ func TestParseRuntimeReadsSizing(t *testing.T) {
 }
 
 func TestParseRuntimeRejectsOversizedRequests(t *testing.T) {
-	_, _, err := parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"64"}}), nil, AgentLimits{})
+	_, _, err := parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"64"}}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "CPU is limited to 4")
 
-	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "memory": {"512Gi"}}), nil, AgentLimits{})
+	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "memory": {"512Gi"}}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "Memory is limited to 16Gi")
 
-	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"a lot"}}), nil, AgentLimits{})
+	_, _, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"a lot"}}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "not a valid quantity")
 }
 
@@ -77,7 +77,7 @@ func TestParseThreadsAddsSuspendsAndRemoves(t *testing.T) {
 		"new-thread":    {"Docs"},
 	}
 
-	_, threads, err := parseRuntime(form(t, values), nil, AgentLimits{})
+	_, threads, err := parseRuntime(form(t, values), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 
 	require.Equal(t, []agentsv1.AgentThread{
@@ -93,20 +93,20 @@ func TestParseThreadsRejectsBadAndDuplicateNames(t *testing.T) {
 	_, _, err := parseRuntime(form(t, url.Values{
 		"runtime":    {"on"},
 		"new-thread": {"my_thread"},
-	}), nil, AgentLimits{})
+	}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "lowercase letters, numbers, and dashes")
 
 	_, _, err = parseRuntime(form(t, url.Values{
 		"runtime":    {"on"},
 		"thread":     {"main"},
 		"new-thread": {"main"},
-	}), nil, AgentLimits{})
+	}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "already a thread named")
 
 	_, _, err = parseRuntime(form(t, url.Values{
 		"runtime":    {"on"},
 		"new-thread": {strings.Repeat("a", 25)},
-	}), nil, AgentLimits{})
+	}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "limited to 24 characters")
 }
 
@@ -114,7 +114,7 @@ func TestParseThreadsEnforcesTheLimit(t *testing.T) {
 	_, _, err := parseRuntime(form(t, url.Values{
 		"runtime": {"on"},
 		"thread":  {"a", "b", "c"},
-	}), nil, AgentLimits{MaxThreads: 2})
+	}), nil, AgentLimits{MaxThreads: 2}, true)
 	require.ErrorContains(t, err, "limited to 2 threads")
 }
 
@@ -125,7 +125,7 @@ func TestParseThreadsRemovingTheLastThreadKeepsOne(t *testing.T) {
 		"runtime":       {"on"},
 		"thread":        {"main"},
 		"remove-thread": {"main"},
-	}), nil, AgentLimits{})
+	}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 	require.Len(t, threads, 1)
 	require.Equal(t, firstThreadName, threads[0].Name)
@@ -167,11 +167,11 @@ func TestFormHidesRuntimeWhenNotOffered(t *testing.T) {
 	}
 
 	shown := httptest.NewRecorder()
-	withRuntime.render(shown, "form", data)
+	withRuntime.render(shown, "agent_runtime", data)
 	require.Contains(t, shown.Body.String(), "Run this agent as pods")
 
 	hidden := httptest.NewRecorder()
-	withoutRuntime.render(hidden, "form", data)
+	withoutRuntime.render(hidden, "agent_runtime", data)
 	require.NotContains(t, hidden.Body.String(), "Run this agent as pods")
 }
 
@@ -185,7 +185,7 @@ func TestParseAgentRuntimeLeavesStoredRuntimeAloneWhenNotOffered(t *testing.T) {
 		Threads: []agentsv1.AgentThread{{Name: "main"}},
 	}}
 
-	runtime, threads, err := s.parseAgentRuntime(form(t, url.Values{}), current)
+	runtime, threads, err := s.parseAgentRuntime(form(t, url.Values{}), current, false)
 	require.NoError(t, err)
 	require.Equal(t, current.Spec.Runtime, runtime)
 	require.Equal(t, current.Spec.Threads, threads)
