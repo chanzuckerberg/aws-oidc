@@ -4,11 +4,18 @@ set -euo pipefail
 log() { echo "[entrypoint] $*" >&2; }
 
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
-    log "starting tailscaled (kernel networking)"
+    tun_args=()
+    if [[ -c /dev/net/tun || -c /dev/tun ]]; then
+        log "starting tailscaled (kernel TUN)"
+    else
+        log "starting tailscaled (userspace networking — inbound SSH unavailable)"
+        tun_args=(--tun=userspace-networking)
+    fi
+
     tailscaled \
         --state=/workspace/.tailscale/state \
+        "${tun_args[@]}" \
         &
-    TAILSCALED_PID=$!
 
     log "waiting for tailscaled socket..."
     for i in $(seq 1 30); do
@@ -47,9 +54,10 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
                 --id-token="${id_token}" \
                 --advertise-tags="${TAILSCALE_TAG:-tag:mantis-shrimp}" \
                 --hostname="${hostname}" \
-                --ssh \
                 --reset; then
             log "enrolled — $(tailscale ip 2>/dev/null || echo 'ip unknown')"
+            tailscale set --ssh
+            log "SSH enabled"
         else
             log "ERROR: tailscale up failed — continuing without tailscale"
         fi
