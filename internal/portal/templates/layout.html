@@ -67,7 +67,7 @@
 
 {{define "agentnav"}}
 <nav class="sidenav">
-  <div class="sidenav-agent">{{if .Agent}}{{.Agent.Name}}{{else}}New agent{{end}}</div>
+  <div class="sidenav-agent">{{if .Agent}}{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}{{else}}New agent{{end}}</div>
   {{if .Agent}}
   <div class="sidenav-section">Configure</div>
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}" {{if eq .Nav "general"}}class="active"{{end}}>General</a>

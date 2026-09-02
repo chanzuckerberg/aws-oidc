@@ -4,12 +4,14 @@
     {{template "agentnav" .}}
     <div>
       <div class="card">
-        <h1>{{.Agent.Name}}</h1>
+        <h1>{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}</h1>
         {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
         <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}">
           <p><label>Display name<br>
             <input name="display-name" value="{{.Agent.Spec.DisplayName}}" placeholder="{{.Agent.Name}}" size="40">
-          </label></p>
+          </label>
+          <p class="hint">Shown in the portal. The URL identifier (<code>{{.Agent.Name}}</code>) is fixed and cannot be changed.</p>
+          </p>
           <p class="muted">Owner: {{if .Agent.Spec.OwnerEmail}}{{.Agent.Spec.OwnerEmail}}{{else}}{{.Agent.Spec.Owner}}{{end}}</p>
           <p>
             <button class="btn primary" type="submit">Save</button>
