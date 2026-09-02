@@ -1,5 +1,5 @@
 FROM --platform=linux/${TARGETARCH} \
-    533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/tailscale/tailscale:stable \
+    533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/tailscale/tailscale:v1.102.3 \
     AS tailscale-src
 
 FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/debian:bookworm-slim
