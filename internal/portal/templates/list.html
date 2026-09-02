@@ -19,6 +19,7 @@
         {{range .Spec.Grants}}{{with .AWS}}{{.AccountAlias}} / {{.RoleName}}<br>{{end}}{{else}}<span class="muted">none</span>{{end}}
       </td>
       {{if $.RuntimeOffered}}
+      {{$ag := .}}
       <td>
         {{range .Status.Threads}}
         <div class="thread-row">
@@ -27,7 +28,16 @@
           <details class="connect-details">
             <summary class="btn small">connect</summary>
             <div class="connect-panel">
+              {{if $ag.Spec.Tailscale}}
+              <p class="hint">Claude session</p>
+              <code>ssh -t agent@agent-{{localPart $ag.Spec.OwnerEmail}}-{{$ag.Name}}-{{.Name}} claude</code>
+              <p class="hint" style="margin-top:.5rem;">Cursor — add to <code>~/.ssh/config</code></p>
+              <pre>Host agent-{{localPart $ag.Spec.OwnerEmail}}-{{$ag.Name}}-{{.Name}}
+  User agent
+  StrictHostKeyChecking no</pre>
+              {{else}}
               <code>kubectl exec -it -n {{$.Namespace}} {{.StatefulSetName}}-0 -- claude</code>
+              {{end}}
             </div>
           </details>
           {{end}}

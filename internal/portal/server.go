@@ -69,7 +69,12 @@ type Server struct {
 
 // NewServer parses templates and returns a portal server.
 func NewServer(cfg Config) (*Server, error) {
-	tmpl, err := template.New("").ParseFS(templatesFS, "templates/*.html")
+	tmpl, err := template.New("").Funcs(template.FuncMap{
+		"localPart": func(email string) string {
+			local, _, _ := strings.Cut(email, "@")
+			return local
+		},
+	}).ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parsing templates: %w", err)
 	}

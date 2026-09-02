@@ -34,7 +34,16 @@
               <details>
                 <summary class="btn">Connect</summary>
                 <div class="connect-panel">
+                  {{if $agent.Spec.Tailscale}}
+                  <p class="hint">Claude session</p>
+                  <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{$tname}} claude</code>
+                  <p class="hint" style="margin-top:.75rem;">Cursor — add to <code>~/.ssh/config</code></p>
+                  <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{$tname}}
+  User agent
+  StrictHostKeyChecking no</pre>
+                  {{else}}
                   <code>kubectl exec -it -n {{$ns}} {{.StatefulSetName}}-0 -- claude</code>
+                  {{end}}
                 </div>
               </details>
               {{else}}<span class="muted">not running</span>{{end}}
