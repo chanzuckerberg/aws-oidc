@@ -4,10 +4,8 @@ set -euo pipefail
 log() { echo "[entrypoint] $*" >&2; }
 
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
-    log "starting tailscaled (userspace-networking)"
+    log "starting tailscaled (kernel networking)"
     tailscaled \
-        --tun=userspace-networking \
-        --socks5-server=localhost:1055 \
         --state=/workspace/.tailscale/state \
         &
     TAILSCALED_PID=$!

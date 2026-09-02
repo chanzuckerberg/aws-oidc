@@ -126,15 +126,13 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			// command becomes Args, which agent-entrypoint receives as "$@" and execs.
 			// When Tailscale is not active we set Command directly to avoid any dependency on
 			// the image's ENTRYPOINT.
-			Command: r.containerCommand(agent),
-			Args:    r.containerArgs(agent, agentRuntime),
+			Command:    r.containerCommand(agent),
+			Args:       r.containerArgs(agent, agentRuntime),
 			WorkingDir: workspaceMountPath,
 			Env:        r.env(agent, thread),
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: ptr(false),
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
+				Capabilities:             r.containerCapabilities(agent),
 			},
 			VolumeMounts: r.volumeMounts(agent, thread),
 		}},
@@ -199,6 +197,10 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 			Name:      tailscaleTokenVolume,
 			MountPath: tailscaleTokenMountPath,
 			ReadOnly:  true,
+		})
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      devNetTunVolume,
+			MountPath: "/dev/net/tun",
 		})
 	}
 	if r.ManagedSettingsConfigMap != "" {
@@ -278,6 +280,16 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 		})
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		hostPathCharDev := corev1.HostPathCharDev
+		vols = append(vols, corev1.Volume{
+			Name: devNetTunVolume,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/dev/net/tun",
+					Type: &hostPathCharDev,
+				},
+			},
+		})
 		vols = append(vols, corev1.Volume{
 			Name: tailscaleTokenVolume,
 			VolumeSource: corev1.VolumeSource{
@@ -400,6 +412,19 @@ func (r *Reconciler) githubAppConfigured() bool {
 // tailscaleConfigured reports whether the operator can project a tailscale token into pods.
 func (r *Reconciler) tailscaleConfigured() bool {
 	return r.TailscaleTokenAudience != ""
+}
+
+// containerCapabilities returns the capability set for the agent container. Pods with
+// Tailscale active need NET_ADMIN so tailscaled can create the kernel TUN interface (required
+// for inbound SSH). All other capabilities are dropped regardless.
+func (r *Reconciler) containerCapabilities(agent *agentsv1.Agent) *corev1.Capabilities {
+	caps := &corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		caps.Add = []corev1.Capability{"NET_ADMIN"}
+	}
+	return caps
 }
 
 // equalStatefulSets compares the parts of a set this reconciler owns, so a steady-state
