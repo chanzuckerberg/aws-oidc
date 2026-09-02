@@ -156,10 +156,17 @@ func (r *Reconciler) initContainers(agent *agentsv1.Agent, thread agentsv1.Agent
 				"tailscaled",
 				"--tun=userspace-networking",
 				"--socks5-server=localhost:1055",
-				"--state=mem:",
+				"--state=/workspace/.tailscale/state",
 			},
 			SecurityContext: noPrivEsc,
-			VolumeMounts:    []corev1.VolumeMount{socketMount},
+			VolumeMounts: []corev1.VolumeMount{
+				socketMount,
+				{
+					Name:      agentsv1.WorkspaceVolumeName,
+					MountPath: workspaceMountPath,
+					SubPath:   agent.ThreadWorkspaceSubPath(thread.Name),
+				},
+			},
 		},
 		{
 			Name:    "tailscale-up",
