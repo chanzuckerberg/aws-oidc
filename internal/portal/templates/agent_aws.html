@@ -8,6 +8,19 @@
       <p class="muted">Select the AWS roles to grant. You can only grant access you already have.</p>
 
       <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/aws">
+        <details style="margin:.75rem 0;">
+          <summary class="hint" style="cursor:pointer;">Missing an account or role?</summary>
+          <div class="hint" style="margin-top:.5rem;line-height:1.5;">
+            Access is granted through Okta Identity Governance (OIG). To request it:
+            <ol style="margin:.5rem 0 0 1.25rem;padding:0;">
+              <li>Log in to <a href="https://czi.okta.com" target="_blank" rel="noopener">czi.okta.com</a>.</li>
+              <li>Click <strong>Request access</strong> to open the OIG flow.</li>
+              <li>Search for <strong>AWS - CZI</strong> and select the account and role you need.</li>
+              <li>Submit the request. Once approved, the account and role will appear in the list above.</li>
+            </ol>
+          </div>
+        </details>
+
         {{range .Entitlements.Accounts}}
         {{$acct := .}}
         <fieldset>
@@ -23,19 +36,6 @@
         {{else}}
         <p class="muted">You have no AWS access to grant.</p>
         {{end}}
-
-        <details style="margin:.75rem 0;">
-          <summary class="hint" style="cursor:pointer;">Missing an account or role?</summary>
-          <div class="hint" style="margin-top:.5rem;line-height:1.5;">
-            Access is granted through Okta Identity Governance (OIG). To request it:
-            <ol style="margin:.5rem 0 0 1.25rem;padding:0;">
-              <li>Log in to <a href="https://czi.okta.com" target="_blank" rel="noopener">czi.okta.com</a>.</li>
-              <li>Click <strong>Request access</strong> to open the OIG flow.</li>
-              <li>Search for <strong>AWS - CZI</strong> and select the account and role you need.</li>
-              <li>Submit the request. Once approved, the account and role will appear in the list above.</li>
-            </ol>
-          </div>
-        </details>
         <p>
           <button class="btn primary" type="submit">Save</button>
         </p>
