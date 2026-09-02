@@ -85,6 +85,18 @@ func (r *Reconciler) statefulSet(agent *agentsv1.Agent, thread agentsv1.AgentThr
 // sharedMountPath is where the shared workspace directory is mounted in every thread pod.
 const sharedMountPath = "/shared"
 
+// nodeSelector merges the caller's selectors with the agent-image architecture constraint.
+// The image is built on arm64 CI runners, so pods must land on arm64 nodes.
+func nodeSelector(user map[string]string) map[string]string {
+	out := map[string]string{
+		"kubernetes.io/arch": "arm64",
+	}
+	for k, v := range user {
+		out[k] = v
+	}
+	return out
+}
+
 // podSpec is the thread's pod: the agent container, its thread-private working tree and the
 // shared directory (both subPaths of the agent's EFS workspace PVC), the AWS config, and the
 // projected token it exchanges for the agent's roles.
@@ -94,7 +106,7 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 
 	return corev1.PodSpec{
 		ServiceAccountName: agent.ThreadServiceAccountName(thread.Name),
-		NodeSelector:       agentRuntime.NodeSelector,
+		NodeSelector:       nodeSelector(agentRuntime.NodeSelector),
 		// The pod's only credential is the token projected below, minted for STS. Leaving the
 		// default Kubernetes API token out means agent code cannot talk to the cluster at all.
 		AutomountServiceAccountToken: ptr(false),
