@@ -203,7 +203,7 @@ func runtimeFromForm(r *http.Request, limits AgentLimits) runtimeForm {
 // Sizing is applied as both requests and limits, so a thread gets the CPU and memory it asked
 // for and cannot burst past it. That makes an agent's cost predictable, which matters when the
 // people creating them are not the people paying for them.
-func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
+func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
 	if r.FormValue("runtime") == "" {
 		return nil, nil, nil
 	}
@@ -227,10 +227,19 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) 
 		return nil, nil, err
 	}
 
+	var image, storageClass string
+	if isAdmin {
+		image = strings.TrimSpace(r.FormValue("image"))
+		storageClass = strings.TrimSpace(r.FormValue("storage-class"))
+	} else if current != nil && current.Spec.Runtime != nil {
+		image = current.Spec.Runtime.Image
+		storageClass = current.Spec.Runtime.StorageClass
+	}
+
 	sizing := corev1.ResourceList{corev1.ResourceCPU: cpu, corev1.ResourceMemory: memory}
 	agentRuntime := &agentsv1.AgentRuntime{
-		Image:         strings.TrimSpace(r.FormValue("image")),
-		StorageClass:  strings.TrimSpace(r.FormValue("storage-class")),
+		Image:         image,
+		StorageClass:  storageClass,
 		WorkspaceSize: &workspaceSize,
 		Resources:     corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
 	}

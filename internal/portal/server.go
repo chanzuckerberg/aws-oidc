@@ -502,7 +502,7 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 			Runtime: runtimeFromForm(r, s.limits()), Error: msg,
 		})
 	}
-	runtime, threads, err := s.parseAgentRuntime(r, agent)
+	runtime, threads, err := s.parseAgentRuntime(r, agent, user.Admin)
 	if err != nil {
 		renderErr(err.Error())
 		return
@@ -752,14 +752,14 @@ func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, b
 // parseAgentRuntime reads the runtime section of a submission, or leaves the agent's runtime
 // alone in an environment where the portal does not offer it. Without that guard a form posted
 // against a portal with the runtime disabled would silently clear an existing runtime.
-func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
+func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
 	if !s.cfg.AgentRuntime {
 		if current == nil {
 			return nil, nil, nil
 		}
 		return current.Spec.Runtime, current.Spec.Threads, nil
 	}
-	return parseRuntime(r, current, s.limits())
+	return parseRuntime(r, current, s.limits(), isAdmin)
 }
 
 func (s *Server) render(w http.ResponseWriter, name string, data pageData) {

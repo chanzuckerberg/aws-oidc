@@ -31,14 +31,18 @@
 
           <p>
             <label>Image<br>
-              <input name="image" value="{{.Image}}" placeholder="default" style="width:32rem">
+              <input name="image" value="{{.Image}}" placeholder="default" style="width:32rem"
+                {{if not $.User.Admin}}disabled{{end}}>
             </label>
+            {{if $.User.Admin}}<p class="hint">Admins only.</p>{{end}}
           </p>
 
           <p>
             <label>Storage class<br>
-              <input name="storage-class" value="{{.StorageClass}}" placeholder="efs-agent-workspaces" size="28">
+              <input name="storage-class" value="{{.StorageClass}}" placeholder="efs-agent-workspaces" size="28"
+                {{if not $.User.Admin}}disabled{{end}}>
             </label>
+            {{if $.User.Admin}}<p class="hint">Admins only.</p>{{end}}
           </p>
         </fieldset>
         <p>
