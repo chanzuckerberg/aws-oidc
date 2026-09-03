@@ -327,7 +327,6 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 			TailscaleTokenAudience:   tailscaleTokenAudience,
 			TailscaleTag:             tailscaleTag,
 			ManagedSettingsConfigMap: managedSettingsConfigMap,
-			ArgoCDTrackingID:         argoCDTrackingID,
 		})
 	}
 
@@ -337,6 +336,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		Providers:           []controller.Provider{awsProvider},
 		Threads:             threads,
 		MaxConcurrentGrants: grantConcurrency,
+		ArgoCDTrackingID:    argoCDTrackingID,
 	}
 	err = reconciler.SetupWithManager(mgr)
 	if err != nil {

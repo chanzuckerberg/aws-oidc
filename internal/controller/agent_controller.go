@@ -27,7 +27,10 @@ import (
 
 // agentFinalizer gates deletion so the operator can tear down provisioned access before the
 // Agent object is removed.
-const agentFinalizer = "agents.czi.team/finalizer"
+const (
+	agentFinalizer             = "agents.czi.team/finalizer"
+	argoCDTrackingIDAnnotation = "argocd.argoproj.io/tracking-id"
+)
 
 // defaultGrantConcurrency bounds how many grants of a single agent are provisioned at once.
 // An agent can carry many grants across many accounts, so they are reconciled in parallel.
@@ -52,6 +55,7 @@ type AgentReconciler struct {
 	// MaxConcurrentGrants bounds parallel per-grant provisioning within one agent. Zero
 	// uses defaultGrantConcurrency.
 	MaxConcurrentGrants int
+	ArgoCDTrackingID    string
 }
 
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents,verbs=get;list;watch;create;update;patch;delete
@@ -72,11 +76,10 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return r.reconcileDelete(ctx, &agent)
 	}
 
-	if !controllerutil.ContainsFinalizer(&agent, agentFinalizer) {
-		controllerutil.AddFinalizer(&agent, agentFinalizer)
+	if r.setManagedMetadata(&agent) {
 		err = r.Update(ctx, &agent)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("adding finalizer: %w", err)
+			return ctrl.Result{}, fmt.Errorf("updating agent metadata: %w", err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
@@ -94,6 +97,22 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 
 	// Returning the error requeues with the workqueue's exponential backoff.
 	return ctrl.Result{}, errors.Join(reconcileErr, threadErr)
+}
+
+func (r *AgentReconciler) setManagedMetadata(agent *agentsv1.Agent) bool {
+	changed := false
+	if !controllerutil.ContainsFinalizer(agent, agentFinalizer) {
+		controllerutil.AddFinalizer(agent, agentFinalizer)
+		changed = true
+	}
+	if r.ArgoCDTrackingID != "" && agent.Annotations[argoCDTrackingIDAnnotation] != r.ArgoCDTrackingID {
+		if agent.Annotations == nil {
+			agent.Annotations = make(map[string]string, 1)
+		}
+		agent.Annotations[argoCDTrackingIDAnnotation] = r.ArgoCDTrackingID
+		changed = true
+	}
+	return changed
 }
 
 // reconcileThreads runs the agent's threads, if the operator has a thread reconciler.

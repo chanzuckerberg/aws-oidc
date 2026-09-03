@@ -17,6 +17,18 @@ func TestRuntimeConditionWithoutRuntime(t *testing.T) {
 	require.Equal(t, "NoRuntime", condition.Reason)
 }
 
+func TestSetManagedMetadataTracksAgentAsArgoRoot(t *testing.T) {
+	agent := &agentsv1.Agent{}
+	reconciler := &AgentReconciler{
+		ArgoCDTrackingID: "test-app:apps/Deployment:test/test-app-stack-operator",
+	}
+
+	require.True(t, reconciler.setManagedMetadata(agent))
+	require.Equal(t, reconciler.ArgoCDTrackingID, agent.Annotations[argoCDTrackingIDAnnotation])
+	require.Contains(t, agent.Finalizers, agentFinalizer)
+	require.False(t, reconciler.setManagedMetadata(agent))
+}
+
 // A suspended thread is deliberately idle, so it must not hold the condition false forever.
 func TestRuntimeConditionIgnoresSuspendedThreads(t *testing.T) {
 	agent := &agentsv1.Agent{}

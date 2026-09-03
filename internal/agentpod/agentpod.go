@@ -175,7 +175,6 @@ type Config struct {
 	// and ssh-guard.sh. When non-empty the ConfigMap is mounted at /etc/claude-code so
 	// Claude picks it up as its enterprise-managed settings layer.
 	ManagedSettingsConfigMap string
-	ArgoCDTrackingID         string
 }
 
 // Reconciler drives an agent's threads toward the spec.
@@ -303,7 +302,6 @@ func (r *Reconciler) ensureService(ctx context.Context, agent *agentsv1.Agent) e
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
 		service.Labels = agentLabels(agent)
-		service.Annotations = r.annotations()
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 		service.Spec.Selector = agentLabels(agent)
 		// The threads serve no traffic yet. A port is declared anyway because a headless
@@ -332,7 +330,6 @@ func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent)
 
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, configMap, func() error {
 		configMap.Labels = agentLabels(agent)
-		configMap.Annotations = r.annotations()
 		configMap.Data = map[string]string{"config": rendered}
 		return controllerutil.SetControllerReference(agent, configMap, r.Scheme)
 	})
@@ -352,7 +349,6 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.A
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, account, func() error {
 		account.Labels = threadLabels(agent, thread.Name)
-		account.Annotations = r.annotations()
 		return controllerutil.SetControllerReference(agent, account, r.Scheme)
 	})
 	if err != nil {
@@ -375,7 +371,6 @@ func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent)
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
 		pvc.Labels = agentLabels(agent)
-		pvc.Annotations = r.annotations()
 		if pvc.Spec.AccessModes == nil {
 			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
 			pvc.Spec.StorageClassName = ptr(r.workspaceStorageClass(agent))
@@ -396,15 +391,6 @@ func agentLabels(agent *agentsv1.Agent) map[string]string {
 	return map[string]string{
 		LabelAgent:     agent.Name,
 		labelManagedBy: managedByValue,
-	}
-}
-
-func (r *Reconciler) annotations() map[string]string {
-	if r.ArgoCDTrackingID == "" {
-		return nil
-	}
-	return map[string]string{
-		"argocd.argoproj.io/tracking-id": r.ArgoCDTrackingID,
 	}
 }
 
