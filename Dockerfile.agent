@@ -89,9 +89,10 @@ RUN groupadd --gid 1000 agent && useradd --uid 1000 --gid 1000 --no-create-home 
 
 # Pre-create the tailscaled socket directory owned by the agent user so tailscaled
 # can use its default socket path (/var/run/tailscale/tailscaled.sock) without needing
-# root or a custom --socket flag. Also create the state directory.
-RUN mkdir -p /var/run/tailscale /var/lib/tailscale \
-    && chown agent:agent /var/run/tailscale /var/lib/tailscale
+# root or a custom --socket flag. The state directory lives on the persistent
+# workspace volume and is created at runtime by the entrypoint.
+RUN mkdir -p /var/run/tailscale \
+    && chown agent:agent /var/run/tailscale
 
 # Containers never auto-update; disable the background check so sessions don't
 # waste time or network on it.

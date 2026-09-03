@@ -21,12 +21,14 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
         tun_args=(--tun=userspace-networking)
     fi
 
+    mkdir -p /workspace/.tailscale
+
     while true; do
         log "starting tailscaled (${tailscale_mode})"
         rm -f /var/run/tailscale/tailscaled.sock
         tailscaled \
             --state=/workspace/.tailscale/state \
-            --statedir=/var/lib/tailscale \
+            --statedir=/workspace/.tailscale \
             "${tun_args[@]}" \
             &
         tailscaled_pid=$!
