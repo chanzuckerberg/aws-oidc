@@ -1,5 +1,14 @@
 {
   "allowManagedHooksOnly": true,
+  "extraKnownMarketplaces": {
+    "czi-ai-toolchain": {
+      "autoUpdate": true,
+      "source": {
+        "source": "github",
+        "repo": "chanzuckerberg/ai-toolchain"
+      }
+    }
+  },
   "hooks": {
     "PreToolUse": [
       {
