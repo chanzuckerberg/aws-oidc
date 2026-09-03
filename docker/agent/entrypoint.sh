@@ -3,6 +3,14 @@ set -euo pipefail
 
 log() { echo "[entrypoint] $*" >&2; }
 
+if [[ "$(id -u)" -eq 0 ]]; then
+    while IFS= read -r -d '' pair; do
+        case "${pair%%=*}" in
+            HOME|AWS_*|ANTHROPIC_*|GITHUB_*|GIT_*|AGENT_*) printf '%s\n' "$pair" ;;
+        esac
+    done < /proc/self/environ > /etc/environment
+fi
+
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
     tun_args=()
     tailscale_mode="kernel TUN"
