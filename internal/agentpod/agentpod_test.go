@@ -264,7 +264,7 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 	require.Equal(t, []corev1.Capability{"ALL"}, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Drop)
 	require.Equal(
 		t,
-		[]corev1.Capability{"NET_ADMIN", "NET_RAW"},
+		[]corev1.Capability{"DAC_OVERRIDE", "NET_ADMIN", "NET_RAW", "SETGID", "SETUID"},
 		set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add,
 	)
 	require.Equal(t, int64(0), *set.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser)

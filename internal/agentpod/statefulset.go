@@ -173,7 +173,13 @@ func (r *Reconciler) capabilities(agent *agentsv1.Agent) *corev1.Capabilities {
 		Drop: []corev1.Capability{"ALL"},
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		capabilities.Add = []corev1.Capability{"NET_ADMIN", "NET_RAW"}
+		capabilities.Add = []corev1.Capability{
+			"DAC_OVERRIDE",
+			"NET_ADMIN",
+			"NET_RAW",
+			"SETGID",
+			"SETUID",
+		}
 	}
 	return capabilities
 }
