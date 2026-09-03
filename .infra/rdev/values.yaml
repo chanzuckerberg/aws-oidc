@@ -5,7 +5,7 @@
 # The Helm template for agent-defaults.yaml composes repository + tag into the full image ref.
 agentImage:
   repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent
-  tag: &agent-image sha-38135d7
+  tag: &agent-image sha-01db200
 
 stack:
   global:
@@ -20,7 +20,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-38135d7
+        tag: sha-01db200
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -37,7 +37,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-38135d7
+        tag: sha-01db200
       serviceAccount:
         create: true
         name: portal
@@ -105,7 +105,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-38135d7
+        tag: sha-01db200
       serviceAccount:
         create: true
         name: agent-operator
