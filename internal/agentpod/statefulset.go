@@ -48,7 +48,7 @@ func (r *Reconciler) ensureStatefulSet(ctx context.Context, agent *agentsv1.Agen
 		return existing, nil
 	}
 
-	err = r.Update(ctx, updated)
+	err = r.Patch(ctx, updated, client.MergeFrom(existing))
 	if err != nil {
 		return nil, fmt.Errorf("updating statefulset %s: %w", desired.Name, err)
 	}
