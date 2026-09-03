@@ -21,6 +21,8 @@ spec:
         app.kubernetes.io/part-of: aws-oidc
     spec:
       priorityClassName: system-node-critical
+      nodeSelector:
+        kubernetes.io/arch: arm64
       tolerations:
         - operator: Exists
           effect: NoSchedule

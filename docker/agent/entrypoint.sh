@@ -24,10 +24,12 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
         tailscaled_pid=$!
 
         for i in $(seq 1 30); do
-            if [[ -S /var/run/tailscale/tailscaled.sock ]] && \
-                tailscale status --peers=false >/dev/null 2>&1; then
-                log "daemon ready (waited ${i}s)"
-                break 2
+            if [[ -S /var/run/tailscale/tailscaled.sock ]]; then
+                sleep 1
+                if kill -0 "${tailscaled_pid}" 2>/dev/null; then
+                    log "daemon ready (waited ${i}s)"
+                    break 2
+                fi
             fi
             if ! kill -0 "${tailscaled_pid}" 2>/dev/null; then
                 break
