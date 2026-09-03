@@ -263,7 +263,11 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 	require.Equal(t, resource.MustParse("1"), limits[tailscaleTunResource])
 	require.Equal(t, resource.MustParse("2"), limits[corev1.ResourceCPU])
 	require.Equal(t, []corev1.Capability{"ALL"}, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Drop)
-	require.Empty(t, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add)
+	require.Equal(
+		t,
+		[]corev1.Capability{"NET_ADMIN", "NET_RAW"},
+		set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add,
+	)
 	require.Equal(t, r.ArgoCDTrackingID, set.Annotations["argocd.argoproj.io/tracking-id"])
 	require.Equal(t, r.ArgoCDTrackingID, set.Spec.Template.Annotations["argocd.argoproj.io/tracking-id"])
 

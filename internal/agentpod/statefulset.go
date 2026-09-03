@@ -138,9 +138,7 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			Env:        r.env(agent, thread),
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: ptr(false),
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
+				Capabilities:             r.capabilities(agent),
 			},
 			VolumeMounts: r.volumeMounts(agent, thread),
 		}},
@@ -178,6 +176,16 @@ func (r *Reconciler) resources(agent *agentsv1.Agent, runtime *agentsv1.AgentRun
 		resources.Limits[tailscaleTunResource] = resource.MustParse("1")
 	}
 	return resources
+}
+
+func (r *Reconciler) capabilities(agent *agentsv1.Agent) *corev1.Capabilities {
+	capabilities := &corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		capabilities.Add = []corev1.Capability{"NET_ADMIN", "NET_RAW"}
+	}
+	return capabilities
 }
 
 // volumeMounts returns the container's volume mounts, including the Anthropic token when WIF
