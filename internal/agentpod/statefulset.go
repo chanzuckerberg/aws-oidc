@@ -112,8 +112,6 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 		// default Kubernetes API token out means agent code cannot talk to the cluster at all.
 		AutomountServiceAccountToken: ptr(false),
 		SecurityContext: &corev1.PodSecurityContext{
-			RunAsUser:      &uid,
-			RunAsGroup:     &uid,
 			FSGroup:        &uid,
 			SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 		},
@@ -127,15 +125,12 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			// command becomes Args, which agent-entrypoint receives as "$@" and execs.
 			// When Tailscale is not active we set Command directly to avoid any dependency on
 			// the image's ENTRYPOINT.
-			Command:    r.containerCommand(agent),
-			Args:       r.containerArgs(agent, agentRuntime),
-			WorkingDir: workspaceMountPath,
-			Env:        r.env(agent, thread),
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: ptr(false),
-				Capabilities:             r.capabilities(agent),
-			},
-			VolumeMounts: r.volumeMounts(agent, thread),
+			Command:         r.containerCommand(agent),
+			Args:            r.containerArgs(agent, agentRuntime),
+			WorkingDir:      workspaceMountPath,
+			Env:             r.env(agent, thread),
+			SecurityContext: r.securityContext(agent),
+			VolumeMounts:    r.volumeMounts(agent, thread),
 		}},
 		Volumes: r.volumes(agent),
 	}
@@ -181,6 +176,19 @@ func (r *Reconciler) capabilities(agent *agentsv1.Agent) *corev1.Capabilities {
 		capabilities.Add = []corev1.Capability{"NET_ADMIN", "NET_RAW"}
 	}
 	return capabilities
+}
+
+func (r *Reconciler) securityContext(agent *agentsv1.Agent) *corev1.SecurityContext {
+	uid := int64(1000)
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		uid = 0
+	}
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr(false),
+		Capabilities:             r.capabilities(agent),
+		RunAsUser:                &uid,
+		RunAsGroup:               &uid,
+	}
 }
 
 // volumeMounts returns the container's volume mounts, including the Anthropic token when WIF

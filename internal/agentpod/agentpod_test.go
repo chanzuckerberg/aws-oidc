@@ -267,6 +267,7 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 		[]corev1.Capability{"NET_ADMIN", "NET_RAW"},
 		set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add,
 	)
+	require.Equal(t, int64(0), *set.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser)
 }
 
 func TestReconcileGitHubApp(t *testing.T) {
@@ -540,9 +541,8 @@ func TestReconcileThreadsGetIsolatedSubPaths(t *testing.T) {
 	require.Equal(t, "threads/main", mounts[workspaceMountPath].SubPath)
 	require.Equal(t, "shared", mounts[sharedMountPath].SubPath)
 
-	// Pod security context matches the EFS access point uid/gid so writes land as uid 1000.
-	require.Equal(t, int64(1000), *pod.SecurityContext.RunAsUser)
 	require.Equal(t, int64(1000), *pod.SecurityContext.FSGroup)
+	require.Equal(t, int64(1000), *pod.Containers[0].SecurityContext.RunAsUser)
 }
 
 // Removing a thread removes its StatefulSet and ServiceAccount but keeps the shared PVC.
