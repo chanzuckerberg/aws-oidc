@@ -14,21 +14,29 @@ run_as_agent() {
     fi
 }
 
-# ensure_agent_plugins installs the shared CZI ai-toolchain plugin so every
-# agent has it by default. Claude Code's CLI does not auto-install plugins from
+# ensure_agent_plugins installs the shared CZI ai-toolchain plugins so every
+# agent has them by default. Claude Code's CLI does not auto-install plugins from
 # managed settings, so the install runs here. State lives on the persistent
 # workspace volume; a marker keeps this to a single install per volume.
 ensure_agent_plugins() {
     command -v claude >/dev/null 2>&1 || return 0
-    local marker=/workspace/.claude/.ai-toolchain-installed
+    local marker=/workspace/.claude/.czi-ai-toolchain-installed
     [[ -f "${marker}" ]] && return 0
-    log "installing default plugin ai-toolchain@czi-ai-toolchain"
+    log "installing default plugins from the czi-ai-toolchain marketplace"
     run_as_agent claude plugin marketplace add chanzuckerberg/ai-toolchain >/dev/null 2>&1 || true
-    if run_as_agent claude plugin install ai-toolchain@czi-ai-toolchain >/dev/null 2>&1; then
-        run_as_agent bash -c 'mkdir -p /workspace/.claude && touch /workspace/.claude/.ai-toolchain-installed'
-        log "ai-toolchain plugin installed"
+    local plugin all_ok=true
+    for plugin in czi-general czi-infra; do
+        if run_as_agent claude plugin install "${plugin}@czi-ai-toolchain" >/dev/null 2>&1; then
+            log "installed plugin ${plugin}@czi-ai-toolchain"
+        else
+            all_ok=false
+            log "WARN: failed to install ${plugin}@czi-ai-toolchain"
+        fi
+    done
+    if [[ "${all_ok}" == "true" ]]; then
+        run_as_agent bash -c 'mkdir -p /workspace/.claude && touch /workspace/.claude/.czi-ai-toolchain-installed'
     else
-        log "WARN: ai-toolchain plugin install failed (needs network egress and GitHub App read access to chanzuckerberg/ai-toolchain)"
+        log "WARN: some czi-ai-toolchain plugins failed to install (needs network egress and GitHub App read access to chanzuckerberg/ai-toolchain)"
     fi
 }
 
