@@ -4,11 +4,27 @@ set -euo pipefail
 log() { echo "[entrypoint] $*" >&2; }
 
 if [[ "$(id -u)" -eq 0 ]]; then
+    : > /etc/environment
+    : > /etc/profile.d/agent-env.sh
     while IFS= read -r -d '' pair; do
-        case "${pair%%=*}" in
-            HOME|AWS_*|ANTHROPIC_*|GITHUB_*|GIT_*|AGENT_*) printf '%s\n' "$pair" ;;
+        key=${pair%%=*}
+        val=${pair#*=}
+        case "${key}" in
+            HOME|AWS_*|ANTHROPIC_*|GITHUB_*|GIT_*|AGENT_*)
+                printf '%s=%s\n' "${key}" "${val}" >> /etc/environment
+                printf "export %s='%s'\n" "${key}" "${val//\'/\'\\\'\'}" >> /etc/profile.d/agent-env.sh
+                ;;
         esac
-    done < /proc/self/environ > /etc/environment
+    done < /proc/self/environ
+
+    if [[ ! -e /workspace/.bashrc ]] || ! grep -q '# agent-env' /workspace/.bashrc 2>/dev/null; then
+        tmp=$(mktemp)
+        printf '# agent-env\n[ -r /etc/profile.d/agent-env.sh ] && . /etc/profile.d/agent-env.sh\n' > "${tmp}"
+        [[ -e /workspace/.bashrc ]] && cat /workspace/.bashrc >> "${tmp}"
+        cat "${tmp}" > /workspace/.bashrc
+        rm -f "${tmp}"
+        chown 1000:1000 /workspace/.bashrc
+    fi
 fi
 
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
