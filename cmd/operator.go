@@ -56,12 +56,13 @@ const (
 	// `argus set secret`. It is deliberately not a flag: a flag value is visible in the
 	// process list to anything that can read /proc in the pod.
 	envGitHubAppPrivateKey = "GITHUB_APP_PRIVATE_KEY"
+	envArgoCDApplication   = "ARGOCD_APPLICATION"
 
 	flagDefaultsConfig = "defaults-config"
 
-	flagTailscaleTokenAudience    = "tailscale-token-audience"
-	flagTailscaleTag              = "tailscale-tag"
-	flagManagedSettingsConfigMap  = "managed-settings-configmap"
+	flagTailscaleTokenAudience   = "tailscale-token-audience"
+	flagTailscaleTag             = "tailscale-tag"
+	flagManagedSettingsConfigMap = "managed-settings-configmap"
 )
 
 func init() {
@@ -211,6 +212,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing managed-settings-configmap flag: %w", err)
 	}
+	argoCDApplication := os.Getenv(envArgoCDApplication)
 
 	// Route controller-runtime's logr logging through the repo's slog logger set up in
 	// PersistentPreRunE, so the operator logs the same way as the rest of the binary.
@@ -219,6 +221,15 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	restConfig, namespace, err := configmap.NewInClusterConfig()
 	if err != nil {
 		return fmt.Errorf("loading in-cluster config: %w", err)
+	}
+	argoCDTrackingID := ""
+	if argoCDApplication != "" {
+		argoCDTrackingID = fmt.Sprintf(
+			"%s:apps/Deployment:%s/%s-stack-operator",
+			argoCDApplication,
+			namespace,
+			argoCDApplication,
+		)
 	}
 
 	scheme := runtime.NewScheme()
@@ -316,6 +327,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 			TailscaleTokenAudience:   tailscaleTokenAudience,
 			TailscaleTag:             tailscaleTag,
 			ManagedSettingsConfigMap: managedSettingsConfigMap,
+			ArgoCDTrackingID:         argoCDTrackingID,
 		})
 	}
 

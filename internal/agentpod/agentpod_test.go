@@ -249,6 +249,7 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 		Namespace:              testNamespace,
 		DefaultImage:           "ubuntu:24.04",
 		TailscaleTokenAudience: "api.tailscale.com/client-id",
+		ArgoCDTrackingID:       "test-app:apps/Deployment:argus-aws-oidc-rdev/test-app-stack-operator",
 	})
 
 	_, err := r.Reconcile(ctx, agent)
@@ -263,6 +264,18 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 	require.Equal(t, resource.MustParse("2"), limits[corev1.ResourceCPU])
 	require.Equal(t, []corev1.Capability{"ALL"}, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Drop)
 	require.Empty(t, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add)
+	require.Equal(t, r.ArgoCDTrackingID, set.Annotations["argocd.argoproj.io/tracking-id"])
+	require.Equal(t, r.ArgoCDTrackingID, set.Spec.Template.Annotations["argocd.argoproj.io/tracking-id"])
+
+	service := &corev1.Service{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, service)
+	require.NoError(t, err)
+	require.Equal(t, r.ArgoCDTrackingID, service.Annotations["argocd.argoproj.io/tracking-id"])
+
+	account := &corev1.ServiceAccount{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: agent.ThreadServiceAccountName("main")}, account)
+	require.NoError(t, err)
+	require.Equal(t, r.ArgoCDTrackingID, account.Annotations["argocd.argoproj.io/tracking-id"])
 }
 
 func TestReconcileGitHubApp(t *testing.T) {

@@ -143,6 +143,10 @@ stack:
         - --managed-settings-configmap=agent-managed-settings
         - -v
       env:
+        - name: ARGOCD_APPLICATION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app.kubernetes.io/instance']
         # Claude Workload Identity Federation. Non-secret identifiers from the Claude Console
         # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev).
         - name: ANTHROPIC_FEDERATION_RULE_ID

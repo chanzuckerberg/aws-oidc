@@ -41,6 +41,7 @@ func (r *Reconciler) ensureStatefulSet(ctx context.Context, agent *agentsv1.Agen
 	// update is limited to what this reconciler actually manages.
 	updated := existing.DeepCopy()
 	updated.Labels = desired.Labels
+	updated.Annotations = desired.Annotations
 	updated.Spec.Replicas = desired.Spec.Replicas
 	updated.Spec.Template = desired.Spec.Template
 
@@ -64,17 +65,21 @@ func (r *Reconciler) statefulSet(agent *agentsv1.Agent, thread agentsv1.AgentThr
 
 	set := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      agent.ThreadStatefulSetName(thread.Name),
-			Namespace: r.Namespace,
-			Labels:    labels,
+			Name:        agent.ThreadStatefulSetName(thread.Name),
+			Namespace:   r.Namespace,
+			Labels:      labels,
+			Annotations: r.annotations(),
 		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas:    &replicas,
 			ServiceName: agent.ServiceName(),
 			Selector:    &metav1.LabelSelector{MatchLabels: labels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       r.podSpec(agent, thread),
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      labels,
+					Annotations: r.annotations(),
+				},
+				Spec: r.podSpec(agent, thread),
 			},
 		},
 	}
@@ -418,6 +423,7 @@ func (r *Reconciler) tailscaleConfigured() bool {
 // resync does not write.
 func equalStatefulSets(existing, desired *appsv1.StatefulSet) bool {
 	return equality.Semantic.DeepEqual(existing.Labels, desired.Labels) &&
+		equality.Semantic.DeepEqual(existing.Annotations, desired.Annotations) &&
 		equality.Semantic.DeepEqual(existing.Spec.Replicas, desired.Spec.Replicas) &&
 		equality.Semantic.DeepEqual(existing.Spec.Template, desired.Spec.Template)
 }
