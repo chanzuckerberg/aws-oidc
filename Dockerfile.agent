@@ -35,7 +35,6 @@ RUN apt-get update \
         sed \
         tar \
         unzip \
-        util-linux \
         xz-utils \
     && rm -rf /var/lib/apt/lists/*
 

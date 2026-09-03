@@ -3,13 +3,6 @@ set -euo pipefail
 
 log() { echo "[entrypoint] $*" >&2; }
 
-run_command() {
-    if [[ "$(id -u)" -eq 0 ]]; then
-        exec setpriv --reuid=agent --regid=agent --init-groups "$@"
-    fi
-    exec "$@"
-}
-
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
     tun_args=()
     tailscale_mode="kernel TUN"
@@ -53,7 +46,7 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
         fi
 
         log "ERROR: tailscaled did not become ready; continuing without tailscale"
-        run_command "$@"
+        exec "$@"
     done
 
     id_token=$(cat "${TAILSCALE_TOKEN_FILE}")
@@ -92,4 +85,4 @@ elif [[ -n "${TAILSCALE_TOKEN_FILE:-}" ]]; then
     log "WARN: TAILSCALE_TOKEN_FILE=${TAILSCALE_TOKEN_FILE} set but file not found — skipping"
 fi
 
-run_command "$@"
+exec "$@"
