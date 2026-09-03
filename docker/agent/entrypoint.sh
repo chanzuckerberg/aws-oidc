@@ -3,6 +3,35 @@ set -euo pipefail
 
 log() { echo "[entrypoint] $*" >&2; }
 
+# run_as_agent runs a command as the agent user (uid 1000) with its workspace
+# home, whether the entrypoint itself is running as root (tailscale pods) or as
+# agent (everything else).
+run_as_agent() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        runuser -u agent -- env HOME=/workspace "$@"
+    else
+        env HOME=/workspace "$@"
+    fi
+}
+
+# ensure_agent_plugins installs the shared CZI ai-toolchain plugin so every
+# agent has it by default. Claude Code's CLI does not auto-install plugins from
+# managed settings, so the install runs here. State lives on the persistent
+# workspace volume; a marker keeps this to a single install per volume.
+ensure_agent_plugins() {
+    command -v claude >/dev/null 2>&1 || return 0
+    local marker=/workspace/.claude/.ai-toolchain-installed
+    [[ -f "${marker}" ]] && return 0
+    log "installing default plugin ai-toolchain@czi-ai-toolchain"
+    run_as_agent claude plugin marketplace add chanzuckerberg/ai-toolchain >/dev/null 2>&1 || true
+    if run_as_agent claude plugin install ai-toolchain@czi-ai-toolchain >/dev/null 2>&1; then
+        run_as_agent bash -c 'mkdir -p /workspace/.claude && touch /workspace/.claude/.ai-toolchain-installed'
+        log "ai-toolchain plugin installed"
+    else
+        log "WARN: ai-toolchain plugin install failed (needs network egress and GitHub App read access to chanzuckerberg/ai-toolchain)"
+    fi
+}
+
 if [[ "$(id -u)" -eq 0 ]]; then
     : > /etc/environment
     : > /etc/profile.d/agent-env.sh
@@ -110,5 +139,7 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
 elif [[ -n "${TAILSCALE_TOKEN_FILE:-}" ]]; then
     log "WARN: TAILSCALE_TOKEN_FILE=${TAILSCALE_TOKEN_FILE} set but file not found — skipping"
 fi
+
+ensure_agent_plugins
 
 exec "$@"
