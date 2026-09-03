@@ -8,3 +8,5 @@ data:
 {{ .Files.Get "config/managed-settings.json" | indent 4 }}
   ssh-guard.sh: |
 {{ .Files.Get "config/ssh-guard.sh" | indent 4 }}
+  git-branch-guard.sh: |
+{{ .Files.Get "config/git-branch-guard.sh" | indent 4 }}
