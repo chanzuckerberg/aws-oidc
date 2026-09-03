@@ -8,6 +8,10 @@
           {
             "type": "command",
             "command": "bash /etc/claude-code/ssh-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash /etc/claude-code/git-branch-guard.sh"
           }
         ]
       }
