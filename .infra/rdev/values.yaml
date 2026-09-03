@@ -164,6 +164,11 @@ stack:
           value: "4783816"
         - name: GITHUB_APP_INSTALLATION_ID
           value: "158028824"
+        # Extra installations of the same app, keyed by repository owner, so agents can also
+        # reach repositories outside the default organization. evolutionaryscale is the app's
+        # installation on the EvolutionaryScale org.
+        - name: GITHUB_APP_INSTALLATION_MAP
+          value: "evolutionaryscale=158867890"
         # Tailscale OIDC enrollment. The OIDC client id comes from the Tailscale admin console
         # (Settings > OAuth clients); fill in the real id before deploying.
         # Format: api.tailscale.com/<oidc-client-id>

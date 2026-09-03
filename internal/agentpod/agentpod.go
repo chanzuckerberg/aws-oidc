@@ -159,8 +159,14 @@ type Config struct {
 	// mount and env vars are omitted, so a cluster without a GitHub App still runs agents.
 	//
 	// EnsureGitHubAppSecret writes that Secret at startup and returns its name.
-	GitHubAppID               string
-	GitHubAppInstallationID   string
+	GitHubAppID             string
+	GitHubAppInstallationID string
+	// GitHubAppInstallationMap routes specific repository owners to other installations of the
+	// same GitHub App, so one agent can reach repositories in more than one organization. It is
+	// a comma or space separated list of owner=installation-id pairs, for example
+	// "evolutionaryscale=158867890". An owner that is not listed uses GitHubAppInstallationID.
+	// Empty means every owner uses the default installation.
+	GitHubAppInstallationMap  string
 	GitHubAppPrivateKeySecret string
 	// GitHubAPIURL overrides the API endpoint for GitHub Enterprise. Empty means github.com.
 	GitHubAPIURL string

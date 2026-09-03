@@ -324,6 +324,39 @@ func TestReconcileGitHubApp(t *testing.T) {
 	require.NotContains(t, env, "GITHUB_APP_PRIVATE_KEY")
 	// github.com needs no override, so the env var is left out rather than set to a default.
 	require.NotContains(t, env, "GITHUB_API_URL")
+	// With no extra installations configured every owner uses the default installation, so
+	// the routing env var is omitted rather than set empty.
+	require.NotContains(t, env, "GITHUB_APP_INSTALLATION_MAP")
+}
+
+// A configured installation map reaches thread pods so the image's git credential helper and
+// gh wrapper can route other organizations' repositories to the matching installation.
+func TestReconcileGitHubAppInstallationMap(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:                 testNamespace,
+		DefaultImage:              "ubuntu:24.04",
+		GitHubAppID:               "123456",
+		GitHubAppInstallationID:   "87654321",
+		GitHubAppInstallationMap:  "evolutionaryscale=158867890",
+		GitHubAppPrivateKeySecret: GitHubAppSecretName,
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+
+	env := map[string]string{}
+	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
+		env[e.Name] = e.Value
+	}
+	require.Equal(t, "evolutionaryscale=158867890", env["GITHUB_APP_INSTALLATION_MAP"])
 }
 
 func TestGitIdentityName(t *testing.T) {

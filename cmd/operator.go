@@ -48,9 +48,10 @@ const (
 	flagAnthropicServiceAccountID = "anthropic-service-account-id"
 	flagAnthropicTokenAudience    = "anthropic-token-audience"
 
-	flagGitHubAppID             = "github-app-id"
-	flagGitHubAppInstallationID = "github-app-installation-id"
-	flagGitHubAPIURL            = "github-api-url"
+	flagGitHubAppID              = "github-app-id"
+	flagGitHubAppInstallationID  = "github-app-installation-id"
+	flagGitHubAppInstallationMap = "github-app-installation-map"
+	flagGitHubAPIURL             = "github-api-url"
 
 	// envGitHubAppPrivateKey carries the GitHub App's PEM private key, set with
 	// `argus set secret`. It is deliberately not a flag: a flag value is visible in the
@@ -88,6 +89,7 @@ func init() {
 	operatorCmd.Flags().String(flagAnthropicTokenAudience, os.Getenv("ANTHROPIC_TOKEN_AUDIENCE"), "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
 	operatorCmd.Flags().String(flagGitHubAppID, os.Getenv("GITHUB_APP_ID"), "Numeric app ID of the shared GitHub App agents clone and open pull requests as; when set with the installation id and the GITHUB_APP_PRIVATE_KEY environment variable, every thread pod receives the app's credentials")
 	operatorCmd.Flags().String(flagGitHubAppInstallationID, os.Getenv("GITHUB_APP_INSTALLATION_ID"), "Installation ID of that GitHub App on the organization whose repositories agents may reach")
+	operatorCmd.Flags().String(flagGitHubAppInstallationMap, os.Getenv("GITHUB_APP_INSTALLATION_MAP"), "Comma or space separated owner=installation-id pairs routing extra organizations to other installations of the same GitHub App (e.g. evolutionaryscale=158867890); owners not listed use the default installation")
 	operatorCmd.Flags().String(flagGitHubAPIURL, "", "GitHub API base URL; empty means https://api.github.com")
 	operatorCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
 	operatorCmd.Flags().String(flagTailscaleTokenAudience, os.Getenv("TAILSCALE_TOKEN_AUDIENCE"), "Tailscale OIDC audience (api.tailscale.com/<client-id>); when set, thread pods for Tailscale-enabled agents receive a projected token with this audience")
@@ -191,6 +193,10 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	githubAppInstallationID, err := cmd.Flags().GetString(flagGitHubAppInstallationID)
 	if err != nil {
 		return fmt.Errorf("missing github-app-installation-id flag: %w", err)
+	}
+	githubAppInstallationMap, err := cmd.Flags().GetString(flagGitHubAppInstallationMap)
+	if err != nil {
+		return fmt.Errorf("missing github-app-installation-map flag: %w", err)
 	}
 	githubAPIURL, err := cmd.Flags().GetString(flagGitHubAPIURL)
 	if err != nil {
@@ -321,6 +327,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 
 			GitHubAppID:               githubAppID,
 			GitHubAppInstallationID:   githubAppInstallationID,
+			GitHubAppInstallationMap:  githubAppInstallationMap,
 			GitHubAppPrivateKeySecret: githubAppKeySecret,
 			GitHubAPIURL:              githubAPIURL,
 

@@ -371,6 +371,9 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 			corev1.EnvVar{Name: "GITHUB_APP_INSTALLATION_ID", Value: r.GitHubAppInstallationID},
 			corev1.EnvVar{Name: "GITHUB_APP_PRIVATE_KEY_FILE", Value: githubAppKeyFilePath},
 		)
+		if r.GitHubAppInstallationMap != "" {
+			env = append(env, corev1.EnvVar{Name: "GITHUB_APP_INSTALLATION_MAP", Value: r.GitHubAppInstallationMap})
+		}
 		if r.GitHubAPIURL != "" {
 			env = append(env, corev1.EnvVar{Name: "GITHUB_API_URL", Value: r.GitHubAPIURL})
 		}
