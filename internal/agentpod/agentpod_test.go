@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -230,6 +231,38 @@ func TestReconcileAnthropicWIF(t *testing.T) {
 	require.Equal(t, "fdrl_test", env["ANTHROPIC_FEDERATION_RULE_ID"])
 	require.Equal(t, "org-uuid-test", env["ANTHROPIC_ORGANIZATION_ID"])
 	require.Equal(t, "svac_test", env["ANTHROPIC_SERVICE_ACCOUNT_ID"])
+}
+
+func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: "jheath"}
+	agent.Spec.Runtime.Resources = corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("2"),
+		},
+	}
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:              testNamespace,
+		DefaultImage:           "ubuntu:24.04",
+		TailscaleTokenAudience: "api.tailscale.com/client-id",
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set)
+	require.NoError(t, err)
+
+	limits := set.Spec.Template.Spec.Containers[0].Resources.Limits
+	require.Equal(t, resource.MustParse("1"), limits[tailscaleTunResource])
+	require.Equal(t, resource.MustParse("2"), limits[corev1.ResourceCPU])
+	require.Equal(t, []corev1.Capability{"ALL"}, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Drop)
+	require.Empty(t, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add)
 }
 
 func TestReconcileGitHubApp(t *testing.T) {

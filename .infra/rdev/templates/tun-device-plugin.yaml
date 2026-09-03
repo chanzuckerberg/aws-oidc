@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: tun-device-plugin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/component: device-plugin
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/name: tun-device-plugin
+    app.kubernetes.io/part-of: aws-oidc
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tun-device-plugin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: device-plugin
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+        app.kubernetes.io/name: tun-device-plugin
+        app.kubernetes.io/part-of: aws-oidc
+    spec:
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+      containers:
+        - name: device-plugin
+          image: 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/squat/generic-device-plugin:0.2.0
+          imagePullPolicy: IfNotPresent
+          args:
+            - --domain
+            - agents.czi.team
+            - --device
+            - |
+              name: tun
+              groups:
+                - count: 1000
+                  paths:
+                    - path: /dev/net/tun
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 50m
+              memory: 20Mi
+            requests:
+              cpu: 50m
+              memory: 10Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: device-plugin
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: dev
+              mountPath: /dev
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: dev
+          hostPath:
+            path: /dev
+  updateStrategy:
+    type: RollingUpdate

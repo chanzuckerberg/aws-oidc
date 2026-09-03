@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -119,7 +120,7 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 		Containers: []corev1.Container{{
 			Name:      agentContainerName,
 			Image:     r.image(agent),
-			Resources: agentRuntime.Resources,
+			Resources: r.resources(agent, agentRuntime),
 			// When Tailscale is active the Dockerfile ENTRYPOINT (agent-entrypoint) must run
 			// to start tailscaled and enroll the pod before handing off to the user's command.
 			// Leaving Command nil tells Kubernetes to use the image ENTRYPOINT; the user's
@@ -132,7 +133,9 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			Env:        r.env(agent, thread),
 			SecurityContext: &corev1.SecurityContext{
 				AllowPrivilegeEscalation: ptr(false),
-				Capabilities:             r.containerCapabilities(agent),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
 			},
 			VolumeMounts: r.volumeMounts(agent, thread),
 		}},
@@ -159,6 +162,17 @@ func (r *Reconciler) containerArgs(agent *agentsv1.Agent, runtime *agentsv1.Agen
 		return append(r.command(agent), runtime.Args...)
 	}
 	return runtime.Args
+}
+
+func (r *Reconciler) resources(agent *agentsv1.Agent, runtime *agentsv1.AgentRuntime) corev1.ResourceRequirements {
+	resources := *runtime.Resources.DeepCopy()
+	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+		if resources.Limits == nil {
+			resources.Limits = make(corev1.ResourceList, 1)
+		}
+		resources.Limits[tailscaleTunResource] = resource.MustParse("1")
+	}
+	return resources
 }
 
 // volumeMounts returns the container's volume mounts, including the Anthropic token when WIF
@@ -197,10 +211,6 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentTh
 			Name:      tailscaleTokenVolume,
 			MountPath: tailscaleTokenMountPath,
 			ReadOnly:  true,
-		})
-		mounts = append(mounts, corev1.VolumeMount{
-			Name:      devNetTunVolume,
-			MountPath: "/dev/net/tun",
 		})
 	}
 	if r.ManagedSettingsConfigMap != "" {
@@ -280,16 +290,6 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 		})
 	}
 	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		hostPathCharDev := corev1.HostPathCharDev
-		vols = append(vols, corev1.Volume{
-			Name: devNetTunVolume,
-			VolumeSource: corev1.VolumeSource{
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/dev/net/tun",
-					Type: &hostPathCharDev,
-				},
-			},
-		})
 		vols = append(vols, corev1.Volume{
 			Name: tailscaleTokenVolume,
 			VolumeSource: corev1.VolumeSource{
@@ -412,19 +412,6 @@ func (r *Reconciler) githubAppConfigured() bool {
 // tailscaleConfigured reports whether the operator can project a tailscale token into pods.
 func (r *Reconciler) tailscaleConfigured() bool {
 	return r.TailscaleTokenAudience != ""
-}
-
-// containerCapabilities returns the capability set for the agent container. Pods with
-// Tailscale active need NET_ADMIN so tailscaled can create the kernel TUN interface (required
-// for inbound SSH). All other capabilities are dropped regardless.
-func (r *Reconciler) containerCapabilities(agent *agentsv1.Agent) *corev1.Capabilities {
-	caps := &corev1.Capabilities{
-		Drop: []corev1.Capability{"ALL"},
-	}
-	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		caps.Add = []corev1.Capability{"NET_ADMIN"}
-	}
-	return caps
 }
 
 // equalStatefulSets compares the parts of a set this reconciler owns, so a steady-state

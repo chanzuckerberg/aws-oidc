@@ -101,10 +101,7 @@ const (
 	tailscaleTokenVolume    = "tailscale-token"
 	tailscaleTokenMountPath = "/var/run/secrets/tailscale.com"
 	tailscaleTokenFilePath  = tailscaleTokenMountPath + "/token"
-
-	// devNetTunVolume mounts /dev/net/tun so tailscaled can create a kernel TUN interface.
-	// Required for kernel networking mode, which is the only mode that supports inbound SSH.
-	devNetTunVolume = "dev-net-tun"
+	tailscaleTunResource    = corev1.ResourceName("agents.czi.team/tun")
 
 	// tailscaleTokenExpirationSecs is the tailscale token's lifetime. Shorter than the AWS
 	// token so the kubelet rotates it frequently. The entrypoint re-reads the file each time

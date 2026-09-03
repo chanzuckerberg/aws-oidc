@@ -5,29 +5,46 @@ log() { echo "[entrypoint] $*" >&2; }
 
 if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
     tun_args=()
+    tailscale_mode="kernel TUN"
     if [[ -c /dev/net/tun || -c /dev/tun ]]; then
-        log "starting tailscaled (kernel TUN)"
+        log "found TUN device"
     else
-        log "starting tailscaled (userspace networking — inbound SSH unavailable)"
+        tailscale_mode="userspace networking"
         tun_args=(--tun=userspace-networking)
     fi
 
-    tailscaled \
-        --state=/workspace/.tailscale/state \
-        "${tun_args[@]}" \
-        &
+    while true; do
+        log "starting tailscaled (${tailscale_mode})"
+        rm -f /var/run/tailscale/tailscaled.sock
+        tailscaled \
+            --state=/workspace/.tailscale/state \
+            --statedir=/var/lib/tailscale \
+            "${tun_args[@]}" \
+            &
+        tailscaled_pid=$!
 
-    log "waiting for tailscaled socket..."
-    for i in $(seq 1 30); do
-        if [[ -S /var/run/tailscale/tailscaled.sock ]]; then
-            log "socket ready (waited ${i}s)"
-            break
+        for i in $(seq 1 30); do
+            if [[ -S /var/run/tailscale/tailscaled.sock ]] && \
+                tailscale status --peers=false >/dev/null 2>&1; then
+                log "daemon ready (waited ${i}s)"
+                break 2
+            fi
+            if ! kill -0 "${tailscaled_pid}" 2>/dev/null; then
+                break
+            fi
+            sleep 1
+        done
+
+        if [[ "${tailscale_mode}" == "kernel TUN" ]]; then
+            log "kernel TUN startup failed; falling back to userspace networking"
+            wait "${tailscaled_pid}" 2>/dev/null || true
+            tailscale_mode="userspace networking"
+            tun_args=(--tun=userspace-networking)
+            continue
         fi
-        sleep 1
-        if [[ $i -eq 30 ]]; then
-            log "ERROR: socket did not appear after 30s — continuing without tailscale"
-            exec "$@"
-        fi
+
+        log "ERROR: tailscaled did not become ready; continuing without tailscale"
+        exec "$@"
     done
 
     id_token=$(cat "${TAILSCALE_TOKEN_FILE}")
