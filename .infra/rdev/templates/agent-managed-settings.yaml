@@ -4,6 +4,8 @@ metadata:
   name: agent-managed-settings
   namespace: {{ .Release.Namespace }}
 data:
+  CLAUDE.md: |
+{{ .Files.Get "config/CLAUDE.md" | indent 4 }}
   managed-settings.json: |
 {{ .Files.Get "config/managed-settings.json" | indent 4 }}
   ssh-guard.sh: |
