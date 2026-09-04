@@ -169,6 +169,11 @@ func (in *AgentSpec) DeepCopyInto(out *AgentSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Repositories != nil {
+		in, out := &in.Repositories, &out.Repositories
+		*out = make([]Repository, len(*in))
+		copy(*out, *in)
+	}
 	if in.Tailscale != nil {
 		in, out := &in.Tailscale, &out.Tailscale
 		*out = new(TailscaleAccess)

@@ -19,6 +19,14 @@ where a raw `git` remote call or a hand-built API request fails.
 `git diff`, and `git push` to publish a branch. Never commit or push to a repository's primary
 branch. Open a pull request with `gh pr create` instead.
 
+## Your workspace already has repositories
+
+`/workspace` is a persistent volume shared across this agent's sessions. The repositories the
+agent is configured with are already cloned there, one per directory at `/workspace/<repo>`,
+and authenticated. Look there first for the source you need before cloning anything yourself.
+Treat each `/workspace/<repo>` as the primary checkout and make a worktree for your task
+rather than working on its default branch.
+
 ## Prefer git worktrees
 
 Several sessions share this pod and its `/workspace` volume at the same time. Switching
