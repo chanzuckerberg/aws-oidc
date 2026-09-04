@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -20,8 +21,8 @@ import (
 )
 
 const (
-	githubDefaultAPI    = "https://api.github.com"
-	githubReposCacheTTL = 5 * time.Minute
+	githubDefaultAPI           = "https://api.github.com"
+	githubReposRefreshInterval = 10 * time.Minute
 )
 
 // repoSuggester suggests and validates the repositories an agent may clone. The GitHub App
@@ -40,23 +41,23 @@ var _ repoSuggester = (*GitHubApp)(nil)
 // GitHubApp lists and validates the repositories the shared GitHub App can reach across every
 // installation the fleet routes to (the default installation plus the ones in the operator's
 // installation map). The portal uses it to power the Repositories tab's type-ahead and to
-// reject repositories a thread pod could not actually clone. It caches the accessible set so a
-// burst of keystrokes does not hammer the GitHub API.
+// reject repositories a thread pod could not actually clone. A background loop started by Start
+// holds the accessible set in memory; the type-ahead reads only that cache and never calls the
+// GitHub API on the request path.
 type GitHubApp struct {
-	appID         string
-	key           *rsa.PrivateKey
-	apiURL        string
-	installations []string
-	httpClient    *http.Client
-	cacheTTL      time.Duration
+	appID           string
+	key             *rsa.PrivateKey
+	apiURL          string
+	installations   []string
+	httpClient      *http.Client
+	refreshInterval time.Duration
 
-	mu         sync.Mutex
-	tokens     map[string]cachedToken
-	repos      []string
-	reposByID  map[string]bool
-	fetchedAt  time.Time
-	refreshing chan struct{}
-	lastErr    error
+	mu        sync.Mutex
+	tokens    map[string]cachedToken
+	repos     []string
+	reposByID map[string]bool
+	loaded    bool
+	lastErr   error
 }
 
 type cachedToken struct {
@@ -100,21 +101,15 @@ func NewGitHubApp(appID string, privateKeyPEM []byte, defaultInstallation, insta
 	if len(installations) == 0 {
 		return nil, fmt.Errorf("github app has no installations: set a default installation id")
 	}
-	app := &GitHubApp{
-		appID:         appID,
-		key:           key,
-		apiURL:        strings.TrimRight(apiURL, "/"),
-		installations: installations,
-		httpClient:    &http.Client{Timeout: 15 * time.Second},
-		cacheTTL:      githubReposCacheTTL,
-		tokens:        map[string]cachedToken{},
-	}
-	// Warm the cache now, so the first search hits it instead of enumerating thousands of
-	// repositories while the user waits.
-	app.mu.Lock()
-	app.ensureRefreshLocked()
-	app.mu.Unlock()
-	return app, nil
+	return &GitHubApp{
+		appID:           appID,
+		key:             key,
+		apiURL:          strings.TrimRight(apiURL, "/"),
+		installations:   installations,
+		httpClient:      &http.Client{Timeout: 15 * time.Second},
+		refreshInterval: githubReposRefreshInterval,
+		tokens:          map[string]cachedToken{},
+	}, nil
 }
 
 func parseRSAPrivateKey(pemBytes []byte) (*rsa.PrivateKey, error) {
@@ -136,11 +131,8 @@ func parseRSAPrivateKey(pemBytes []byte) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-func (g *GitHubApp) Suggest(ctx context.Context, query string, limit int) ([]string, error) {
-	all, _, err := g.accessible(ctx)
-	if err != nil {
-		return nil, err
-	}
+func (g *GitHubApp) Suggest(_ context.Context, query string, limit int) ([]string, error) {
+	all, _, _, _ := g.accessible()
 	q := strings.ToLower(strings.TrimSpace(query))
 	out := make([]string, 0, limit)
 	for _, repo := range all {
@@ -154,81 +146,69 @@ func (g *GitHubApp) Suggest(ctx context.Context, query string, limit int) ([]str
 	return out, nil
 }
 
-func (g *GitHubApp) Reachable(ctx context.Context, repo string) (bool, error) {
-	_, byID, err := g.accessible(ctx)
-	if err != nil {
-		return false, err
+func (g *GitHubApp) Reachable(_ context.Context, repo string) (bool, error) {
+	_, byID, loaded, lastErr := g.accessible()
+	if !loaded {
+		if lastErr != nil {
+			return false, fmt.Errorf("repository list not ready: %w", lastErr)
+		}
+		return false, fmt.Errorf("repository list is still loading; try again in a moment")
 	}
 	return byID[strings.ToLower(strings.TrimSpace(repo))], nil
 }
 
-// accessible returns the union of every installation's repositories as sorted "owner/repo"
-// strings, plus a lowercase membership set. The set is cached for cacheTTL and refreshed in
-// the background. Enumerating an org's repositories takes seconds and spans many pages, so
-// doing it on the request's context once per keystroke made every search cancel the previous
-// one and never finish. Detaching the refresh means a keystroke that gives up still leaves the
-// enumeration running to warm the cache, and concurrent searches share one refresh.
-func (g *GitHubApp) accessible(ctx context.Context) ([]string, map[string]bool, error) {
-	g.mu.Lock()
-	fresh := g.repos != nil && time.Since(g.fetchedAt) < g.cacheTTL
-	if fresh {
-		repos, byID := g.repos, g.reposByID
-		g.mu.Unlock()
-		return repos, byID, nil
-	}
-	wait := g.ensureRefreshLocked()
-	// Serve a stale set immediately rather than blocking a keystroke on a full refresh.
-	if g.repos != nil {
-		repos, byID := g.repos, g.reposByID
-		g.mu.Unlock()
-		return repos, byID, nil
-	}
-	g.mu.Unlock()
+// Start refreshes the accessible-repository cache once now and then every refreshInterval,
+// until ctx is done. Enumerating an org's repositories takes seconds and spans many pages, and
+// repositories rarely change, so the type-ahead reads only this cache and leaves the GitHub API
+// calls to the background loop.
+func (g *GitHubApp) Start(ctx context.Context) {
+	go g.refreshLoop(ctx)
+}
 
-	// No cache yet: wait for the in-flight refresh, but give up if the caller does. The refresh
-	// runs on its own context, so giving up here does not abort it.
-	select {
-	case <-wait:
-	case <-ctx.Done():
-		return nil, nil, ctx.Err()
+func (g *GitHubApp) refreshLoop(ctx context.Context) {
+	err := g.refresh(ctx)
+	if err != nil {
+		slog.Warn("initial repository cache refresh failed", "error", err)
 	}
-
-	g.mu.Lock()
-	repos, byID, err := g.repos, g.reposByID, g.lastErr
-	g.mu.Unlock()
-	if repos == nil {
-		if err == nil {
-			err = fmt.Errorf("no repositories available")
+	ticker := time.NewTicker(g.refreshInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := g.refresh(ctx)
+			if err != nil {
+				slog.Warn("repository cache refresh failed", "error", err)
+			}
 		}
-		return nil, nil, err
 	}
-	return repos, byID, nil
 }
 
-// ensureRefreshLocked starts a background refresh unless one is already running, and returns a
-// channel closed when it finishes. The caller must hold g.mu.
-func (g *GitHubApp) ensureRefreshLocked() chan struct{} {
-	if g.refreshing != nil {
-		return g.refreshing
-	}
-	done := make(chan struct{})
-	g.refreshing = done
-	go g.refresh(done)
-	return done
+// accessible returns the cached union of every installation's repositories as sorted
+// "owner/repo" strings, a lowercase membership set, whether a refresh has ever succeeded, and
+// the last refresh error. It reads only memory; the background loop keeps the cache current.
+func (g *GitHubApp) accessible() ([]string, map[string]bool, bool, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.repos, g.reposByID, g.loaded, g.lastErr
 }
 
-func (g *GitHubApp) refresh(done chan struct{}) {
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+// refresh enumerates every installation's repositories and replaces the cache. On error it
+// keeps the previous cache, so a transient GitHub failure does not empty the type-ahead.
+func (g *GitHubApp) refresh(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	byID := map[string]bool{}
 	var all []string
-	var refreshErr error
 	for _, id := range g.installations {
 		repos, err := g.listInstallationRepos(ctx, id)
 		if err != nil {
-			refreshErr = err
-			break
+			g.mu.Lock()
+			g.lastErr = err
+			g.mu.Unlock()
+			return err
 		}
 		for _, repo := range repos {
 			key := strings.ToLower(repo)
@@ -241,14 +221,9 @@ func (g *GitHubApp) refresh(done chan struct{}) {
 	sort.Strings(all)
 
 	g.mu.Lock()
-	if refreshErr == nil {
-		g.repos, g.reposByID, g.fetchedAt, g.lastErr = all, byID, time.Now(), nil
-	} else {
-		g.lastErr = refreshErr
-	}
-	g.refreshing = nil
+	g.repos, g.reposByID, g.loaded, g.lastErr = all, byID, true, nil
 	g.mu.Unlock()
-	close(done)
+	return nil
 }
 
 func (g *GitHubApp) listInstallationRepos(ctx context.Context, installationID string) ([]string, error) {

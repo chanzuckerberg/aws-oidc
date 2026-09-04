@@ -133,6 +133,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	// Assign only when configured: a nil *GitHubApp stored in the interface field would read
 	// as non-nil and turn the Repositories page on without a working backend.
 	if githubApp != nil {
+		githubApp.Start(ctx)
 		cfg.Repositories = githubApp
 	}
 

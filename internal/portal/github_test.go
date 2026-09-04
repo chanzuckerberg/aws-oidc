@@ -62,6 +62,10 @@ func TestGitHubAppSuggestAndReachable(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, app)
 
+	// The type-ahead reads only the in-memory cache the background loop fills; refresh once to
+	// populate it deterministically instead of racing the loop's timer.
+	require.NoError(t, app.refresh(ctx))
+
 	got, err := app.Suggest(ctx, "aws", 20)
 	require.NoError(t, err)
 	require.Contains(t, got, "chanzuckerberg/aws-oidc")
@@ -79,6 +83,23 @@ func TestGitHubAppSuggestAndReachable(t *testing.T) {
 	require.False(t, reachable)
 
 	require.Equal(t, int32(2), atomic.LoadInt32(&tokenCalls), "the accessible set is cached across calls")
+}
+
+// Before the background loop has loaded, the type-ahead reads an empty cache and makes no
+// GitHub call: Suggest is empty and Reachable reports the list is not ready. The unreachable
+// api URL proves nothing on the request path dials GitHub.
+func TestGitHubAppColdCache(t *testing.T) {
+	ctx := context.Background()
+	app, err := NewGitHubApp("4783816", testAppKeyPEM(t), "111", "", "https://example.invalid")
+	require.NoError(t, err)
+	require.NotNil(t, app)
+
+	got, err := app.Suggest(ctx, "aws", 20)
+	require.NoError(t, err)
+	require.Empty(t, got)
+
+	_, err = app.Reachable(ctx, "chanzuckerberg/aws-oidc")
+	require.Error(t, err, "reachability is unknown until the cache loads")
 }
 
 func TestNewGitHubAppNoCredentials(t *testing.T) {
