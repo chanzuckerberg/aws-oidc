@@ -38,7 +38,7 @@ func TestEnsureGitHubAppSecret(t *testing.T) {
 	secret := &corev1.Secret{}
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: GitHubAppSecretName}, secret))
 	require.Equal(t, corev1.SecretTypeOpaque, secret.Type)
-	// Exactly one key, so a thread pod mounting this Secret cannot reach anything else.
+	// Exactly one key, so a workspace pod mounting this Secret cannot reach anything else.
 	require.Len(t, secret.Data, 1)
 	require.Equal(t, keyPEM, string(secret.Data[githubAppKeyFileName]))
 

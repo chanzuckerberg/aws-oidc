@@ -13,6 +13,7 @@ apps:
         agent:
           context: .
           dockerfile: ./Dockerfile.agent
+          platforms: [linux/amd64, linux/arm64]
           # anchors targets only the tag line with &agent-image in values.yaml, so this
           # build never accidentally clobbers the operator/portal image tags.
           anchors: [agent-image]

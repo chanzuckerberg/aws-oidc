@@ -25,9 +25,9 @@ func TestTemplatesRender(t *testing.T) {
 		allowed: map[string]agentsv1.AWSGrant{},
 	}
 
-	// Form renders, and the current grant is pre-checked.
+	// AWS page renders, and the current grant is pre-checked.
 	rec := httptest.NewRecorder()
-	s.render(rec, "form", pageData{
+	s.render(rec, "agent_aws", pageData{
 		Title:        "Edit",
 		User:         &identity.User{Sub: "s", Email: "a@example.com"},
 		Agent:        &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}},
@@ -55,4 +55,45 @@ func TestTemplatesRender(t *testing.T) {
 	})
 	require.Equal(t, 200, rec.Code)
 	require.Contains(t, rec.Body.String(), "bot")
+
+	// Repositories page renders existing entries as chips with hidden inputs to resubmit.
+	rec = httptest.NewRecorder()
+	s.render(rec, "agent_repositories", pageData{
+		Title:               "Repositories",
+		User:                &identity.User{Sub: "s"},
+		Agent:               &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}},
+		Nav:                 "repositories",
+		RepositoriesOffered: true,
+		Repositories:        []string{"chanzuckerberg/aws-oidc"},
+	})
+	require.Equal(t, 200, rec.Code)
+	body = rec.Body.String()
+	require.Contains(t, body, `name="repository"`)
+	require.Contains(t, body, "chanzuckerberg/aws-oidc")
+
+	// Connection page shows the Tailscale SSH command for a running workspace, keyed on the
+	// owner's email local part so the connect string works outside the home page.
+	rec = httptest.NewRecorder()
+	s.render(rec, "connection", pageData{
+		Title: "Connection",
+		User:  &identity.User{Sub: "s"},
+		Agent: &agentsv1.Agent{
+			ObjectMeta: metav1.ObjectMeta{Name: "bot"},
+			Spec: agentsv1.AgentSpec{
+				OwnerEmail: "jheath@chanzuckerberg.com",
+				Tailscale:  &agentsv1.TailscaleAccess{},
+			},
+			Status: agentsv1.AgentStatus{
+				Workspaces: []agentsv1.WorkspaceStatus{{Name: "main", State: agentsv1.WorkspaceStateRunning}},
+			},
+		},
+		Nav: "connection",
+	})
+	require.Equal(t, 200, rec.Code)
+	require.Contains(t, rec.Body.String(), "ssh -t agent@agent-jheath-bot-main claude")
+}
+
+func TestNormalizeReposDeduplicatesAndTrims(t *testing.T) {
+	got := normalizeRepos([]string{" chanzuckerberg/aws-oidc ", "", "chanzuckerberg/AWS-OIDC", "evolutionaryscale/foo"})
+	require.Equal(t, []string{"chanzuckerberg/aws-oidc", "evolutionaryscale/foo"}, got)
 }

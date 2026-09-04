@@ -55,6 +55,25 @@ type Grant struct {
 	// MinProperties/MaxProperties markers above.
 }
 
+// TailscaleAccess enrolls the agent's workspace pods in the tailnet and pins the SSH login
+// name they may use. Presence of this field means tailnet access is enabled for the agent.
+// The portal derives SSHUser from the owner's email local part and never allows root.
+type TailscaleAccess struct {
+	// SSHUser is the only Linux username the agent may use when connecting to tailnet devices
+	// over SSH. The portal fixes this to the owner's email local part.
+	// +kubebuilder:validation:Pattern=`^[a-z_][a-z0-9_-]*$`
+	// +kubebuilder:validation:MinLength=1
+	SSHUser string `json:"sshUser"`
+}
+
+// Repository is a GitHub repository in "owner/repo" form that the agent clones into its
+// workspace at boot. The portal validates each entry is reachable by the agent's GitHub App
+// installations before saving; the pattern here is a second line of defense for writes that
+// bypass the portal, and keeps the value safe to hand to a shell as a single argument.
+// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`
+// +kubebuilder:validation:MaxLength=128
+type Repository string
+
 // AgentEnvVar is a plain environment variable for an agent's containers. It deliberately has
 // no valueFrom: an agent owner must not be able to project arbitrary namespace secrets into
 // their own pod.
@@ -66,7 +85,7 @@ type AgentEnvVar struct {
 	Value string `json:"value,omitempty"`
 }
 
-// AgentRuntime is the shape every thread of an agent runs as. It is a curated subset of a
+// AgentRuntime is the shape every workspace of an agent runs as. It is a curated subset of a
 // pod spec rather than an embedded PodSpec: the operator owns the service account, the
 // projected token volume, and the AWS config mount, so an owner cannot point their pod at
 // another identity or mount a host path.
@@ -113,10 +132,11 @@ type AgentRuntime struct {
 	WorkspaceSize *resource.Quantity `json:"workspaceSize,omitempty"`
 }
 
-// AgentThread is one running thread of an agent: its own pod and its own workspace, sharing
-// the agent's access. A person runs several threads of the same agent at once.
-type AgentThread struct {
-	// Name identifies the thread within the agent and names its Kubernetes objects.
+// AgentWorkspace is one running workspace of an agent: its own pod with its own working tree on
+// the shared volume, sharing the agent's access. A person runs several workspaces of the same
+// agent at once.
+type AgentWorkspace struct {
+	// Name identifies the workspace within the agent and names its Kubernetes objects.
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
 	// +kubebuilder:validation:MaxLength=24
 	Name string `json:"name"`
@@ -125,7 +145,7 @@ type AgentThread struct {
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
 
-	// Suspended scales the thread to zero replicas while keeping its workspace intact.
+	// Suspended scales the workspace to zero replicas while keeping its working tree intact.
 	// +optional
 	Suspended bool `json:"suspended,omitempty"`
 }
@@ -152,18 +172,31 @@ type AgentSpec struct {
 	// +listType=atomic
 	Grants []Grant `json:"grants,omitempty"`
 
+	// Repositories is the set of GitHub repositories, each "owner/repo", to clone into
+	// /workspace when a workspace pod boots, so sessions find the source already checked out.
+	// Clones are idempotent: a repository already present is left as is. Only meaningful when
+	// Runtime is set, since it is the workspace pods that clone.
+	// +optional
+	// +listType=set
+	Repositories []Repository `json:"repositories,omitempty"`
+
+	// Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
+	// owner's email local part. When nil the agent has no tailnet identity.
+	// +optional
+	Tailscale *TailscaleAccess `json:"tailscale,omitempty"`
+
 	// Runtime describes how the agent runs in the cluster. When unset the agent has no pods
 	// and exists only as the access granted to it.
 	// +optional
 	Runtime *AgentRuntime `json:"runtime,omitempty"`
 
-	// Threads is the set of threads to run. Each gets its own pod and workspace. It is a map
-	// list so the API server rejects duplicate names and two writers editing different
-	// threads do not clobber each other. Ignored when Runtime is unset.
+	// Workspaces is the set of workspaces to run. Each gets its own pod and working tree. It is a
+	// map list so the API server rejects duplicate names and two writers editing different
+	// workspaces do not clobber each other. Ignored when Runtime is unset.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Threads []AgentThread `json:"threads,omitempty"`
+	Workspaces []AgentWorkspace `json:"workspaces,omitempty"`
 }
 
 // GrantState is the provisioning state of a single grant.
@@ -208,42 +241,42 @@ type GrantStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// ThreadState is the running state of one thread.
+// WorkspaceState is the running state of one workspace.
 // +kubebuilder:validation:Enum=Pending;Running;Suspended;Failed
-type ThreadState string
+type WorkspaceState string
 
 const (
-	// ThreadStatePending means the thread's objects exist but no pod is ready yet.
-	ThreadStatePending ThreadState = "Pending"
-	// ThreadStateRunning means the thread has a ready pod.
-	ThreadStateRunning ThreadState = "Running"
-	// ThreadStateSuspended means the thread is intentionally scaled to zero.
-	ThreadStateSuspended ThreadState = "Suspended"
-	// ThreadStateFailed means the thread could not be provisioned; see Message.
-	ThreadStateFailed ThreadState = "Failed"
+	// WorkspaceStatePending means the workspace's objects exist but no pod is ready yet.
+	WorkspaceStatePending WorkspaceState = "Pending"
+	// WorkspaceStateRunning means the workspace has a ready pod.
+	WorkspaceStateRunning WorkspaceState = "Running"
+	// WorkspaceStateSuspended means the workspace is intentionally scaled to zero.
+	WorkspaceStateSuspended WorkspaceState = "Suspended"
+	// WorkspaceStateFailed means the workspace could not be provisioned; see Message.
+	WorkspaceStateFailed WorkspaceState = "Failed"
 )
 
-// ThreadStatus is what the operator provisioned for one thread.
-type ThreadStatus struct {
-	// Name matches the thread's name in spec.threads.
+// WorkspaceStatus is what the operator provisioned for one workspace.
+type WorkspaceStatus struct {
+	// Name matches the workspace's name in spec.workspaces.
 	Name string `json:"name"`
 
-	// ServiceAccountName is the thread's Kubernetes service account, whose projected token
+	// ServiceAccountName is the workspace's Kubernetes service account, whose projected token
 	// the pod exchanges for the agent's AWS roles.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// StatefulSetName is the workload running the thread.
+	// StatefulSetName is the workload running the workspace.
 	// +optional
 	StatefulSetName string `json:"statefulSetName,omitempty"`
 
-	// ReadyReplicas is how many of the thread's pods are ready (zero or one).
+	// ReadyReplicas is how many of the workspace's pods are ready (zero or one).
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
-	// State is the thread's running state.
+	// State is the workspace's running state.
 	// +optional
-	State ThreadState `json:"state,omitempty"`
+	State WorkspaceState `json:"state,omitempty"`
 
 	// Message carries the reason when State is Failed.
 	// +optional
@@ -254,7 +287,7 @@ type ThreadStatus struct {
 const (
 	// ConditionReady is true when every grant is Provisioned.
 	ConditionReady = "Ready"
-	// ConditionRuntimeReady is true when every non-suspended thread has a ready pod.
+	// ConditionRuntimeReady is true when every non-suspended workspace has a ready pod.
 	ConditionRuntimeReady = "RuntimeReady"
 )
 
@@ -276,17 +309,17 @@ type AgentStatus struct {
 	// +listType=atomic
 	Grants []GrantStatus `json:"grants,omitempty"`
 
-	// WorkspaceClaimName is the PVC shared by all of the agent's threads. Each thread
-	// mounts it at its own subPath, so threads can share files through the shared directory
+	// WorkspaceClaimName is the PVC shared by all of the agent's workspaces. Each workspace
+	// mounts it at its own subPath, so workspaces can share files through the shared directory
 	// while keeping their own working trees separate.
 	// +optional
 	WorkspaceClaimName string `json:"workspaceClaimName,omitempty"`
 
-	// Threads is the per-thread provisioning result, one entry per spec.threads entry.
+	// Workspaces is the per-workspace provisioning result, one entry per spec.workspaces entry.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	Threads []ThreadStatus `json:"threads,omitempty"`
+	Workspaces []WorkspaceStatus `json:"workspaces,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -295,7 +328,7 @@ type AgentStatus struct {
 // +kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=`.spec.ownerEmail`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
-// +kubebuilder:printcolumn:name="Threads",type=string,JSONPath=`.status.threads[*].name`
+// +kubebuilder:printcolumn:name="Workspaces",type=string,JSONPath=`.status.workspaces[*].name`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Agent is a registered agent and the scoped access granted to it. The CR is the source of

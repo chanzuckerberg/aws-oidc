@@ -1,0 +1,80 @@
+{{define "workspaces"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div>
+      <div class="card">
+        <h1>Workspaces</h1>
+        {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+
+        {{$ns := .Namespace}}
+        {{$agent := .Agent}}
+        {{$base := .BasePath}}
+
+        {{if .Agent.Status.Workspaces}}
+        <table>
+          <tr>
+            <th>Workspace</th>
+            <th>State</th>
+            <th>Connect</th>
+            <th></th>
+          </tr>
+          {{range .Agent.Status.Workspaces}}
+          {{$tname := .Name}}
+          {{$suspended := false}}
+          {{range $agent.Spec.Workspaces}}{{if eq .Name $tname}}{{if .Suspended}}{{$suspended = true}}{{end}}{{end}}{{end}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td>
+              {{if .State}}{{.State}}{{else}}<span class="muted">—</span>{{end}}
+              {{if .Message}}<br><span class="muted">{{.Message}}</span>{{end}}
+            </td>
+            <td>
+              {{if eq (print .State) "Running"}}
+              <details>
+                <summary class="btn">Connect</summary>
+                <div class="connect-panel">
+                  {{if $agent.Spec.Tailscale}}
+                  <p class="hint">Claude session</p>
+                  <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{$tname}} claude</code>
+                  <p class="hint" style="margin-top:.75rem;">Cursor — add to <code>~/.ssh/config</code></p>
+                  <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{$tname}}
+  User agent
+  StrictHostKeyChecking no</pre>
+                  {{else}}
+                  <code>kubectl exec -it -n {{$ns}} {{.StatefulSetName}}-0 -- claude</code>
+                  {{end}}
+                </div>
+              </details>
+              {{else}}<span class="muted">not running</span>{{end}}
+            </td>
+            <td class="actions">
+              <form class="inline" method="post" action="{{$base}}/agents/{{$agent.Name}}/workspaces/{{.Name}}/suspend">
+                <button class="btn" type="submit">{{if $suspended}}Resume{{else}}Suspend{{end}}</button>
+              </form>
+              <form class="inline" method="post" action="{{$base}}/agents/{{$agent.Name}}/workspaces/{{.Name}}/delete"
+                onsubmit="return confirm('Delete workspace {{.Name}} and its workspace?');">
+                <button class="btn danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </table>
+        {{else}}
+        <p class="muted">No workspaces running yet. Spawn one below.</p>
+        {{end}}
+
+        <h2>Spawn a workspace</h2>
+        <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/workspaces">
+          <p>
+            <label>Name
+              <input name="new-workspace" required pattern="[a-z0-9]([-a-z0-9]*[a-z0-9])?" maxlength="24" placeholder="review">
+            </label>
+            <button class="btn primary" type="submit">Spawn</button>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}

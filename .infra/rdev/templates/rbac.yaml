@@ -93,13 +93,13 @@ subjects:
     name: agent-operator
     namespace: {{ .Release.Namespace }}
 ---
-# The operator also runs each agent's threads as pods in this namespace. That access is
+# The operator also runs each agent's workspaces as pods in this namespace. That access is
 # namespaced rather than cluster-wide: the operator can create workloads only where it lives,
 # so a compromised operator cannot place pods elsewhere in the cluster.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: agent-operator-threads
+  name: agent-operator-workspaces
   namespace: {{ .Release.Namespace }}
 rules:
   - apiGroups: ["apps"]
@@ -109,7 +109,7 @@ rules:
     resources: ["serviceaccounts", "services", "configmaps", "persistentvolumeclaims"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # The operator republishes the GitHub App private key from its own environment into a Secret
-  # that thread pods mount. It is granted no read access to any other Secret in the namespace,
+  # that workspace pods mount. It is granted no read access to any other Secret in the namespace,
   # which is why create is separate: resourceNames cannot restrict a create.
   - apiGroups: [""]
     resources: ["secrets"]
@@ -122,12 +122,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: agent-operator-threads
+  name: agent-operator-workspaces
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: agent-operator-threads
+  name: agent-operator-workspaces
 subjects:
   - kind: ServiceAccount
     name: agent-operator

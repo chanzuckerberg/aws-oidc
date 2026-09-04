@@ -12,30 +12,71 @@ import (
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
 
-// threadNameRe matches the CRD's thread name pattern, so the portal rejects a bad name with a
+// tailscaleForm carries the state for the Tailscale page.
+type tailscaleForm struct {
+	Enabled bool
+	SSHUser string
+}
+
+// tailscaleFormFromAgent builds the Tailscale form state from a stored agent.
+func tailscaleFormFromAgent(agent *agentsv1.Agent) tailscaleForm {
+	if agent == nil || agent.Spec.Tailscale == nil {
+		return tailscaleForm{}
+	}
+	return tailscaleForm{
+		Enabled: true,
+		SSHUser: agent.Spec.Tailscale.SSHUser,
+	}
+}
+
+// deriveTailscaleUser returns the email local part to use as the SSH username. It rejects
+// empty values and "root".
+func deriveTailscaleUser(email string) (string, error) {
+	local, _, _ := strings.Cut(email, "@")
+	local, _, _ = strings.Cut(local, "+")
+	local = strings.TrimSpace(local)
+	if local == "" {
+		return "", fmt.Errorf("cannot determine SSH user: owner email is empty or malformed")
+	}
+	if local == "root" {
+		return "", fmt.Errorf("root is not allowed as the SSH user")
+	}
+	return local, nil
+}
+
+// validSSHUserRe matches the CRD's sshUser pattern: starts with a letter or underscore,
+// followed by lowercase letters, digits, underscores or hyphens.
+var validSSHUserRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]*$`)
+
+// validSSHUser reports whether s is an acceptable run-as username.
+func validSSHUser(s string) bool {
+	return validSSHUserRe.MatchString(s)
+}
+
+// workspaceNameRe matches the CRD's workspace name pattern, so the portal rejects a bad name with a
 // message instead of surfacing an API server validation error.
-var threadNameRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+var workspaceNameRe = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 const (
-	// firstThreadName is the thread an agent gets when its owner turns on the runtime without
+	// firstWorkspaceName is the workspace an agent gets when its owner turns on the runtime without
 	// naming one, so enabling the runtime is a single click.
-	firstThreadName = "main"
+	firstWorkspaceName = "main"
 
 	defaultCPU           = "500m"
 	defaultMemory        = "1Gi"
 	defaultWorkspaceSize = "50Gi"
 
-	threadNameMaxLength = 24
+	workspaceNameMaxLength = 24
 )
 
 // AgentLimits caps what an owner may ask for when running an agent in the cluster. The portal
 // is the only place a person sets these, so this is where the ceiling belongs.
 type AgentLimits struct {
-	MaxCPU          string
-	MaxMemory       string
-	MaxThreads      int
-	MaxWorkspace    string
-	DefaultImage    string
+	MaxCPU              string
+	MaxMemory           string
+	MaxWorkspaces       int
+	MaxWorkspace        string
+	DefaultImage        string
 	DefaultStorageClass string
 }
 
@@ -47,8 +88,8 @@ func (l AgentLimits) defaults() AgentLimits {
 	if l.MaxMemory == "" {
 		l.MaxMemory = "16Gi"
 	}
-	if l.MaxThreads <= 0 {
-		l.MaxThreads = 5
+	if l.MaxWorkspaces <= 0 {
+		l.MaxWorkspaces = 5
 	}
 	if l.MaxWorkspace == "" {
 		l.MaxWorkspace = "500Gi"
@@ -59,22 +100,22 @@ func (l AgentLimits) defaults() AgentLimits {
 // runtimeForm is the runtime section of the agent form, both what is rendered and what a
 // submission is read back into so a rejected form comes back with the values the person typed.
 type runtimeForm struct {
-	Enabled      bool
-	CPU          string
-	Memory       string
-	Image        string
-	StorageClass string
+	Enabled       bool
+	CPU           string
+	Memory        string
+	Image         string
+	StorageClass  string
 	WorkspaceSize string
-	Threads      []threadForm
-	// NewThread is the name typed into the add-a-thread box, kept so a rejected form does not
+	Workspaces    []workspaceForm
+	// NewWorkspace is the name typed into the add-a-workspace box, kept so a rejected form does not
 	// lose it.
-	NewThread string
-	Limits    AgentLimits
+	NewWorkspace string
+	Limits       AgentLimits
 }
 
-// threadForm is one row of the threads table, carrying the operator's report of the thread so
+// workspaceForm is one row of the workspaces table, carrying the operator's report of the workspace so
 // the owner sees whether it is actually running.
-type threadForm struct {
+type workspaceForm struct {
 	Name      string
 	Suspended bool
 	State     string
@@ -114,15 +155,15 @@ func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 		form.WorkspaceSize = agentRuntime.WorkspaceSize.String()
 	}
 
-	states := make(map[string]agentsv1.ThreadStatus, len(agent.Status.Threads))
-	for _, status := range agent.Status.Threads {
+	states := make(map[string]agentsv1.WorkspaceStatus, len(agent.Status.Workspaces))
+	for _, status := range agent.Status.Workspaces {
 		states[status.Name] = status
 	}
-	for _, thread := range agent.Spec.Threads {
-		status := states[thread.Name]
-		form.Threads = append(form.Threads, threadForm{
-			Name:      thread.Name,
-			Suspended: thread.Suspended,
+	for _, workspace := range agent.Spec.Workspaces {
+		status := states[workspace.Name]
+		form.Workspaces = append(form.Workspaces, workspaceForm{
+			Name:      workspace.Name,
+			Suspended: workspace.Suspended,
 			State:     string(status.State),
 			Message:   status.Message,
 		})
@@ -140,29 +181,29 @@ func runtimeFromForm(r *http.Request, limits AgentLimits) runtimeForm {
 		Image:         r.FormValue("image"),
 		StorageClass:  r.FormValue("storage-class"),
 		WorkspaceSize: r.FormValue("workspace-size"),
-		NewThread:     r.FormValue("new-thread"),
+		NewWorkspace:  r.FormValue("new-workspace"),
 		Limits:        limits,
 	}
 
 	suspended := selection(r.Form["suspended"])
-	removed := selection(r.Form["remove-thread"])
-	for _, name := range r.Form["thread"] {
+	removed := selection(r.Form["remove-workspace"])
+	for _, name := range r.Form["workspace"] {
 		if removed[name] {
 			continue
 		}
-		form.Threads = append(form.Threads, threadForm{Name: name, Suspended: suspended[name]})
+		form.Workspaces = append(form.Workspaces, workspaceForm{Name: name, Suspended: suspended[name]})
 	}
 	return form
 }
 
-// parseRuntime turns a submission into the agent's desired runtime and threads. It returns nil
+// parseRuntime turns a submission into the agent's desired runtime and workspaces. It returns nil
 // when the owner has not turned the runtime on, which is what tells the operator the agent has
 // no pods.
 //
-// Sizing is applied as both requests and limits, so a thread gets the CPU and memory it asked
+// Sizing is applied as both requests and limits, so a workspace gets the CPU and memory it asked
 // for and cannot burst past it. That makes an agent's cost predictable, which matters when the
 // people creating them are not the people paying for them.
-func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
+func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentWorkspace, error) {
 	if r.FormValue("runtime") == "" {
 		return nil, nil, nil
 	}
@@ -181,40 +222,49 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits) 
 		return nil, nil, err
 	}
 
-	threads, err := parseThreads(r, limits.MaxThreads)
+	workspaces, err := parseWorkspaces(r, limits.MaxWorkspaces)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	var image, storageClass string
+	if isAdmin {
+		image = strings.TrimSpace(r.FormValue("image"))
+		storageClass = strings.TrimSpace(r.FormValue("storage-class"))
+	} else if current != nil && current.Spec.Runtime != nil {
+		image = current.Spec.Runtime.Image
+		storageClass = current.Spec.Runtime.StorageClass
+	}
+
 	sizing := corev1.ResourceList{corev1.ResourceCPU: cpu, corev1.ResourceMemory: memory}
 	agentRuntime := &agentsv1.AgentRuntime{
-		Image:         strings.TrimSpace(r.FormValue("image")),
-		StorageClass:  strings.TrimSpace(r.FormValue("storage-class")),
+		Image:         image,
+		StorageClass:  storageClass,
 		WorkspaceSize: &workspaceSize,
 		Resources:     corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
 	}
-	return agentRuntime, threads, nil
+	return agentRuntime, workspaces, nil
 }
 
-// parseThreads reads the threads table: the rows that came back, minus the ones marked for
+// parseWorkspaces reads the workspaces table: the rows that came back, minus the ones marked for
 // removal, plus a newly named one.
-func parseThreads(r *http.Request, maxThreads int) ([]agentsv1.AgentThread, error) {
+func parseWorkspaces(r *http.Request, maxWorkspaces int) ([]agentsv1.AgentWorkspace, error) {
 	suspended := selection(r.Form["suspended"])
-	removed := selection(r.Form["remove-thread"])
+	removed := selection(r.Form["remove-workspace"])
 
-	threads := make([]agentsv1.AgentThread, 0, len(r.Form["thread"])+1)
+	workspaces := make([]agentsv1.AgentWorkspace, 0, len(r.Form["workspace"])+1)
 	seen := map[string]bool{}
 
 	add := func(name string) error {
 		if seen[name] {
-			return fmt.Errorf("there is already a thread named %q", name)
+			return fmt.Errorf("there is already a workspace named %q", name)
 		}
 		seen[name] = true
-		threads = append(threads, agentsv1.AgentThread{Name: name, Suspended: suspended[name]})
+		workspaces = append(workspaces, agentsv1.AgentWorkspace{Name: name, Suspended: suspended[name]})
 		return nil
 	}
 
-	for _, name := range r.Form["thread"] {
+	for _, name := range r.Form["workspace"] {
 		if removed[name] {
 			continue
 		}
@@ -224,30 +274,30 @@ func parseThreads(r *http.Request, maxThreads int) ([]agentsv1.AgentThread, erro
 		}
 	}
 
-	newThread := strings.ToLower(strings.TrimSpace(r.FormValue("new-thread")))
-	if newThread != "" {
-		if len(newThread) > threadNameMaxLength {
-			return nil, fmt.Errorf("thread names are limited to %d characters", threadNameMaxLength)
+	newWorkspace := strings.ToLower(strings.TrimSpace(r.FormValue("new-workspace")))
+	if newWorkspace != "" {
+		if len(newWorkspace) > workspaceNameMaxLength {
+			return nil, fmt.Errorf("workspace names are limited to %d characters", workspaceNameMaxLength)
 		}
-		if !threadNameRe.MatchString(newThread) {
-			return nil, fmt.Errorf("thread name %q must use only lowercase letters, numbers, and dashes", newThread)
+		if !workspaceNameRe.MatchString(newWorkspace) {
+			return nil, fmt.Errorf("workspace name %q must use only lowercase letters, numbers, and dashes", newWorkspace)
 		}
-		err := add(newThread)
+		err := add(newWorkspace)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Turning the runtime on with no threads means one thread, rather than an agent that runs
+	// Turning the runtime on with no workspaces means one workspace, rather than an agent that runs
 	// nothing.
-	if len(threads) == 0 {
-		threads = append(threads, agentsv1.AgentThread{Name: firstThreadName})
+	if len(workspaces) == 0 {
+		workspaces = append(workspaces, agentsv1.AgentWorkspace{Name: firstWorkspaceName})
 	}
 
-	if len(threads) > maxThreads {
-		return nil, fmt.Errorf("an agent is limited to %d threads", maxThreads)
+	if len(workspaces) > maxWorkspaces {
+		return nil, fmt.Errorf("an agent is limited to %d workspaces", maxWorkspaces)
 	}
-	return threads, nil
+	return workspaces, nil
 }
 
 // parseQuantity reads one sizing field, falling back to the default when it is blank and

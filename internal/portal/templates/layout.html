@@ -5,43 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}} — Agent Registry</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
-    header { display: flex; align-items: baseline; gap: .5rem; }
-    header a { font-weight: 600; text-decoration: none; color: inherit; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; color: #1a1a1a; background: #fafafa; }
+    .topbar { display: flex; align-items: baseline; gap: .5rem; padding: .75rem 1.5rem; background: #fff; border-bottom: 1px solid #e0e0e0; }
+    .topbar a { font-weight: 600; text-decoration: none; color: inherit; }
     .muted { color: #666; }
+    .page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .page-full { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .edit-layout { display: grid; grid-template-columns: 200px 1fr; gap: 2rem; align-items: start; }
+    @media (max-width: 700px) { .edit-layout { grid-template-columns: 1fr; } }
+
+    /* Sidebar */
+    .sidenav { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; position: sticky; top: 1.5rem; }
+    .sidenav-agent { padding: .6rem .9rem; border-bottom: 1px solid #e0e0e0; font-weight: 600; font-size: .9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidenav a { display: block; padding: .5rem .9rem; text-decoration: none; color: #333; font-size: .9em; border-left: 3px solid transparent; }
+    .sidenav a:hover { background: #f4f4f4; }
+    .sidenav a.active { border-left-color: #1a5; color: #1a5; font-weight: 600; background: #f0faf4; }
+    .sidenav-section { padding: .35rem .9rem .1rem; font-size: .75em; text-transform: uppercase; letter-spacing: .05em; color: #999; margin-top: .3rem; }
+
+    /* Content card */
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.25rem 1.5rem; }
+
     table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
     th, td { border: 1px solid #ddd; padding: .45rem .6rem; text-align: left; vertical-align: top; }
     th { background: #f6f6f6; }
-    .btn { display: inline-block; padding: .35rem .7rem; border: 1px solid #888; border-radius: 5px; text-decoration: none; color: inherit; background: #fafafa; cursor: pointer; }
+    .btn { display: inline-block; padding: .35rem .7rem; border: 1px solid #888; border-radius: 5px; text-decoration: none; color: inherit; background: #fafafa; cursor: pointer; font-size: inherit; }
     .btn.primary { background: #1a5; border-color: #1a5; color: #fff; }
-    fieldset { margin: .6rem 0; border: 1px solid #ddd; border-radius: 5px; }
-    legend { font-weight: 600; }
-    label.grant { display: block; padding: .15rem 0; }
+    .btn.danger { color: #b00020; border-color: #b00020; }
+    .btn.small { padding: .2rem .5rem; font-size: .85em; }
+    fieldset { margin: .75rem 0; border: 1px solid #ddd; border-radius: 6px; padding: .75rem 1rem; }
+    legend { font-weight: 600; padding: 0 .3rem; }
+    label.grant { display: block; padding: .2rem 0; }
     p.sizing { display: flex; align-items: center; flex-wrap: wrap; gap: .9rem; }
     .err { color: #b00020; font-weight: 600; }
-    .danger { color: #b00020; }
     form.inline { display: inline; }
-    .btn.small { padding: .2rem .5rem; font-size: .85em; }
-    .thread-row { display: flex; align-items: center; gap: .5rem; margin: .15rem 0; }
+    .workspace-row { display: flex; align-items: center; gap: .5rem; margin: .2rem 0; }
     .connect-details summary { cursor: pointer; }
     .connect-details summary::marker { display: none; }
     .connect-panel { margin-top: .4rem; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px; padding: .4rem .6rem; }
     .connect-panel code { font-size: .85em; word-break: break-all; }
     .actions { white-space: nowrap; }
-    h2 { margin-top: 1.5rem; }
+    h1 { margin: 0 0 1rem; font-size: 1.4rem; }
+    h2 { margin-top: 1.5rem; font-size: 1.1rem; }
+    .hint { color: #666; font-size: .85em; margin: .2rem 0 0; }
+    input[type=text], input[type=email], input[type=password] { font-size: inherit; }
+    input:disabled { background: #f4f4f4; color: #666; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <header>
+  <div class="topbar">
     <a href="{{.BasePath}}/">Agent Registry</a>
     {{if .User}}<span class="muted">— {{if .User.Email}}{{.User.Email}}{{else}}{{.User.Sub}}{{end}}{{if .User.Admin}} · admin{{end}}</span>{{end}}
-  </header>
-  <hr>
+  </div>
 {{end}}
 
 {{define "foot"}}
-  <hr>
-  <footer class="muted">aws-oidc agent registry · hackathon build</footer>
+  <footer style="text-align:center;padding:1.5rem;color:#999;font-size:.8em;">aws-oidc agent registry</footer>
 </body>
 </html>
+{{end}}
+
+{{define "agentnav"}}
+<nav class="sidenav">
+  <div class="sidenav-agent">{{if .Agent}}{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}{{else}}New agent{{end}}</div>
+  {{if .Agent}}
+  <div class="sidenav-section">Configure</div>
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}" {{if eq .Nav "general"}}class="active"{{end}}>General</a>
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/aws" {{if eq .Nav "aws"}}class="active"{{end}}>AWS access</a>
+  {{if .RepositoriesOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/repositories" {{if eq .Nav "repositories"}}class="active"{{end}}>Repositories</a>{{end}}
+  {{if .TailscaleOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/tailscale" {{if eq .Nav "tailscale"}}class="active"{{end}}>Tailscale</a>{{end}}
+  {{if .RuntimeOffered}}
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/runtime" {{if eq .Nav "runtime"}}class="active"{{end}}>Runtime</a>
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/workspaces" {{if eq .Nav "workspaces"}}class="active"{{end}}>Workspaces</a>
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/connection" {{if eq .Nav "connection"}}class="active"{{end}}>Connection</a>
+  {{end}}
+  {{end}}
+</nav>
 {{end}}

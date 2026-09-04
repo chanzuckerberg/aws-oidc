@@ -1,12 +1,12 @@
-// Package agentpod runs an agent's threads in the cluster. An agent is not a single session:
-// a person runs several threads of the same agent at once, so each thread gets its own pod
+// Package agentpod runs an agent's workspaces in the cluster. An agent is not a single session:
+// a person runs several workspaces of the same agent at once, so each workspace gets its own pod
 // while sharing the agent's access and its workspace.
 //
-// Per agent it maintains a headless Service (so each thread pod has a stable DNS name), a
+// Per agent it maintains a headless Service (so each workspace pod has a stable DNS name), a
 // ConfigMap holding the rendered AWS config, and a single ReadWriteMany PVC backed by an EFS
-// access point. Per thread it maintains a ServiceAccount and a StatefulSet. Each thread pod
-// mounts the shared PVC at a thread-specific subPath for its working tree and at a common
-// subPath for files shared between threads. The thread's pod exchanges its projected service
+// access point. Per workspace it maintains a ServiceAccount and a StatefulSet. Each workspace pod
+// mounts the shared PVC at a workspace-specific subPath for its working tree and at a common
+// subPath for files shared between workspaces. The workspace's pod exchanges its projected service
 // account token for the agent's IAM roles, which trust the cluster's OIDC issuer for exactly
 // these service accounts.
 package agentpod
@@ -35,10 +35,10 @@ import (
 const defaultWorkspaceSize = "50Gi"
 
 const (
-	// LabelAgent and LabelThread identify which agent and thread an object belongs to. The
-	// reconciler selects on them to find objects whose thread is gone from the spec.
-	LabelAgent  = "agents.czi.team/agent"
-	LabelThread = "agents.czi.team/thread"
+	// LabelAgent and LabelWorkspace identify which agent and workspace an object belongs to. The
+	// reconciler selects on them to find objects whose workspace is gone from the spec.
+	LabelAgent     = "agents.czi.team/agent"
+	LabelWorkspace = "agents.czi.team/workspace"
 
 	// labelManagedBy marks the objects this package owns.
 	labelManagedBy = "app.kubernetes.io/managed-by"
@@ -56,7 +56,7 @@ const (
 	awsConfigMountPath = "/etc/aws"
 	awsConfigFilePath  = awsConfigMountPath + "/config"
 
-	// workspaceMountPath is the thread's persistent working directory.
+	// workspaceMountPath is the workspace's persistent working directory.
 	workspaceMountPath = "/workspace"
 
 	// tokenAudience is the audience STS requires on a projected token used for web identity.
@@ -95,11 +95,30 @@ const (
 	// githubAppKeyMode is 0440. Secret volume files are owned by root and grouped to the pod's
 	// fsGroup, so group-read is what makes the key readable to uid 1000 and nothing wider.
 	githubAppKeyMode int32 = 0o440
+
+	// tailscaleTokenVolume and tailscaleTokenMountPath are the projected SA token the
+	// tailscale-up init container exchanges for a Tailscale machine key.
+	tailscaleTokenVolume    = "tailscale-token"
+	tailscaleTokenMountPath = "/var/run/secrets/tailscale.com"
+	tailscaleTokenFilePath  = tailscaleTokenMountPath + "/token"
+	tailscaleTunResource    = corev1.ResourceName("agents.czi.team/tun")
+
+	// tailscaleTokenExpirationSecs is the tailscale token's lifetime. Shorter than the AWS
+	// token so the kubelet rotates it frequently. The entrypoint re-reads the file each time
+	// tailscale up is called, so the pod always enrolls with a fresh token.
+	tailscaleTokenExpirationSecs int64 = 600
+
+	// managedSettingsVolume mounts the agent-managed-settings ConfigMap at the path Claude
+	// reads as its enterprise-managed settings layer.
+	managedSettingsVolume    = "managed-settings"
+	managedSettingsMountPath = "/etc/claude-code"
+	// managedSettingsMode 0755 makes shell scripts in the ConfigMap executable.
+	managedSettingsMode int32 = 0o755
 )
 
-// Config is the operator-level policy for running agent threads, the same for every agent.
+// Config is the operator-level policy for running agent workspaces, the same for every agent.
 type Config struct {
-	// Namespace is where the threads run. It is the operator's own namespace, so owner
+	// Namespace is where the workspaces run. It is the operator's own namespace, so owner
 	// references garbage-collect an agent's objects when the agent is deleted.
 	Namespace string
 	// DefaultsLoader reads live defaults from the agent-defaults ConfigMap. When set its
@@ -108,7 +127,7 @@ type Config struct {
 	// DefaultImage is the agent image used when spec.runtime.image is unset and the
 	// ConfigMap loader does not provide one.
 	DefaultImage string
-	// DefaultCommand is the command an agent thread runs when neither the agent nor the image
+	// DefaultCommand is the command an agent workspace runs when neither the agent nor the image
 	// provides a long-running entrypoint. Without it a base image whose entrypoint exits
 	// leaves the pod crash-looping.
 	DefaultCommand []string
@@ -117,14 +136,14 @@ type Config struct {
 	StorageClass string
 	// Region is the AWS region written into the rendered AWS config.
 	Region string
-	// MaxThreads bounds how many threads one agent may run, so a single Agent write cannot
+	// MaxWorkspaces bounds how many workspaces one agent may run, so a single Agent write cannot
 	// ask for an unbounded number of pods.
-	MaxThreads int
+	MaxWorkspaces int
 
 	// AnthropicFederationRuleID, AnthropicOrganizationID, AnthropicServiceAccountID, and
 	// AnthropicTokenAudience configure Workload Identity Federation with Anthropic. When all
 	// four are non-empty the operator adds a second projected token (audience
-	// AnthropicTokenAudience) to every thread pod and sets the four ANTHROPIC_* env vars the
+	// AnthropicTokenAudience) to every workspace pod and sets the four ANTHROPIC_* env vars the
 	// Claude SDK and CLI need to exchange it for a Claude access token. When any field is
 	// empty the Anthropic token and env vars are omitted, so the operator degrades gracefully
 	// in clusters that have not yet configured Claude WIF.
@@ -134,20 +153,37 @@ type Config struct {
 	AnthropicTokenAudience    string
 
 	// GitHubAppID, GitHubAppInstallationID and GitHubAppPrivateKeySecret configure the shared
-	// GitHub App every thread clones and opens pull requests as. When all three are non-empty
+	// GitHub App every workspace clones and opens pull requests as. When all three are non-empty
 	// the operator mounts the app's private key from the named Secret and sets the GITHUB_APP_*
 	// env vars the image's git credential helper and gh wrapper read. When any is empty the
 	// mount and env vars are omitted, so a cluster without a GitHub App still runs agents.
 	//
 	// EnsureGitHubAppSecret writes that Secret at startup and returns its name.
-	GitHubAppID               string
-	GitHubAppInstallationID   string
+	GitHubAppID             string
+	GitHubAppInstallationID string
+	// GitHubAppInstallationMap routes specific repository owners to other installations of the
+	// same GitHub App, so one agent can reach repositories in more than one organization. It is
+	// a comma or space separated list of owner=installation-id pairs, for example
+	// "evolutionaryscale=158867890". An owner that is not listed uses GitHubAppInstallationID.
+	// Empty means every owner uses the default installation.
+	GitHubAppInstallationMap  string
 	GitHubAppPrivateKeySecret string
 	// GitHubAPIURL overrides the API endpoint for GitHub Enterprise. Empty means github.com.
 	GitHubAPIURL string
+
+	// TailscaleTokenAudience is the audience placed on the projected service-account token
+	// the entrypoint passes to "tailscale up --id-token". The form is
+	// "api.tailscale.com/<oidc-client-id>". When empty tailscale enrollment is skipped.
+	TailscaleTokenAudience string
+	// TailscaleTag is the tailscale tag the pod advertises (e.g. "tag:mantis-shrimp").
+	TailscaleTag string
+	// ManagedSettingsConfigMap is the name of the ConfigMap holding managed-settings.json
+	// and ssh-guard.sh. When non-empty the ConfigMap is mounted at /etc/claude-code so
+	// Claude picks it up as its enterprise-managed settings layer.
+	ManagedSettingsConfigMap string
 }
 
-// Reconciler drives an agent's threads toward the spec.
+// Reconciler drives an agent's workspaces toward the spec.
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -162,23 +198,23 @@ func New(c client.Client, scheme *runtime.Scheme, cfg Config) *Reconciler {
 	if cfg.Region == "" {
 		cfg.Region = "us-west-2"
 	}
-	if cfg.MaxThreads <= 0 {
-		cfg.MaxThreads = defaultMaxThreads
+	if cfg.MaxWorkspaces <= 0 {
+		cfg.MaxWorkspaces = defaultMaxWorkspaces
 	}
 	return &Reconciler{Client: c, Scheme: scheme, Config: cfg}
 }
 
-// defaultMaxThreads is the per-agent thread ceiling when none is configured.
-const defaultMaxThreads = 5
+// defaultMaxWorkspaces is the per-agent workspace ceiling when none is configured.
+const defaultMaxWorkspaces = 5
 
-// Reconcile brings the agent's threads in line with its spec and returns their statuses,
-// aligned with spec.threads. The grant statuses come from the AWS provider and carry the role
+// Reconcile brings the agent's workspaces in line with its spec and returns their statuses,
+// aligned with spec.workspaces. The grant statuses come from the AWS provider and carry the role
 // ARNs the pods' AWS config needs, so this runs after the grants are reconciled.
 //
-// An agent with no runtime has no threads, so everything the agent owns is pruned.
-func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.ThreadStatus, error) {
+// An agent with no runtime has no workspaces, so everything the agent owns is pruned.
+func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.WorkspaceStatus, error) {
 	if agent.Spec.Runtime == nil {
-		err := r.pruneThreads(ctx, agent, nil)
+		err := r.pruneWorkspaces(ctx, agent, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -198,35 +234,35 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]ag
 		return nil, err
 	}
 
-	threads := agent.Spec.Threads
-	statuses := make([]agentsv1.ThreadStatus, 0, len(threads))
-	keep := make(map[string]bool, len(threads))
+	workspaces := agent.Spec.Workspaces
+	statuses := make([]agentsv1.WorkspaceStatus, 0, len(workspaces))
+	keep := make(map[string]bool, len(workspaces))
 	var errs []error
 
-	for i := range threads {
-		thread := threads[i]
+	for i := range workspaces {
+		workspace := workspaces[i]
 
-		if i >= r.MaxThreads {
-			statuses = append(statuses, agentsv1.ThreadStatus{
-				Name:    thread.Name,
-				State:   agentsv1.ThreadStateFailed,
-				Message: fmt.Sprintf("agent is limited to %d threads", r.MaxThreads),
+		if i >= r.MaxWorkspaces {
+			statuses = append(statuses, agentsv1.WorkspaceStatus{
+				Name:    workspace.Name,
+				State:   agentsv1.WorkspaceStateFailed,
+				Message: fmt.Sprintf("agent is limited to %d workspaces", r.MaxWorkspaces),
 			})
 			continue
 		}
-		keep[thread.Name] = true
+		keep[workspace.Name] = true
 
-		status, err := r.reconcileThread(ctx, agent, thread)
+		status, err := r.reconcileWorkspace(ctx, agent, workspace)
 		if err != nil {
-			status.State = agentsv1.ThreadStateFailed
+			status.State = agentsv1.WorkspaceStateFailed
 			status.Message = err.Error()
 			errs = append(errs, err)
 		}
 		statuses = append(statuses, status)
 	}
 
-	// Prune after reconciling, so a thread that failed to come up is not also torn down.
-	err = r.pruneThreads(ctx, agent, keep)
+	// Prune after reconciling, so a workspace that failed to come up is not also torn down.
+	err = r.pruneWorkspaces(ctx, agent, keep)
 	if err != nil {
 		errs = append(errs, err)
 	}
@@ -234,32 +270,32 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]ag
 	return statuses, errors.Join(errs...)
 }
 
-// reconcileThread ensures one thread's service account and workload, then reports what it
-// found. The shared workspace is created once per agent before any thread is reconciled.
-func (r *Reconciler) reconcileThread(ctx context.Context, agent *agentsv1.Agent, thread agentsv1.AgentThread) (agentsv1.ThreadStatus, error) {
-	status := agentsv1.ThreadStatus{
-		Name:               thread.Name,
-		ServiceAccountName: agent.ThreadServiceAccountName(thread.Name),
-		StatefulSetName:    agent.ThreadStatefulSetName(thread.Name),
-		State:              agentsv1.ThreadStatePending,
+// reconcileWorkspace ensures one workspace's service account and workload, then reports what it
+// found. The shared workspace is created once per agent before any workspace is reconciled.
+func (r *Reconciler) reconcileWorkspace(ctx context.Context, agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) (agentsv1.WorkspaceStatus, error) {
+	status := agentsv1.WorkspaceStatus{
+		Name:               workspace.Name,
+		ServiceAccountName: agent.WorkspaceServiceAccountName(workspace.Name),
+		StatefulSetName:    agent.WorkspaceStatefulSetName(workspace.Name),
+		State:              agentsv1.WorkspaceStatePending,
 	}
 
-	err := r.ensureServiceAccount(ctx, agent, thread)
+	err := r.ensureServiceAccount(ctx, agent, workspace)
 	if err != nil {
 		return status, err
 	}
 
-	set, err := r.ensureStatefulSet(ctx, agent, thread)
+	set, err := r.ensureStatefulSet(ctx, agent, workspace)
 	if err != nil {
 		return status, err
 	}
 
 	status.ReadyReplicas = set.Status.ReadyReplicas
 	switch {
-	case thread.Suspended:
-		status.State = agentsv1.ThreadStateSuspended
+	case workspace.Suspended:
+		status.State = agentsv1.WorkspaceStateSuspended
 	case set.Status.ReadyReplicas > 0:
-		status.State = agentsv1.ThreadStateRunning
+		status.State = agentsv1.WorkspaceStateRunning
 	}
 	return status, nil
 }
@@ -274,7 +310,7 @@ func (r *Reconciler) ensureService(ctx context.Context, agent *agentsv1.Agent) e
 		service.Labels = agentLabels(agent)
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 		service.Spec.Selector = agentLabels(agent)
-		// The threads serve no traffic yet. A port is declared anyway because a headless
+		// The workspaces serve no traffic yet. A port is declared anyway because a headless
 		// service with no ports publishes no DNS records for its pods.
 		service.Spec.Ports = []corev1.ServicePort{{Name: "agent", Port: 8080}}
 		return controllerutil.SetControllerReference(agent, service, r.Scheme)
@@ -285,8 +321,8 @@ func (r *Reconciler) ensureService(ctx context.Context, agent *agentsv1.Agent) e
 	return nil
 }
 
-// ensureAWSConfig writes the agent's rendered AWS config. Every thread mounts the same one,
-// since threads differ in workspace, not in access.
+// ensureAWSConfig writes the agent's rendered AWS config. Every workspace mounts the same one,
+// since workspaces differ in workspace, not in access.
 func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent) error {
 	rendered, err := r.renderAWSConfig(agent)
 	if err != nil {
@@ -309,16 +345,16 @@ func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent)
 	return nil
 }
 
-// ensureServiceAccount creates the identity the thread's pod runs as. Its name is what the
+// ensureServiceAccount creates the identity the workspace's pod runs as. Its name is what the
 // agent's IAM roles trust, so the pod can assume them with its projected token.
-func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.Agent, thread agentsv1.AgentThread) error {
+func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) error {
 	account := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
-		Name:      agent.ThreadServiceAccountName(thread.Name),
+		Name:      agent.WorkspaceServiceAccountName(workspace.Name),
 		Namespace: r.Namespace,
 	}}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, account, func() error {
-		account.Labels = threadLabels(agent, thread.Name)
+		account.Labels = workspaceLabels(agent, workspace.Name)
 		return controllerutil.SetControllerReference(agent, account, r.Scheme)
 	})
 	if err != nil {
@@ -327,9 +363,9 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.A
 	return nil
 }
 
-// ensureWorkspace creates the shared ReadWriteMany PVC for the agent. All threads mount it:
-// each thread at its own subPath for an isolated working tree, and every thread at the shared
-// subPath for files passed between threads. The EFS CSI driver provisions a fresh access
+// ensureWorkspace creates the shared ReadWriteMany PVC for the agent. All workspaces mount it:
+// each workspace at its own subPath for an isolated working tree, and every workspace at the shared
+// subPath for files passed between workspaces. The EFS CSI driver provisions a fresh access
 // point for this PVC, so no other agent's data is reachable inside it.
 //
 // The PVC is owned by the Agent, so it is garbage-collected when the agent is deleted.
@@ -364,10 +400,10 @@ func agentLabels(agent *agentsv1.Agent) map[string]string {
 	}
 }
 
-// threadLabels identifies the objects belonging to one thread of one agent.
-func threadLabels(agent *agentsv1.Agent, thread string) map[string]string {
+// workspaceLabels identifies the objects belonging to one workspace of one agent.
+func workspaceLabels(agent *agentsv1.Agent, workspace string) map[string]string {
 	labels := agentLabels(agent)
-	labels[LabelThread] = thread
+	labels[LabelWorkspace] = workspace
 	return labels
 }
 

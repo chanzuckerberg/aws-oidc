@@ -1,0 +1,46 @@
+{{define "connection"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div>
+      <div class="card">
+        <h1>Connection</h1>
+        <p class="hint">Each workspace is one pod. Open as many Claude or Cursor sessions inside it as you like.</p>
+
+        {{$ns := .Namespace}}
+        {{$agent := .Agent}}
+
+        {{if .Agent.Status.Workspaces}}
+          {{range .Agent.Status.Workspaces}}
+          {{if eq (print .State) "Running"}}
+          <h2>{{.Name}}</h2>
+          <div class="connect-panel">
+            {{if $agent.Spec.Tailscale}}
+            <p class="hint">Claude session over Tailscale SSH</p>
+            <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{.Name}} claude</code>
+            <p class="hint" style="margin-top:.75rem;">Interactive shell</p>
+            <code>ssh agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{.Name}}</code>
+            <p class="hint" style="margin-top:.75rem;">Cursor — add to <code>~/.ssh/config</code>, then Remote-SSH into the host</p>
+            <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{.Name}}
+  User agent
+  StrictHostKeyChecking no</pre>
+            {{else}}
+            <p class="hint">Claude session</p>
+            <code>kubectl exec -it -n {{$ns}} {{.StatefulSetName}}-0 -- claude</code>
+            <p class="hint" style="margin-top:.75rem;">Interactive shell</p>
+            <code>kubectl exec -it -n {{$ns}} {{.StatefulSetName}}-0 -- bash</code>
+            {{end}}
+          </div>
+          {{else}}
+          <h2>{{.Name}} <span class="muted">— {{if .State}}{{.State}}{{else}}pending{{end}}</span></h2>
+          <p class="muted">Not running. Connection details appear once the workspace is Running.</p>
+          {{end}}
+          {{end}}
+        {{else}}
+        <p class="muted">No workspaces yet. Create one on the <a href="{{.BasePath}}/agents/{{.Agent.Name}}/workspaces">Workspaces</a> page.</p>
+        {{end}}
+      </div>
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}

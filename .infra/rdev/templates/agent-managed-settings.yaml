@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-managed-settings
+  namespace: {{ .Release.Namespace }}
+data:
+  CLAUDE.md: |
+{{ .Files.Get "config/CLAUDE.md" | indent 4 }}
+  managed-settings.json: |
+{{ .Files.Get "config/managed-settings.json" | indent 4 }}
+  ssh-guard.sh: |
+{{ .Files.Get "config/ssh-guard.sh" | indent 4 }}
+  git-branch-guard.sh: |
+{{ .Files.Get "config/git-branch-guard.sh" | indent 4 }}

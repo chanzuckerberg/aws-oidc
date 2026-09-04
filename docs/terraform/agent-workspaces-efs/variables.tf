@@ -35,7 +35,7 @@ variable "storage_class_name" {
 }
 
 variable "workspace_uid" {
-  description = "POSIX uid and gid the access point root is owned by. Must match the thread pod's securityContext."
+  description = "POSIX uid and gid the access point root is owned by. Must match the workspace pod's securityContext."
   type        = number
   default     = 1000
 }

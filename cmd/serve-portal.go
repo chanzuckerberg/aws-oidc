@@ -16,10 +16,11 @@ import (
 )
 
 const (
-	flagAgentRuntime          = "agent-runtime"
-	flagAgentMaxCPU           = "agent-max-cpu"
-	flagAgentMaxMemory        = "agent-max-memory"
-	flagAgentDefaultImage     = "agent-default-image"
+	flagAgentRuntime             = "agent-runtime"
+	flagAgentTailscale           = "tailscale"
+	flagAgentMaxCPU              = "agent-max-cpu"
+	flagAgentMaxMemory           = "agent-max-memory"
+	flagAgentDefaultImage        = "agent-default-image"
 	flagAgentDefaultStorageClass = "agent-default-storage-class"
 )
 
@@ -30,10 +31,11 @@ func init() {
 	servePortalCmd.Flags().IntVar(&portalPort, "web-server-port", 8080, "Port to host the portal on")
 	servePortalCmd.Flags().String(flagConfigMapName, "rolemap", "Name of the ConfigMap to read the rolemap from")
 	servePortalCmd.Flags().String(flagConfigMapKey, "rolemap.yaml", "Key within the ConfigMap that holds the rolemap YAML")
-	servePortalCmd.Flags().Bool(flagAgentRuntime, false, "Offer running an agent's threads as pods in the cluster; set this only where the operator is configured to run them")
-	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent thread may request")
-	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent thread may request")
-	servePortalCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
+	servePortalCmd.Flags().Bool(flagAgentRuntime, false, "Offer running an agent's workspaces as pods in the cluster; set this only where the operator is configured to run them")
+	servePortalCmd.Flags().Bool(flagAgentTailscale, false, "Show the Tailscale page in the agent sidebar; set this only where the operator is configured for tailnet enrollment")
+	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent workspace may request")
+	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent workspace may request")
+	servePortalCmd.Flags().Int(flagMaxWorkspacesPerAgent, 5, "Maximum workspaces one agent may run")
 	servePortalCmd.Flags().String(flagAgentDefaultImage, os.Getenv("AGENT_DEFAULT_IMAGE"), "Default container image shown in the agent form; blank means the form shows an empty placeholder")
 	servePortalCmd.Flags().String(flagAgentDefaultStorageClass, os.Getenv("AGENT_DEFAULT_STORAGE_CLASS"), "Default storage class pre-filled in the agent form")
 	servePortalCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
@@ -71,6 +73,10 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing agent-runtime flag: %w", err)
 	}
+	agentTailscale, err := cmd.Flags().GetBool(flagAgentTailscale)
+	if err != nil {
+		return fmt.Errorf("missing tailscale flag: %w", err)
+	}
 	limits, err := agentLimits(cmd)
 	if err != nil {
 		return err
@@ -107,17 +113,31 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("creating identity resolver: %w", err)
 	}
 
-	srv, err := portal.NewServer(portal.Config{
+	githubApp, err := githubAppFromEnv()
+	if err != nil {
+		return fmt.Errorf("configuring github repositories: %w", err)
+	}
+
+	cfg := portal.Config{
 		Apps:             oktaAppClient,
 		MappingsProvider: mappingsProvider,
 		Store:            store,
 		Identity:         identity,
 		BasePath:         os.Getenv("PORTAL_BASE_PATH"),
 		AgentRuntime:     agentRuntime,
+		AgentTailscale:   agentTailscale,
 		Limits:           limits,
 		Namespace:        namespace,
 		DefaultsLoader:   agentdefaults.NewLoader(defaultsConfigPath),
-	})
+	}
+	// Assign only when configured: a nil *GitHubApp stored in the interface field would read
+	// as non-nil and turn the Repositories page on without a working backend.
+	if githubApp != nil {
+		githubApp.Start(ctx)
+		cfg.Repositories = githubApp
+	}
+
+	srv, err := portal.NewServer(cfg)
 	if err != nil {
 		return fmt.Errorf("creating portal server: %w", err)
 	}
@@ -129,11 +149,47 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		"namespace", namespace,
 		"rolemap_configmap", rolemapName,
 		"agent_runtime", agentRuntime,
+		"agent_tailscale", agentTailscale,
+		"agent_repositories", githubApp != nil,
 	)
 	return http.ListenAndServe(addr, srv.Handler())
 }
 
-// agentLimits reads the ceilings an agent owner is held to when sizing their threads.
+// githubAppFromEnv builds the GitHub App client the Repositories page uses to search and
+// validate repositories. It reads the same credentials the operator uses: the app id, the
+// default installation, the owner-to-installation map, and the private key (inline in
+// GITHUB_APP_PRIVATE_KEY or a path in GITHUB_APP_PRIVATE_KEY_FILE). Returns nil when the app
+// id or key is absent, which leaves the Repositories page hidden.
+func githubAppFromEnv() (*portal.GitHubApp, error) {
+	key, err := githubAppPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	return portal.NewGitHubApp(
+		os.Getenv("GITHUB_APP_ID"),
+		key,
+		os.Getenv("GITHUB_APP_INSTALLATION_ID"),
+		os.Getenv("GITHUB_APP_INSTALLATION_MAP"),
+		os.Getenv("GITHUB_API_URL"),
+	)
+}
+
+func githubAppPrivateKey() ([]byte, error) {
+	if pem := os.Getenv("GITHUB_APP_PRIVATE_KEY"); pem != "" {
+		return []byte(pem), nil
+	}
+	path := os.Getenv("GITHUB_APP_PRIVATE_KEY_FILE")
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading github app private key file: %w", err)
+	}
+	return data, nil
+}
+
+// agentLimits reads the ceilings an agent owner is held to when sizing their workspaces.
 func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	maxCPU, err := cmd.Flags().GetString(flagAgentMaxCPU)
 	if err != nil {
@@ -143,9 +199,9 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	if err != nil {
 		return portal.AgentLimits{}, fmt.Errorf("missing agent-max-memory flag: %w", err)
 	}
-	maxThreads, err := cmd.Flags().GetInt(flagMaxThreadsPerAgent)
+	maxWorkspaces, err := cmd.Flags().GetInt(flagMaxWorkspacesPerAgent)
 	if err != nil {
-		return portal.AgentLimits{}, fmt.Errorf("missing max-threads-per-agent flag: %w", err)
+		return portal.AgentLimits{}, fmt.Errorf("missing max-workspaces-per-agent flag: %w", err)
 	}
 	defaultImage, err := cmd.Flags().GetString(flagAgentDefaultImage)
 	if err != nil {
@@ -159,7 +215,7 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	return portal.AgentLimits{
 		MaxCPU:              maxCPU,
 		MaxMemory:           maxMemory,
-		MaxThreads:          maxThreads,
+		MaxWorkspaces:       maxWorkspaces,
 		DefaultImage:        defaultImage,
 		DefaultStorageClass: defaultStorageClass,
 	}, nil

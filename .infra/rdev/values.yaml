@@ -1,11 +1,11 @@
 ###### Generated using `argus bootstrap` command ######
 
-# Agent image for thread pods. Updated automatically by Argus CI on every agent build.
+# Agent image for workspace pods. Updated automatically by Argus CI on every agent build.
 # The anchor is targeted by the 'agent' image entry in .argus-ci.yaml (anchors: [agent-image]).
 # The Helm template for agent-defaults.yaml composes repository + tag into the full image ref.
 agentImage:
   repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent
-  tag: &agent-image sha-e141c7d
+  tag: &agent-image sha-c9b1100
 
 stack:
   global:
@@ -13,10 +13,14 @@ stack:
       - name: agent-defaults
         configMap:
           name: agent-operator-defaults
+      - name: agent-managed-settings
+        configMap:
+          name: agent-managed-settings
+          defaultMode: 0755
   services:
     aws-oidc:
       image:
-        tag: sha-e141c7d
+        tag: sha-c9b1100
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -33,7 +37,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-e141c7d
+        tag: sha-c9b1100
       serviceAccount:
         create: true
         name: portal
@@ -50,8 +54,9 @@ stack:
       args:
         - serve-portal
         # Offer running agents as pods. The operator below is configured with the cluster's
-        # OIDC issuer, so a thread's pod can assume the agent's roles.
+        # OIDC issuer, so a workspace's pod can assume the agent's roles.
         - --agent-runtime
+        - --tailscale
         - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       gateway:
@@ -91,6 +96,16 @@ stack:
           value: ""
         # To impersonate a specific user for testing, set PORTAL_DEV_SUB (and PORTAL_DEV_EMAIL)
         # to their Okta user id; that bypasses the gateway token and grants admin.
+        # The shared GitHub App powers the Repositories page: the portal searches and validates
+        # the repositories an agent may clone against what these installations can reach. Same
+        # ids as the operator below. The private key is not here: set GITHUB_APP_PRIVATE_KEY on
+        # this service with `argus set secret`, and the page stays hidden until it is.
+        - name: GITHUB_APP_ID
+          value: "4783816"
+        - name: GITHUB_APP_INSTALLATION_ID
+          value: "158028824"
+        - name: GITHUB_APP_INSTALLATION_MAP
+          value: "evolutionaryscale=158867890"
     # The agent-registry operator. Watches Agent CRs and provisions per-agent IAM roles by
     # assuming each target account's agent-provisioner role. Its ServiceAccount is bound
     # (via IRSA) to the operator control-plane role in core-platform-nonprod, which is
@@ -100,7 +115,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-e141c7d
+        tag: sha-c9b1100
       serviceAccount:
         create: true
         name: agent-operator
@@ -129,13 +144,19 @@ stack:
         # managedBy/owner and per-agent tags.
         - --role-tags=project=agent-registry,env=rdev,service=aws-oidc
         # dev-central's OIDC issuer. Setting it is what turns on running agents in the cluster:
-        # each agent role trusts this issuer for that agent's thread service accounts, so a
-        # thread's pod assumes the role with its projected token. The provider must also be
+        # each agent role trusts this issuer for that agent's workspace service accounts, so a
+        # workspace's pod assumes the role with its projected token. The provider must also be
         # registered in every account holding agent roles (shared-infra).
         - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
         - --defaults-config=/etc/aws-oidc/defaults.yaml
+        # Mount Claude's enterprise settings and SSH guard into every workspace pod.
+        - --managed-settings-configmap=agent-managed-settings
         - -v
       env:
+        - name: ARGOCD_APPLICATION
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app.kubernetes.io/instance']
         # Claude Workload Identity Federation. Non-secret identifiers from the Claude Console
         # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev).
         - name: ANTHROPIC_FEDERATION_RULE_ID
@@ -153,6 +174,18 @@ stack:
           value: "4783816"
         - name: GITHUB_APP_INSTALLATION_ID
           value: "158028824"
+        # Extra installations of the same app, keyed by repository owner, so agents can also
+        # reach repositories outside the default organization. evolutionaryscale is the app's
+        # installation on the EvolutionaryScale org.
+        - name: GITHUB_APP_INSTALLATION_MAP
+          value: "evolutionaryscale=158867890"
+        # Tailscale OIDC enrollment. The OIDC client id comes from the Tailscale admin console
+        # (Settings > OAuth clients); fill in the real id before deploying.
+        # Format: api.tailscale.com/<oidc-client-id>
+        - name: TAILSCALE_TOKEN_AUDIENCE
+          value: "api.tailscale.com/TjHt1v2bSH11CNTRL-kz7ofAGpBJ11CNTRL"
+        - name: TAILSCALE_TAG
+          value: "tag:mantis-shrimp"
       # The operator serves no traffic; it only needs the health endpoint.
       ingress:
         enabled: false

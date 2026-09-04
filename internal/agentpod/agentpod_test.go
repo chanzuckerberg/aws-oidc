@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,7 +38,32 @@ func testReconciler(t *testing.T, objects ...client.Object) (*Reconciler, client
 	}), c
 }
 
-// testAgent is an agent with one provisioned grant and two threads, one of them suspended.
+// The agent container always runs through the image ENTRYPOINT (agent-entrypoint): Command is
+// nil and the workload command is passed as Args. Setting Command replaces the ENTRYPOINT and
+// skips the repository clone, plugin install and env propagation, which is the regression this
+// guards. The default command is set here so the buggy behavior would leave a non-nil Command.
+func TestReconcileContainerRunsEntrypoint(t *testing.T) {
+	ctx := context.Background()
+	scheme := testScheme(t)
+	agent := testAgent()
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:      testNamespace,
+		DefaultImage:   "ubuntu:24.04",
+		DefaultCommand: []string{"sleep", "infinity"},
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	container := set.Spec.Template.Spec.Containers[0]
+	require.Nil(t, container.Command, "Command must be nil so the image ENTRYPOINT (agent-entrypoint) runs")
+	require.Equal(t, []string{"sleep", "infinity"}, container.Args, "the workload command is passed as Args for the entrypoint to exec")
+}
+
+// testAgent is an agent with one provisioned grant and two workspaces, one of them suspended.
 func testAgent() *agentsv1.Agent {
 	agent := &agentsv1.Agent{
 		ObjectMeta: metav1.ObjectMeta{
@@ -55,7 +81,7 @@ func testAgent() *agentsv1.Agent {
 				RoleName:     "readonly",
 			}}},
 			Runtime: &agentsv1.AgentRuntime{},
-			Threads: []agentsv1.AgentThread{
+			Workspaces: []agentsv1.AgentWorkspace{
 				{Name: "main"},
 				{Name: "review", Suspended: true},
 			},
@@ -74,7 +100,7 @@ func testAgent() *agentsv1.Agent {
 	return agent
 }
 
-func TestReconcileCreatesOneStatefulSetPerThread(t *testing.T) {
+func TestReconcileCreatesOneStatefulSetPerWorkspace(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
@@ -83,10 +109,10 @@ func TestReconcileCreatesOneStatefulSetPerThread(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, statuses, 2)
 
-	// A thread with no ready pod yet is pending; a suspended one reports suspended rather than
+	// A workspace with no ready pod yet is pending; a suspended one reports suspended rather than
 	// waiting forever on a pod that will not arrive.
-	require.Equal(t, agentsv1.ThreadStatePending, statuses[0].State)
-	require.Equal(t, agentsv1.ThreadStateSuspended, statuses[1].State)
+	require.Equal(t, agentsv1.WorkspaceStatePending, statuses[0].State)
+	require.Equal(t, agentsv1.WorkspaceStateSuspended, statuses[1].State)
 
 	sets := &appsv1.StatefulSetList{}
 	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
@@ -100,8 +126,8 @@ func TestReconcileCreatesOneStatefulSetPerThread(t *testing.T) {
 	main := byName["agent-bot-main"]
 	require.Equal(t, int32(1), *main.Spec.Replicas)
 	require.Equal(t, "agent-bot", main.Spec.ServiceName)
-	// Each thread runs as its own service account, which is what the role trust matches and
-	// what makes a thread's AWS activity attributable.
+	// Each workspace runs as its own service account, which is what the role trust matches and
+	// what makes a workspace's AWS activity attributable.
 	require.Equal(t, "remote-agent-0f8fad5bd9cb-main", main.Spec.Template.Spec.ServiceAccountName)
 
 	// Suspended means zero replicas, not deleted, so the workspace survives.
@@ -144,7 +170,7 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	}
 	require.Equal(t, awsConfigFilePath, env["AWS_CONFIG_FILE"])
 	require.Equal(t, "agent-scoped", env["AWS_PROFILE"])
-	require.Equal(t, "main", env["AGENT_THREAD"])
+	require.Equal(t, "main", env["AGENT_WORKSPACE"])
 
 	// Commits name the person the agent acts for, so nothing in a repository's history is
 	// attributed to an anonymous bot.
@@ -153,7 +179,7 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.Equal(t, "jheath's agent (bot)", env["GIT_COMMITTER_NAME"])
 	require.Equal(t, "jheath@chanzuckerberg.com", env["GIT_COMMITTER_EMAIL"])
 
-	// The rendered config points every profile at the projected token, and all threads of the
+	// The rendered config points every profile at the projected token, and all workspaces of the
 	// agent share it.
 	configMap := &corev1.ConfigMap{}
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-aws-config"}, configMap))
@@ -232,6 +258,43 @@ func TestReconcileAnthropicWIF(t *testing.T) {
 	require.Equal(t, "svac_test", env["ANTHROPIC_SERVICE_ACCOUNT_ID"])
 }
 
+func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: "jheath"}
+	agent.Spec.Runtime.Resources = corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU: resource.MustParse("2"),
+		},
+	}
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:              testNamespace,
+		DefaultImage:           "ubuntu:24.04",
+		TailscaleTokenAudience: "api.tailscale.com/client-id",
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set)
+	require.NoError(t, err)
+
+	limits := set.Spec.Template.Spec.Containers[0].Resources.Limits
+	require.Equal(t, resource.MustParse("1"), limits[tailscaleTunResource])
+	require.Equal(t, resource.MustParse("2"), limits[corev1.ResourceCPU])
+	require.Empty(t, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Drop)
+	require.Equal(
+		t,
+		[]corev1.Capability{"NET_ADMIN", "NET_RAW"},
+		set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add,
+	)
+	require.Equal(t, int64(0), *set.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser)
+}
+
 func TestReconcileGitHubApp(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
@@ -286,6 +349,39 @@ func TestReconcileGitHubApp(t *testing.T) {
 	require.NotContains(t, env, "GITHUB_APP_PRIVATE_KEY")
 	// github.com needs no override, so the env var is left out rather than set to a default.
 	require.NotContains(t, env, "GITHUB_API_URL")
+	// With no extra installations configured every owner uses the default installation, so
+	// the routing env var is omitted rather than set empty.
+	require.NotContains(t, env, "GITHUB_APP_INSTALLATION_MAP")
+}
+
+// A configured installation map reaches workspace pods so the image's git credential helper and
+// gh wrapper can route other organizations' repositories to the matching installation.
+func TestReconcileGitHubAppInstallationMap(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:                 testNamespace,
+		DefaultImage:              "ubuntu:24.04",
+		GitHubAppID:               "123456",
+		GitHubAppInstallationID:   "87654321",
+		GitHubAppInstallationMap:  "evolutionaryscale=158867890",
+		GitHubAppPrivateKeySecret: GitHubAppSecretName,
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+
+	env := map[string]string{}
+	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
+		env[e.Name] = e.Value
+	}
+	require.Equal(t, "evolutionaryscale=158867890", env["GITHUB_APP_INSTALLATION_MAP"])
 }
 
 func TestGitIdentityName(t *testing.T) {
@@ -376,9 +472,9 @@ func TestReconcileIsIdempotent(t *testing.T) {
 	require.Equal(t, before.ResourceVersion, after.ResourceVersion, "a steady-state resync must not write")
 }
 
-// Removing a thread from the spec has to delete its objects. Owner references do not cover
+// Removing a workspace from the spec has to delete its objects. Owner references do not cover
 // this, because the agent itself still exists.
-func TestReconcilePrunesRemovedThread(t *testing.T) {
+func TestReconcilePrunesRemovedWorkspace(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
@@ -386,7 +482,7 @@ func TestReconcilePrunesRemovedThread(t *testing.T) {
 	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}}
+	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}}
 	statuses, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 	require.Len(t, statuses, 1)
@@ -401,7 +497,7 @@ func TestReconcilePrunesRemovedThread(t *testing.T) {
 	require.Len(t, accounts.Items, 1)
 }
 
-// Disabling the runtime removes everything, including the objects the threads shared.
+// Disabling the runtime removes everything, including the objects the workspaces shared.
 func TestReconcileWithoutRuntimeRemovesEverything(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
@@ -428,27 +524,27 @@ func TestReconcileWithoutRuntimeRemovesEverything(t *testing.T) {
 	require.Empty(t, configMaps.Items)
 }
 
-func TestReconcileRefusesThreadsBeyondTheLimit(t *testing.T) {
+func TestReconcileRefusesWorkspacesBeyondTheLimit(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "a"}, {Name: "b"}, {Name: "c"}}
+	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "a"}, {Name: "b"}, {Name: "c"}}
 
 	r, c := testReconciler(t, agent)
-	r.MaxThreads = 2
+	r.MaxWorkspaces = 2
 
 	statuses, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 	require.Len(t, statuses, 3)
-	require.Equal(t, agentsv1.ThreadStateFailed, statuses[2].State)
-	require.Contains(t, statuses[2].Message, "limited to 2 threads")
+	require.Equal(t, agentsv1.WorkspaceStateFailed, statuses[2].State)
+	require.Contains(t, statuses[2].Message, "limited to 2 workspaces")
 
 	sets := &appsv1.StatefulSetList{}
 	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
 	require.Len(t, sets.Items, 2)
 }
 
-// All threads share one ReadWriteMany PVC. Reconciling two threads creates exactly one claim,
-// owned by the agent and not bound to any individual thread.
+// All workspaces share one ReadWriteMany PVC. Reconciling two workspaces creates exactly one claim,
+// owned by the agent and not bound to any individual workspace.
 func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
@@ -459,7 +555,7 @@ func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
 
 	claims := &corev1.PersistentVolumeClaimList{}
 	require.NoError(t, c.List(ctx, claims, client.InNamespace(testNamespace)))
-	require.Len(t, claims.Items, 1, "one PVC regardless of thread count")
+	require.Len(t, claims.Items, 1, "one PVC regardless of workspace count")
 
 	claim := claims.Items[0]
 	require.Equal(t, "agent-bot-workspace", claim.Name)
@@ -469,9 +565,9 @@ func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
 	require.Equal(t, "bot", claim.OwnerReferences[0].Name, "agent owns the PVC for GC")
 }
 
-// Each thread mounts the shared PVC at its own subPath for an isolated working tree, and at
-// the shared subPath for cross-thread file exchange.
-func TestReconcileThreadsGetIsolatedSubPaths(t *testing.T) {
+// Each workspace mounts the shared PVC at its own subPath for an isolated working tree, and at
+// the shared subPath for cross-workspace file exchange.
+func TestReconcileWorkspacesGetIsolatedSubPaths(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
@@ -483,7 +579,7 @@ func TestReconcileThreadsGetIsolatedSubPaths(t *testing.T) {
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
 
 	pod := set.Spec.Template.Spec
-	require.Empty(t, set.Spec.VolumeClaimTemplates, "no per-thread claim templates; one shared PVC is used instead")
+	require.Empty(t, set.Spec.VolumeClaimTemplates, "no per-workspace claim templates; one shared PVC is used instead")
 
 	var workspaceVolume *corev1.PersistentVolumeClaimVolumeSource
 	for _, v := range pod.Volumes {
@@ -500,18 +596,17 @@ func TestReconcileThreadsGetIsolatedSubPaths(t *testing.T) {
 			mounts[m.MountPath] = m
 		}
 	}
-	require.Equal(t, "threads/main", mounts[workspaceMountPath].SubPath)
+	require.Equal(t, "workspaces/main", mounts[workspaceMountPath].SubPath)
 	require.Equal(t, "shared", mounts[sharedMountPath].SubPath)
 
-	// Pod security context matches the EFS access point uid/gid so writes land as uid 1000.
-	require.Equal(t, int64(1000), *pod.SecurityContext.RunAsUser)
 	require.Equal(t, int64(1000), *pod.SecurityContext.FSGroup)
+	require.Equal(t, int64(1000), *pod.Containers[0].SecurityContext.RunAsUser)
 }
 
-// Removing a thread removes its StatefulSet and ServiceAccount but keeps the shared PVC.
-// The thread's subdirectory inside the volume is intentionally left behind — silently deleting
+// Removing a workspace removes its StatefulSet and ServiceAccount but keeps the shared PVC.
+// The workspace's subdirectory inside the volume is intentionally left behind — silently deleting
 // a person's work on a spec edit is worse than leaving it for them to clean up.
-func TestReconcileThreadRemovalKeepsWorkspace(t *testing.T) {
+func TestReconcileWorkspaceRemovalKeepsWorkspace(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
@@ -519,23 +614,23 @@ func TestReconcileThreadRemovalKeepsWorkspace(t *testing.T) {
 	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}}
+	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}}
 	_, err = r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
 	claims := &corev1.PersistentVolumeClaimList{}
 	require.NoError(t, c.List(ctx, claims, client.InNamespace(testNamespace)))
-	require.Len(t, claims.Items, 1, "PVC must survive thread removal")
+	require.Len(t, claims.Items, 1, "PVC must survive workspace removal")
 
 	sets := &appsv1.StatefulSetList{}
 	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
-	require.Len(t, sets.Items, 1, "removed thread's StatefulSet is pruned")
+	require.Len(t, sets.Items, 1, "removed workspace's StatefulSet is pruned")
 }
 
-func TestReconcileReportsRunningThread(t *testing.T) {
+func TestReconcileReportsRunningWorkspace(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}}
+	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}}
 
 	r, c := testReconciler(t, agent)
 	_, err := r.Reconcile(ctx, agent)
@@ -548,6 +643,41 @@ func TestReconcileReportsRunningThread(t *testing.T) {
 
 	statuses, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
-	require.Equal(t, agentsv1.ThreadStateRunning, statuses[0].State)
+	require.Equal(t, agentsv1.WorkspaceStateRunning, statuses[0].State)
 	require.Equal(t, int32(1), statuses[0].ReadyReplicas)
+}
+
+// Repositories in the spec reach the workspace pod as a space-separated AGENT_REPOSITORIES, which
+// the entrypoint clones into /workspace. It is absent when the spec lists none, so a pod
+// without configured repositories gets no clone step.
+func TestReconcileRepositoriesEnv(t *testing.T) {
+	ctx := context.Background()
+
+	agent := testAgent()
+	r, c := testReconciler(t, agent)
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	_, present := repoEnvValue(set)
+	require.False(t, present, "no AGENT_REPOSITORIES when the spec lists no repositories")
+
+	agent = testAgent()
+	agent.Spec.Repositories = []agentsv1.Repository{"chanzuckerberg/aws-oidc", "evolutionaryscale/foo"}
+	r, c = testReconciler(t, agent)
+	_, err = r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	value, present := repoEnvValue(set)
+	require.True(t, present)
+	require.Equal(t, "chanzuckerberg/aws-oidc evolutionaryscale/foo", value)
+}
+
+func repoEnvValue(set *appsv1.StatefulSet) (string, bool) {
+	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
+		if e.Name == "AGENT_REPOSITORIES" {
+			return e.Value, true
+		}
+	}
+	return "", false
 }

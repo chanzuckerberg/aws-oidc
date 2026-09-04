@@ -1,0 +1,56 @@
+{{define "agent_runtime"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div class="card">
+      <h1>Runtime</h1>
+      {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+      {{if .RuntimeOffered}}{{with .Runtime}}
+      <form method="post" action="{{$.BasePath}}/agents/{{$.Agent.Name}}/runtime">
+        <fieldset>
+          <legend>Run in the cluster</legend>
+          <label class="grant">
+            <input type="checkbox" name="runtime" value="on" {{if .Enabled}}checked{{end}}>
+            Run this agent as pods in the cluster
+          </label>
+          <p class="muted" style="margin:.5rem 0;">
+            Each workspace gets its own pod and its own persistent workspace, and assumes the
+            access granted above. Manage workspaces on the Workspaces page.
+          </p>
+
+          <p class="sizing">
+            <label>CPU <input name="cpu" value="{{.CPU}}" placeholder="500m" size="8"></label>
+            <label>Memory <input name="memory" value="{{.Memory}}" placeholder="1Gi" size="8"></label>
+            <span class="muted">up to {{.Limits.MaxCPU}} CPU, {{.Limits.MaxMemory}} memory</span>
+          </p>
+
+          <p class="sizing">
+            <label>Workspace <input name="workspace-size" value="{{.WorkspaceSize}}" placeholder="50Gi" size="8"></label>
+            <span class="muted">up to {{.Limits.MaxWorkspace}}</span>
+          </p>
+
+          <p>
+            <label>Image<br>
+              <input name="image" value="{{.Image}}" placeholder="default" style="width:32rem"
+                {{if not $.User.Admin}}disabled{{end}}>
+            </label>
+            {{if $.User.Admin}}<p class="hint">Admins only.</p>{{end}}
+          </p>
+
+          <p>
+            <label>Storage class<br>
+              <input name="storage-class" value="{{.StorageClass}}" placeholder="efs-agent-workspaces" size="28"
+                {{if not $.User.Admin}}disabled{{end}}>
+            </label>
+            {{if $.User.Admin}}<p class="hint">Admins only.</p>{{end}}
+          </p>
+        </fieldset>
+        <p>
+          <button class="btn primary" type="submit">Save</button>
+        </p>
+      </form>
+      {{end}}{{end}}
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}
