@@ -19,6 +19,17 @@ where a raw `git` remote call or a hand-built API request fails.
 `git diff`, and `git push` to publish a branch. Never commit or push to a repository's primary
 branch. Open a pull request with `gh pr create` instead.
 
+## Prefer git worktrees
+
+Several sessions share this pod and its `/workspace` volume at the same time. Switching
+branches in one checkout changes it for every session, so give each task its own working tree
+rather than switching branches in place.
+
+- List existing worktrees before you start: `git -C /workspace/<repo> worktree list`.
+- Create a worktree for a task: `git -C /workspace/<repo> worktree add /workspace/<repo>-<branch> -b <branch>`.
+- Work in that directory, commit there, and open a pull request with `gh pr create`.
+- Remove it when the task is done: `git -C /workspace/<repo> worktree remove /workspace/<repo>-<branch>`.
+
 ## Never
 
 - Never call `https://api.github.com` with `curl` or `wget`. Use `gh api`.
