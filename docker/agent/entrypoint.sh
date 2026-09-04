@@ -166,6 +166,7 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
                 --id-token="${id_token}" \
                 --advertise-tags="${TAILSCALE_TAG:-tag:mantis-shrimp}" \
                 --hostname="${hostname}" \
+                --accept-dns=false \
                 --reset; then
             log "enrolled — $(tailscale ip 2>/dev/null || echo 'ip unknown')"
             tailscale set --ssh
