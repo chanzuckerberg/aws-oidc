@@ -72,6 +72,7 @@
   <div class="sidenav-section">Configure</div>
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}" {{if eq .Nav "general"}}class="active"{{end}}>General</a>
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/aws" {{if eq .Nav "aws"}}class="active"{{end}}>AWS access</a>
+  {{if .RepositoriesOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/repositories" {{if eq .Nav "repositories"}}class="active"{{end}}>Repositories</a>{{end}}
   {{if .TailscaleOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/tailscale" {{if eq .Nav "tailscale"}}class="active"{{end}}>Tailscale</a>{{end}}
   {{if .RuntimeOffered}}
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/runtime" {{if eq .Nav "runtime"}}class="active"{{end}}>Runtime</a>

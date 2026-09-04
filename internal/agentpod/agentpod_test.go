@@ -621,3 +621,38 @@ func TestReconcileReportsRunningThread(t *testing.T) {
 	require.Equal(t, agentsv1.ThreadStateRunning, statuses[0].State)
 	require.Equal(t, int32(1), statuses[0].ReadyReplicas)
 }
+
+// Repositories in the spec reach the thread pod as a space-separated AGENT_REPOSITORIES, which
+// the entrypoint clones into /workspace. It is absent when the spec lists none, so a pod
+// without configured repositories gets no clone step.
+func TestReconcileRepositoriesEnv(t *testing.T) {
+	ctx := context.Background()
+
+	agent := testAgent()
+	r, c := testReconciler(t, agent)
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	_, present := repoEnvValue(set)
+	require.False(t, present, "no AGENT_REPOSITORIES when the spec lists no repositories")
+
+	agent = testAgent()
+	agent.Spec.Repositories = []agentsv1.Repository{"chanzuckerberg/aws-oidc", "evolutionaryscale/foo"}
+	r, c = testReconciler(t, agent)
+	_, err = r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	value, present := repoEnvValue(set)
+	require.True(t, present)
+	require.Equal(t, "chanzuckerberg/aws-oidc evolutionaryscale/foo", value)
+}
+
+func repoEnvValue(set *appsv1.StatefulSet) (string, bool) {
+	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
+		if e.Name == "AGENT_REPOSITORIES" {
+			return e.Value, true
+		}
+	}
+	return "", false
+}

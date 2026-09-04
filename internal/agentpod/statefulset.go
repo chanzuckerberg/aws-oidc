@@ -357,6 +357,13 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 			corev1.EnvVar{Name: "GIT_COMMITTER_EMAIL", Value: agent.Spec.OwnerEmail},
 		)
 	}
+	if len(agent.Spec.Repositories) > 0 {
+		repos := make([]string, len(agent.Spec.Repositories))
+		for i, repo := range agent.Spec.Repositories {
+			repos[i] = string(repo)
+		}
+		env = append(env, corev1.EnvVar{Name: "AGENT_REPOSITORIES", Value: strings.Join(repos, " ")})
+	}
 	if r.anthropicWIFConfigured() {
 		env = append(env,
 			corev1.EnvVar{Name: "ANTHROPIC_IDENTITY_TOKEN_FILE", Value: anthropicTokenFilePath},

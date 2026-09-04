@@ -96,6 +96,16 @@ stack:
           value: ""
         # To impersonate a specific user for testing, set PORTAL_DEV_SUB (and PORTAL_DEV_EMAIL)
         # to their Okta user id; that bypasses the gateway token and grants admin.
+        # The shared GitHub App powers the Repositories page: the portal searches and validates
+        # the repositories an agent may clone against what these installations can reach. Same
+        # ids as the operator below. The private key is not here: set GITHUB_APP_PRIVATE_KEY on
+        # this service with `argus set secret`, and the page stays hidden until it is.
+        - name: GITHUB_APP_ID
+          value: "4783816"
+        - name: GITHUB_APP_INSTALLATION_ID
+          value: "158028824"
+        - name: GITHUB_APP_INSTALLATION_MAP
+          value: "evolutionaryscale=158867890"
     # The agent-registry operator. Watches Agent CRs and provisions per-agent IAM roles by
     # assuming each target account's agent-provisioner role. Its ServiceAccount is bound
     # (via IRSA) to the operator control-plane role in core-platform-nonprod, which is

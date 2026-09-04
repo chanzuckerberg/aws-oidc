@@ -14,6 +14,34 @@ run_as_agent() {
     fi
 }
 
+# ensure_agent_repositories clones the repositories in AGENT_REPOSITORIES into /workspace so
+# sessions find the source already checked out. It is idempotent: a repository whose checkout
+# already exists is left untouched, which is what happens after the first session on a
+# persistent workspace. A clone that fails logs a warning and never stops the agent booting.
+ensure_agent_repositories() {
+    [[ -n "${AGENT_REPOSITORIES:-}" ]] || return 0
+    command -v gh >/dev/null 2>&1 || { log "WARN: gh not found; skipping repository clones"; return 0; }
+    local spec repo dest
+    for spec in ${AGENT_REPOSITORIES}; do
+        if [[ ! "${spec}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+            log "WARN: ignoring malformed repository '${spec}' (want owner/repo)"
+            continue
+        fi
+        repo="${spec##*/}"
+        dest="/workspace/${repo}"
+        if [[ -e "${dest}/.git" ]]; then
+            log "repository ${spec} already present at ${dest}"
+            continue
+        fi
+        log "cloning ${spec} into ${dest}"
+        if run_as_agent gh repo clone "${spec}" "${dest}" >/dev/null 2>&1; then
+            log "cloned ${spec}"
+        else
+            log "WARN: failed to clone ${spec} (needs network egress and GitHub App access)"
+        fi
+    done
+}
+
 # ensure_agent_plugins installs the shared CZI ai-toolchain plugin so every
 # agent has it by default. Claude Code's CLI does not auto-install plugins from
 # managed settings, so the install runs here. State lives on the persistent
@@ -140,6 +168,7 @@ elif [[ -n "${TAILSCALE_TOKEN_FILE:-}" ]]; then
     log "WARN: TAILSCALE_TOKEN_FILE=${TAILSCALE_TOKEN_FILE} set but file not found — skipping"
 fi
 
+ensure_agent_repositories
 ensure_agent_plugins
 
 exec "$@"

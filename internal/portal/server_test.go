@@ -55,4 +55,24 @@ func TestTemplatesRender(t *testing.T) {
 	})
 	require.Equal(t, 200, rec.Code)
 	require.Contains(t, rec.Body.String(), "bot")
+
+	// Repositories page renders existing entries as chips with hidden inputs to resubmit.
+	rec = httptest.NewRecorder()
+	s.render(rec, "agent_repositories", pageData{
+		Title:               "Repositories",
+		User:                &identity.User{Sub: "s"},
+		Agent:               &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}},
+		Nav:                 "repositories",
+		RepositoriesOffered: true,
+		Repositories:        []string{"chanzuckerberg/aws-oidc"},
+	})
+	require.Equal(t, 200, rec.Code)
+	body = rec.Body.String()
+	require.Contains(t, body, `name="repository"`)
+	require.Contains(t, body, "chanzuckerberg/aws-oidc")
+}
+
+func TestNormalizeReposDeduplicatesAndTrims(t *testing.T) {
+	got := normalizeRepos([]string{" chanzuckerberg/aws-oidc ", "", "chanzuckerberg/AWS-OIDC", "evolutionaryscale/foo"})
+	require.Equal(t, []string{"chanzuckerberg/aws-oidc", "evolutionaryscale/foo"}, got)
 }
