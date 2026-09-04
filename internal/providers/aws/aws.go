@@ -58,11 +58,11 @@ type Config struct {
 	OktaAppClientID string
 	// ClusterOIDCProvider is the EKS cluster's OIDC issuer without scheme (for example
 	// "oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE"). Agent roles trust it so an agent's
-	// thread pods can assume them with their projected service account tokens. Empty leaves
+	// workspace pods can assume them with their projected service account tokens. Empty leaves
 	// the cluster statement off, which is what keeps the provider usable in accounts where
 	// the issuer is not registered yet.
 	ClusterOIDCProvider string
-	// PodNamespace is the namespace the agent's threads run in. It scopes the service account
+	// PodNamespace is the namespace the agent's workspaces run in. It scopes the service account
 	// subject the cluster trust statement matches.
 	PodNamespace string
 	// RolePath is the IAM path every agent role lives under (must start and end with "/").
@@ -423,7 +423,7 @@ func coalesceUnknown(v string) string {
 // trustPolicy builds the web-identity trust document. It always trusts the account's Okta
 // OIDC provider, conditioned on the agent app audience and the owner subject, which is the
 // path a human's agent takes on a laptop. When the agent also runs in the cluster it trusts
-// the cluster's OIDC issuer as well, so the thread pods can assume the role directly.
+// the cluster's OIDC issuer as well, so the workspace pods can assume the role directly.
 func (p *Provider) trustPolicy(accountID string, agent *agentsv1.Agent) (string, error) {
 	statements := []map[string]any{p.oktaStatement(accountID, agent.Spec.Owner)}
 
@@ -458,14 +458,14 @@ func (p *Provider) oktaStatement(accountID, owner string) map[string]any {
 	}
 }
 
-// clusterStatement trusts the EKS cluster's OIDC issuer for every thread of this agent. The
+// clusterStatement trusts the EKS cluster's OIDC issuer for every workspace of this agent. The
 // subject is matched with StringLike against a prefix built from the agent's uid, so adding a
-// thread needs no IAM write. The prefix cannot be name-based: an agent named "foo-bar" would
+// workspace needs no IAM write. The prefix cannot be name-based: an agent named "foo-bar" would
 // produce service accounts matching an agent "foo"'s prefix and inherit access that is not
 // its owner's.
 func (p *Provider) clusterStatement(accountID string, agent *agentsv1.Agent) map[string]any {
 	return map[string]any{
-		"Sid":       "AgentThreadServiceAccounts",
+		"Sid":       "AgentWorkspaceServiceAccounts",
 		"Effect":    "Allow",
 		"Principal": map[string]any{"Federated": oidcProviderARN(accountID, p.cfg.ClusterOIDCProvider)},
 		"Action":    "sts:AssumeRoleWithWebIdentity",
@@ -474,7 +474,7 @@ func (p *Provider) clusterStatement(accountID string, agent *agentsv1.Agent) map
 				p.cfg.ClusterOIDCProvider + ":aud": clusterTokenAudience,
 			},
 			"StringLike": map[string]string{
-				p.cfg.ClusterOIDCProvider + ":sub": agent.ThreadSubjectPattern(p.cfg.PodNamespace),
+				p.cfg.ClusterOIDCProvider + ":sub": agent.WorkspaceSubjectPattern(p.cfg.PodNamespace),
 			},
 		},
 	}

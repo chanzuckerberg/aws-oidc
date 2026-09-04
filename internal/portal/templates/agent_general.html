@@ -21,7 +21,7 @@
       <div class="card" style="margin-top:1rem;border-color:#f0c0c0;">
         <h2 style="margin-top:0;color:#b00020;">Danger zone</h2>
         <form class="inline" method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/delete"
-          onsubmit="return confirm('Delete {{.Agent.Name}} and all its threads?');">
+          onsubmit="return confirm('Delete {{.Agent.Name}} and all its workspaces?');">
           <button class="btn danger" type="submit">Delete agent</button>
         </form>
       </div>

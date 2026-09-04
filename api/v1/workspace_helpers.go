@@ -7,17 +7,17 @@ import (
 	"strings"
 )
 
-// WorkspaceVolumeName is the name of the shared workspace volume in every thread's pod spec.
+// WorkspaceVolumeName is the name of the shared workspace volume in every workspace's pod spec.
 const WorkspaceVolumeName = "workspace"
 
 const (
 	// uidPrefixLength is how many hex characters of the Agent's uid identify it in the names
-	// of its thread service accounts. The uid is server-assigned and fixed-length, so no
+	// of its workspace service accounts. The uid is server-assigned and fixed-length, so no
 	// agent's prefix can be a prefix of another agent's, which is what makes the wildcard in
 	// the IAM trust condition safe.
 	uidPrefixLength = 12
 
-	// statefulSetNameMaxLength leaves room for the "-0" ordinal suffix so a thread's pod name
+	// statefulSetNameMaxLength leaves room for the "-0" ordinal suffix so a workspace's pod name
 	// stays a valid DNS label, which the headless service's DNS records require.
 	statefulSetNameMaxLength = 61
 
@@ -25,68 +25,68 @@ const (
 	objectNameMaxLength = 63
 )
 
-// ServiceName is the headless service shared by all of the agent's threads. It governs the
-// thread StatefulSets, giving each pod a stable DNS name.
+// ServiceName is the headless service shared by all of the agent's workspaces. It governs the
+// workspace StatefulSets, giving each pod a stable DNS name.
 func (a *Agent) ServiceName() string {
 	return truncateName("agent-"+sanitizeName(a.Name), objectNameMaxLength)
 }
 
-// AWSConfigMapName is the ConfigMap holding the agent's rendered AWS config. Every thread of
+// AWSConfigMapName is the ConfigMap holding the agent's rendered AWS config. Every workspace of
 // the agent mounts the same one, since they all hold the same access.
 func (a *Agent) AWSConfigMapName() string {
 	return truncateName("agent-"+sanitizeName(a.Name)+"-aws-config", objectNameMaxLength)
 }
 
-// ThreadStatefulSetName is the workload running one thread. It carries the human-readable
-// agent and thread names, since this is what shows up in kubectl and in pod names.
-func (a *Agent) ThreadStatefulSetName(thread string) string {
-	return truncateName("agent-"+sanitizeName(a.Name)+"-"+sanitizeName(thread), statefulSetNameMaxLength)
+// WorkspaceStatefulSetName is the workload running one workspace. It carries the human-readable
+// agent and workspace names, since this is what shows up in kubectl and in pod names.
+func (a *Agent) WorkspaceStatefulSetName(workspace string) string {
+	return truncateName("agent-"+sanitizeName(a.Name)+"-"+sanitizeName(workspace), statefulSetNameMaxLength)
 }
 
-// WorkspaceClaimName is the PVC shared by all threads of this agent. Each thread mounts it
+// WorkspaceClaimName is the PVC shared by all workspaces of this agent. Each workspace mounts it
 // at its own subPath so they get isolated working trees under the same EFS access point.
 func (a *Agent) WorkspaceClaimName() string {
 	return truncateName("agent-"+sanitizeName(a.Name)+"-workspace", objectNameMaxLength)
 }
 
-// ThreadWorkspaceSubPath is the directory within the shared workspace PVC where a thread's
-// own working tree lives. Threads never share this subtree.
-func (a *Agent) ThreadWorkspaceSubPath(thread string) string {
-	return "threads/" + sanitizeName(thread)
+// WorkspaceSubPath is the directory within the shared workspace PVC where a workspace's
+// own working tree lives. Workspaces never share this subtree.
+func (a *Agent) WorkspaceSubPath(workspace string) string {
+	return "workspaces/" + sanitizeName(workspace)
 }
 
-// SharedWorkspaceSubPath is the directory within the shared workspace PVC that every thread
-// can read and write. Threads use it to pass files between themselves.
+// SharedWorkspaceSubPath is the directory within the shared workspace PVC that every workspace
+// can read and write. Workspaces use it to pass files between themselves.
 func (a *Agent) SharedWorkspaceSubPath() string {
 	return "shared"
 }
 
-// ThreadServiceAccountName is the identity one thread's pod runs as. It is keyed on the
-// agent's uid rather than its name so that the IAM trust condition can match every thread of
-// this agent with a single wildcard without also matching another agent's threads. An agent
+// WorkspaceServiceAccountName is the identity one workspace's pod runs as. It is keyed on the
+// agent's uid rather than its name so that the IAM trust condition can match every workspace of
+// this agent with a single wildcard without also matching another agent's workspaces. An agent
 // named "foo-bar" would otherwise produce names matching agent "foo"'s prefix.
-func (a *Agent) ThreadServiceAccountName(thread string) string {
-	return truncateName(a.identityPrefix()+"-"+sanitizeName(thread), objectNameMaxLength)
+func (a *Agent) WorkspaceServiceAccountName(workspace string) string {
+	return truncateName(a.identityPrefix()+"-"+sanitizeName(workspace), objectNameMaxLength)
 }
 
-// ThreadSubjectPattern is the Kubernetes service account subject shared by every thread of
-// this agent, as a pattern for a StringLike IAM trust condition. Adding a thread therefore
+// WorkspaceSubjectPattern is the Kubernetes service account subject shared by every workspace of
+// this agent, as a pattern for a StringLike IAM trust condition. Adding a workspace therefore
 // needs no IAM write.
-func (a *Agent) ThreadSubjectPattern(namespace string) string {
+func (a *Agent) WorkspaceSubjectPattern(namespace string) string {
 	return fmt.Sprintf("system:serviceaccount:%s:%s-*", namespace, a.identityPrefix())
 }
 
-// Thread returns the named thread from the spec, or nil when the agent has no such thread.
-func (a *Agent) Thread(name string) *AgentThread {
-	for i := range a.Spec.Threads {
-		if a.Spec.Threads[i].Name == name {
-			return &a.Spec.Threads[i]
+// Workspace returns the named workspace from the spec, or nil when the agent has no such workspace.
+func (a *Agent) Workspace(name string) *AgentWorkspace {
+	for i := range a.Spec.Workspaces {
+		if a.Spec.Workspaces[i].Name == name {
+			return &a.Spec.Workspaces[i]
 		}
 	}
 	return nil
 }
 
-// identityPrefix is the fixed-length, per-agent prefix every thread service account name
+// identityPrefix is the fixed-length, per-agent prefix every workspace service account name
 // starts with. It falls back to a hash of the agent's identity when the uid is unset, so
 // tests and dry runs still get a stable, unique prefix.
 func (a *Agent) identityPrefix() string {

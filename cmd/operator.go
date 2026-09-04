@@ -27,21 +27,21 @@ import (
 )
 
 const (
-	flagOktaAppClientID     = "okta-app-client-id"
-	flagIssuerHost          = "issuer-host"
-	flagBoundaryPolicyName  = "boundary-policy-name"
-	flagLeaderElection      = "leader-election"
-	flagHealthProbeAddr     = "health-probe-bind-address"
-	flagProvisionerRoleName = "provisioner-role-name"
-	flagSessionDuration     = "assume-role-session-duration"
-	flagAWSRegion           = "aws-region"
-	flagGrantConcurrency    = "grant-concurrency"
-	flagRoleTags            = "role-tags"
-	flagClusterOIDCProvider = "cluster-oidc-provider"
-	flagAgentImage          = "agent-default-image"
-	flagAgentCommand        = "agent-default-command"
-	flagAgentStorageClass   = "agent-storage-class"
-	flagMaxThreadsPerAgent  = "max-threads-per-agent"
+	flagOktaAppClientID       = "okta-app-client-id"
+	flagIssuerHost            = "issuer-host"
+	flagBoundaryPolicyName    = "boundary-policy-name"
+	flagLeaderElection        = "leader-election"
+	flagHealthProbeAddr       = "health-probe-bind-address"
+	flagProvisionerRoleName   = "provisioner-role-name"
+	flagSessionDuration       = "assume-role-session-duration"
+	flagAWSRegion             = "aws-region"
+	flagGrantConcurrency      = "grant-concurrency"
+	flagRoleTags              = "role-tags"
+	flagClusterOIDCProvider   = "cluster-oidc-provider"
+	flagAgentImage            = "agent-default-image"
+	flagAgentCommand          = "agent-default-command"
+	flagAgentStorageClass     = "agent-storage-class"
+	flagMaxWorkspacesPerAgent = "max-workspaces-per-agent"
 
 	flagAnthropicFederationRuleID = "anthropic-federation-rule-id"
 	flagAnthropicOrganizationID   = "anthropic-organization-id"
@@ -79,22 +79,22 @@ func init() {
 	operatorCmd.Flags().Int(flagGrantConcurrency, 8, "Maximum grants of one agent provisioned in parallel")
 	operatorCmd.Flags().StringToString(flagRoleTags, nil, "Standard tags applied to every agent role (for example project=agent-registry,env=rdev,service=aws-oidc)")
 	operatorCmd.Flags().String(flagClusterOIDCProvider, "", "EKS cluster OIDC issuer without scheme (for example oidc.eks.us-west-2.amazonaws.com/id/EXAMPLE); empty means agents do not run in the cluster")
-	operatorCmd.Flags().String(flagAgentImage, "", "Container image an agent thread runs when the agent does not name one")
-	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent thread runs when neither the agent nor its image provides a long-running entrypoint")
+	operatorCmd.Flags().String(flagAgentImage, "", "Container image an agent workspace runs when the agent does not name one")
+	operatorCmd.Flags().StringSlice(flagAgentCommand, []string{"sleep", "infinity"}, "Command an agent workspace runs when neither the agent nor its image provides a long-running entrypoint")
 	operatorCmd.Flags().String(flagAgentStorageClass, "efs-agent-workspaces", "Storage class for the per-agent workspace PVC; must be a ReadWriteMany class backed by the EFS CSI driver")
-	operatorCmd.Flags().Int(flagMaxThreadsPerAgent, 5, "Maximum threads one agent may run")
-	operatorCmd.Flags().String(flagAnthropicFederationRuleID, os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"), "Anthropic WIF federation rule ID (fdrl_...); when set with the other three anthropic flags, every thread pod receives a Claude WIF token and the four ANTHROPIC_* env vars")
+	operatorCmd.Flags().Int(flagMaxWorkspacesPerAgent, 5, "Maximum workspaces one agent may run")
+	operatorCmd.Flags().String(flagAnthropicFederationRuleID, os.Getenv("ANTHROPIC_FEDERATION_RULE_ID"), "Anthropic WIF federation rule ID (fdrl_...); when set with the other three anthropic flags, every workspace pod receives a Claude WIF token and the four ANTHROPIC_* env vars")
 	operatorCmd.Flags().String(flagAnthropicOrganizationID, os.Getenv("ANTHROPIC_ORGANIZATION_ID"), "Anthropic organization UUID (from Settings > Organization in the Claude Console)")
 	operatorCmd.Flags().String(flagAnthropicServiceAccountID, os.Getenv("ANTHROPIC_SERVICE_ACCOUNT_ID"), "Anthropic service account ID (svac_...) the minted Claude token acts as")
 	operatorCmd.Flags().String(flagAnthropicTokenAudience, os.Getenv("ANTHROPIC_TOKEN_AUDIENCE"), "Audience claim the projected Anthropic token carries; must match the federation rule's audience matcher")
-	operatorCmd.Flags().String(flagGitHubAppID, os.Getenv("GITHUB_APP_ID"), "Numeric app ID of the shared GitHub App agents clone and open pull requests as; when set with the installation id and the GITHUB_APP_PRIVATE_KEY environment variable, every thread pod receives the app's credentials")
+	operatorCmd.Flags().String(flagGitHubAppID, os.Getenv("GITHUB_APP_ID"), "Numeric app ID of the shared GitHub App agents clone and open pull requests as; when set with the installation id and the GITHUB_APP_PRIVATE_KEY environment variable, every workspace pod receives the app's credentials")
 	operatorCmd.Flags().String(flagGitHubAppInstallationID, os.Getenv("GITHUB_APP_INSTALLATION_ID"), "Installation ID of that GitHub App on the organization whose repositories agents may reach")
 	operatorCmd.Flags().String(flagGitHubAppInstallationMap, os.Getenv("GITHUB_APP_INSTALLATION_MAP"), "Comma or space separated owner=installation-id pairs routing extra organizations to other installations of the same GitHub App (e.g. evolutionaryscale=158867890); owners not listed use the default installation")
 	operatorCmd.Flags().String(flagGitHubAPIURL, "", "GitHub API base URL; empty means https://api.github.com")
 	operatorCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
-	operatorCmd.Flags().String(flagTailscaleTokenAudience, os.Getenv("TAILSCALE_TOKEN_AUDIENCE"), "Tailscale OIDC audience (api.tailscale.com/<client-id>); when set, thread pods for Tailscale-enabled agents receive a projected token with this audience")
-	operatorCmd.Flags().String(flagTailscaleTag, os.Getenv("TAILSCALE_TAG"), "Tailscale advertise tag (e.g. tag:mantis-shrimp); injected as TAILSCALE_TAG into thread pods")
-	operatorCmd.Flags().String(flagManagedSettingsConfigMap, os.Getenv("MANAGED_SETTINGS_CONFIGMAP"), "Name of the ConfigMap holding managed-settings.json and ssh-guard.sh; when set, mounted at /etc/claude-code in every thread pod")
+	operatorCmd.Flags().String(flagTailscaleTokenAudience, os.Getenv("TAILSCALE_TOKEN_AUDIENCE"), "Tailscale OIDC audience (api.tailscale.com/<client-id>); when set, workspace pods for Tailscale-enabled agents receive a projected token with this audience")
+	operatorCmd.Flags().String(flagTailscaleTag, os.Getenv("TAILSCALE_TAG"), "Tailscale advertise tag (e.g. tag:mantis-shrimp); injected as TAILSCALE_TAG into workspace pods")
+	operatorCmd.Flags().String(flagManagedSettingsConfigMap, os.Getenv("MANAGED_SETTINGS_CONFIGMAP"), "Name of the ConfigMap holding managed-settings.json and ssh-guard.sh; when set, mounted at /etc/claude-code in every workspace pod")
 }
 
 // operatorCmd runs the Agent controller-manager: it watches Agent custom resources and
@@ -166,9 +166,9 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("missing agent-storage-class flag: %w", err)
 	}
-	maxThreads, err := cmd.Flags().GetInt(flagMaxThreadsPerAgent)
+	maxWorkspaces, err := cmd.Flags().GetInt(flagMaxWorkspacesPerAgent)
 	if err != nil {
-		return fmt.Errorf("missing max-threads-per-agent flag: %w", err)
+		return fmt.Errorf("missing max-workspaces-per-agent flag: %w", err)
 	}
 	anthropicFederationRuleID, err := cmd.Flags().GetString(flagAnthropicFederationRuleID)
 	if err != nil {
@@ -271,7 +271,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		LeaderElectionNamespace: namespace,
 		HealthProbeBindAddress:  healthAddr,
 		Metrics:                 metricsserver.Options{BindAddress: "0"},
-		Cache:                   cache.Options{ByObject: threadObjectCache(namespace)},
+		Cache:                   cache.Options{ByObject: workspaceObjectCache(namespace)},
 	})
 	if err != nil {
 		return fmt.Errorf("creating manager: %w", err)
@@ -308,18 +308,18 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		PodNamespace:        namespace,
 	}, clientFactory)
 
-	// Threads only run where the cluster's OIDC issuer is configured, since without it their
+	// Workspaces only run where the cluster's OIDC issuer is configured, since without it their
 	// pods have no way to assume the agent's roles.
-	var threads controller.ThreadReconciler
+	var workspaces controller.WorkspaceReconciler
 	if clusterOIDCProvider != "" {
-		threads = agentpod.New(mgr.GetClient(), mgr.GetScheme(), agentpod.Config{
+		workspaces = agentpod.New(mgr.GetClient(), mgr.GetScheme(), agentpod.Config{
 			Namespace:                 namespace,
 			DefaultsLoader:            agentdefaults.NewLoader(defaultsConfigPath),
 			DefaultImage:              agentImage,
 			DefaultCommand:            agentCommand,
 			StorageClass:              agentStorageClass,
 			Region:                    awsRegion,
-			MaxThreads:                maxThreads,
+			MaxWorkspaces:             maxWorkspaces,
 			AnthropicFederationRuleID: anthropicFederationRuleID,
 			AnthropicOrganizationID:   anthropicOrganizationID,
 			AnthropicServiceAccountID: anthropicServiceAccountID,
@@ -341,7 +341,7 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 		Client:              mgr.GetClient(),
 		Scheme:              mgr.GetScheme(),
 		Providers:           []controller.Provider{awsProvider},
-		Threads:             threads,
+		Workspaces:          workspaces,
 		MaxConcurrentGrants: grantConcurrency,
 		ArgoCDTrackingID:    argoCDTrackingID,
 	}
@@ -357,11 +357,11 @@ func operatorRun(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// threadObjectCache confines the caches for the objects an agent's threads are made of to the
+// workspaceObjectCache confines the caches for the objects an agent's workspaces are made of to the
 // operator's own namespace. Agents are still watched cluster-wide, but the operator's access to
 // workloads is deliberately namespaced, so a cluster-wide informer for these would be refused
 // and the controller would never start.
-func threadObjectCache(namespace string) map[client.Object]cache.ByObject {
+func workspaceObjectCache(namespace string) map[client.Object]cache.ByObject {
 	own := cache.ByObject{Namespaces: map[string]cache.Config{namespace: {}}}
 	return map[client.Object]cache.ByObject{
 		&appsv1.StatefulSet{}:           own,

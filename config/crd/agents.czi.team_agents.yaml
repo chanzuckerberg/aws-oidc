@@ -28,8 +28,8 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
-    - jsonPath: .status.threads[*].name
-      name: Threads
+    - jsonPath: .status.workspaces[*].name
+      name: Workspaces
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -124,9 +124,9 @@ spec:
               repositories:
                 description: |-
                   Repositories is the set of GitHub repositories, each "owner/repo", to clone into
-                  /workspace when a thread pod boots, so sessions find the source already checked out.
+                  /workspace when a workspace pod boots, so sessions find the source already checked out.
                   Clones are idempotent: a repository already present is left as is. Only meaningful when
-                  Runtime is set, since it is the thread pods that clone.
+                  Runtime is set, since it is the workspace pods that clone.
                 items:
                   description: |-
                     Repository is a GitHub repository in "owner/repo" form that the agent clones into its
@@ -276,29 +276,30 @@ spec:
                 required:
                 - sshUser
                 type: object
-              threads:
+              workspaces:
                 description: |-
-                  Threads is the set of threads to run. Each gets its own pod and workspace. It is a map
-                  list so the API server rejects duplicate names and two writers editing different
-                  threads do not clobber each other. Ignored when Runtime is unset.
+                  Workspaces is the set of workspaces to run. Each gets its own pod and working tree. It is a
+                  map list so the API server rejects duplicate names and two writers editing different
+                  workspaces do not clobber each other. Ignored when Runtime is unset.
                 items:
                   description: |-
-                    AgentThread is one running thread of an agent: its own pod and its own workspace, sharing
-                    the agent's access. A person runs several threads of the same agent at once.
+                    AgentWorkspace is one running workspace of an agent: its own pod with its own working tree on
+                    the shared volume, sharing the agent's access. A person runs several workspaces of the same
+                    agent at once.
                   properties:
                     displayName:
                       description: DisplayName is the human-friendly label shown in
                         the portal.
                       type: string
                     name:
-                      description: Name identifies the thread within the agent and
-                        names its Kubernetes objects.
+                      description: Name identifies the workspace within the agent
+                        and names its Kubernetes objects.
                       maxLength: 24
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
                     suspended:
-                      description: Suspended scales the thread to zero replicas while
-                        keeping its workspace intact.
+                      description: Suspended scales the workspace to zero replicas
+                        while keeping its working tree intact.
                       type: boolean
                   required:
                   - name
@@ -418,31 +419,37 @@ spec:
                   last reconciled.
                 format: int64
                 type: integer
-              threads:
-                description: Threads is the per-thread provisioning result, one entry
-                  per spec.threads entry.
+              workspaceClaimName:
+                description: |-
+                  WorkspaceClaimName is the PVC shared by all of the agent's workspaces. Each workspace
+                  mounts it at its own subPath, so workspaces can share files through the shared directory
+                  while keeping their own working trees separate.
+                type: string
+              workspaces:
+                description: Workspaces is the per-workspace provisioning result,
+                  one entry per spec.workspaces entry.
                 items:
-                  description: ThreadStatus is what the operator provisioned for one
-                    thread.
+                  description: WorkspaceStatus is what the operator provisioned for
+                    one workspace.
                   properties:
                     message:
                       description: Message carries the reason when State is Failed.
                       type: string
                     name:
-                      description: Name matches the thread's name in spec.threads.
+                      description: Name matches the workspace's name in spec.workspaces.
                       type: string
                     readyReplicas:
-                      description: ReadyReplicas is how many of the thread's pods
+                      description: ReadyReplicas is how many of the workspace's pods
                         are ready (zero or one).
                       format: int32
                       type: integer
                     serviceAccountName:
                       description: |-
-                        ServiceAccountName is the thread's Kubernetes service account, whose projected token
+                        ServiceAccountName is the workspace's Kubernetes service account, whose projected token
                         the pod exchanges for the agent's AWS roles.
                       type: string
                     state:
-                      description: State is the thread's running state.
+                      description: State is the workspace's running state.
                       enum:
                       - Pending
                       - Running
@@ -450,7 +457,7 @@ spec:
                       - Failed
                       type: string
                     statefulSetName:
-                      description: StatefulSetName is the workload running the thread.
+                      description: StatefulSetName is the workload running the workspace.
                       type: string
                   required:
                   - name
@@ -459,12 +466,6 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-              workspaceClaimName:
-                description: |-
-                  WorkspaceClaimName is the PVC shared by all of the agent's threads. Each thread
-                  mounts it at its own subPath, so threads can share files through the shared directory
-                  while keeping their own working trees separate.
-                type: string
             type: object
         type: object
     served: true

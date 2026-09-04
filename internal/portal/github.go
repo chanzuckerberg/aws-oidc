@@ -41,7 +41,7 @@ var _ repoSuggester = (*GitHubApp)(nil)
 // GitHubApp lists and validates the repositories the shared GitHub App can reach across every
 // installation the fleet routes to (the default installation plus the ones in the operator's
 // installation map). The portal uses it to power the Repositories tab's type-ahead and to
-// reject repositories a thread pod could not actually clone. A background loop started by Start
+// reject repositories a workspace pod could not actually clone. A background loop started by Start
 // holds the accessible set in memory; the type-ahead reads only that cache and never calls the
 // GitHub API on the request path.
 type GitHubApp struct {

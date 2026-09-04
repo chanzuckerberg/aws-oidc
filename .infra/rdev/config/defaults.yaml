@@ -21,4 +21,4 @@ memory: "1Gi"
 maxCPU: "4"
 maxMemory: "16Gi"
 maxWorkspace: "500Gi"
-maxThreads: 5
+maxWorkspaces: 5

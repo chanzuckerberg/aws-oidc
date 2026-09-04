@@ -29,29 +29,29 @@ func TestSetManagedMetadataTracksAgentAsArgoRoot(t *testing.T) {
 	require.False(t, reconciler.setManagedMetadata(agent))
 }
 
-// A suspended thread is deliberately idle, so it must not hold the condition false forever.
-func TestRuntimeConditionIgnoresSuspendedThreads(t *testing.T) {
+// A suspended workspace is deliberately idle, so it must not hold the condition false forever.
+func TestRuntimeConditionIgnoresSuspendedWorkspaces(t *testing.T) {
 	agent := &agentsv1.Agent{}
 	agent.Spec.Runtime = &agentsv1.AgentRuntime{}
 
-	condition := runtimeCondition(agent, []agentsv1.ThreadStatus{
-		{Name: "main", State: agentsv1.ThreadStateRunning},
-		{Name: "review", State: agentsv1.ThreadStateSuspended},
+	condition := runtimeCondition(agent, []agentsv1.WorkspaceStatus{
+		{Name: "main", State: agentsv1.WorkspaceStateRunning},
+		{Name: "review", State: agentsv1.WorkspaceStateSuspended},
 	})
 	require.Equal(t, metav1.ConditionTrue, condition.Status)
-	require.Equal(t, "AllThreadsRunning", condition.Reason)
+	require.Equal(t, "AllWorkspacesRunning", condition.Reason)
 }
 
-func TestRuntimeConditionReportsFailingThread(t *testing.T) {
+func TestRuntimeConditionReportsFailingWorkspace(t *testing.T) {
 	agent := &agentsv1.Agent{}
 	agent.Spec.Runtime = &agentsv1.AgentRuntime{}
 
-	condition := runtimeCondition(agent, []agentsv1.ThreadStatus{
-		{Name: "main", State: agentsv1.ThreadStateRunning},
-		{Name: "review", State: agentsv1.ThreadStateFailed, Message: "agent is limited to 2 threads"},
+	condition := runtimeCondition(agent, []agentsv1.WorkspaceStatus{
+		{Name: "main", State: agentsv1.WorkspaceStateRunning},
+		{Name: "review", State: agentsv1.WorkspaceStateFailed, Message: "agent is limited to 2 workspaces"},
 	})
 	require.Equal(t, metav1.ConditionFalse, condition.Status)
-	require.Equal(t, "ThreadsPending", condition.Reason)
-	require.Contains(t, condition.Message, "thread review is failed")
-	require.Contains(t, condition.Message, "limited to 2 threads")
+	require.Equal(t, "WorkspacesPending", condition.Reason)
+	require.Contains(t, condition.Message, "workspace review is failed")
+	require.Contains(t, condition.Message, "limited to 2 workspaces")
 }

@@ -70,6 +70,27 @@ func TestTemplatesRender(t *testing.T) {
 	body = rec.Body.String()
 	require.Contains(t, body, `name="repository"`)
 	require.Contains(t, body, "chanzuckerberg/aws-oidc")
+
+	// Connection page shows the Tailscale SSH command for a running workspace, keyed on the
+	// owner's email local part so the connect string works outside the home page.
+	rec = httptest.NewRecorder()
+	s.render(rec, "connection", pageData{
+		Title: "Connection",
+		User:  &identity.User{Sub: "s"},
+		Agent: &agentsv1.Agent{
+			ObjectMeta: metav1.ObjectMeta{Name: "bot"},
+			Spec: agentsv1.AgentSpec{
+				OwnerEmail: "jheath@chanzuckerberg.com",
+				Tailscale:  &agentsv1.TailscaleAccess{},
+			},
+			Status: agentsv1.AgentStatus{
+				Workspaces: []agentsv1.WorkspaceStatus{{Name: "main", State: agentsv1.WorkspaceStateRunning}},
+			},
+		},
+		Nav: "connection",
+	})
+	require.Equal(t, 200, rec.Code)
+	require.Contains(t, rec.Body.String(), "ssh -t agent@agent-jheath-bot-main claude")
 }
 
 func TestNormalizeReposDeduplicatesAndTrims(t *testing.T) {

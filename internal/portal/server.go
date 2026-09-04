@@ -47,7 +47,7 @@ type Config struct {
 	Store            agentstore.AgentStore
 	Identity         *IdentityResolver
 	BasePath         string
-	// AgentRuntime offers the option of running an agent's threads as pods. It is off unless
+	// AgentRuntime offers the option of running an agent's workspaces as pods. It is off unless
 	// the operator can actually run them, so the form does not promise what it cannot deliver.
 	AgentRuntime bool
 	// AgentTailscale offers the Tailscale page. Off unless the operator is configured for
@@ -112,10 +112,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /agents/{name}/repositories", s.handleUpdateRepositories)
 	mux.HandleFunc("GET /agents/{name}/repositories/search", s.handleRepositorySearch)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
-	mux.HandleFunc("GET /agents/{name}/threads", s.handleThreadsView)
-	mux.HandleFunc("POST /agents/{name}/threads", s.handleSpawnThread)
-	mux.HandleFunc("POST /agents/{name}/threads/{thread}/suspend", s.handleToggleSuspend)
-	mux.HandleFunc("POST /agents/{name}/threads/{thread}/delete", s.handleDeleteThread)
+	mux.HandleFunc("GET /agents/{name}/workspaces", s.handleWorkspacesView)
+	mux.HandleFunc("POST /agents/{name}/workspaces", s.handleSpawnWorkspace)
+	mux.HandleFunc("POST /agents/{name}/workspaces/{workspace}/suspend", s.handleToggleSuspend)
+	mux.HandleFunc("POST /agents/{name}/workspaces/{workspace}/delete", s.handleDeleteWorkspace)
+	mux.HandleFunc("GET /agents/{name}/connection", s.handleConnection)
 
 	handler := http.Handler(mux)
 	if s.basePath != "" {
@@ -182,7 +183,7 @@ type pageData struct {
 	Checked      map[string]bool
 	Action       string
 	Error        string
-	// Nav is the active sidebar item (general, aws, tailscale, runtime, threads).
+	// Nav is the active sidebar item (general, aws, tailscale, runtime, workspaces).
 	Nav string
 	// RuntimeOffered mirrors Config.AgentRuntime.
 	RuntimeOffered bool
@@ -525,13 +526,13 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 			Runtime: runtimeFromForm(r, s.limits()), Error: msg,
 		})
 	}
-	runtime, threads, err := s.parseAgentRuntime(r, agent, user.Admin)
+	runtime, workspaces, err := s.parseAgentRuntime(r, agent, user.Admin)
 	if err != nil {
 		renderErr(err.Error())
 		return
 	}
 	agent.Spec.Runtime = runtime
-	agent.Spec.Threads = threads
+	agent.Spec.Workspaces = workspaces
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
@@ -700,7 +701,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	s.redirect(w, r, "/")
 }
 
-func (s *Server) handleThreadsView(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleWorkspacesView(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
 		return
@@ -709,15 +710,32 @@ func (s *Server) handleThreadsView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.render(w, "threads", pageData{
-		Title: "Threads — " + agent.Name,
+	s.render(w, "workspaces", pageData{
+		Title: "Workspaces — " + agent.Name,
 		User:  user,
 		Agent: agent,
-		Nav:   "threads",
+		Nav:   "workspaces",
 	})
 }
 
-func (s *Server) handleSpawnThread(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	s.render(w, "connection", pageData{
+		Title: "Connection — " + agent.Name,
+		User:  user,
+		Agent: agent,
+		Nav:   "connection",
+	})
+}
+
+func (s *Server) handleSpawnWorkspace(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
 		return
@@ -734,44 +752,44 @@ func (s *Server) handleSpawnThread(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderErr := func(msg string) {
-		s.render(w, "threads", pageData{
-			Title: "Threads — " + agent.Name,
-			User:  user, Agent: agent, Nav: "threads", Error: msg,
+		s.render(w, "workspaces", pageData{
+			Title: "Workspaces — " + agent.Name,
+			User:  user, Agent: agent, Nav: "workspaces", Error: msg,
 		})
 	}
 
-	name := strings.ToLower(strings.TrimSpace(r.FormValue("new-thread")))
+	name := strings.ToLower(strings.TrimSpace(r.FormValue("new-workspace")))
 	if name == "" {
-		renderErr("Thread name is required.")
+		renderErr("Workspace name is required.")
 		return
 	}
-	if len(name) > threadNameMaxLength {
-		renderErr(fmt.Sprintf("Thread names are limited to %d characters.", threadNameMaxLength))
+	if len(name) > workspaceNameMaxLength {
+		renderErr(fmt.Sprintf("Workspace names are limited to %d characters.", workspaceNameMaxLength))
 		return
 	}
-	if !threadNameRe.MatchString(name) {
-		renderErr(fmt.Sprintf("Thread name %q must use only lowercase letters, numbers, and dashes.", name))
+	if !workspaceNameRe.MatchString(name) {
+		renderErr(fmt.Sprintf("Workspace name %q must use only lowercase letters, numbers, and dashes.", name))
 		return
 	}
-	for _, t := range agent.Spec.Threads {
+	for _, t := range agent.Spec.Workspaces {
 		if t.Name == name {
-			renderErr(fmt.Sprintf("A thread named %q already exists.", name))
+			renderErr(fmt.Sprintf("A workspace named %q already exists.", name))
 			return
 		}
 	}
-	maxThreads := s.limits().defaults().MaxThreads
-	if len(agent.Spec.Threads)+1 > maxThreads {
-		renderErr(fmt.Sprintf("An agent is limited to %d threads.", maxThreads))
+	maxWorkspaces := s.limits().defaults().MaxWorkspaces
+	if len(agent.Spec.Workspaces)+1 > maxWorkspaces {
+		renderErr(fmt.Sprintf("An agent is limited to %d workspaces.", maxWorkspaces))
 		return
 	}
 
-	agent.Spec.Threads = append(agent.Spec.Threads, agentsv1.AgentThread{Name: name})
+	agent.Spec.Workspaces = append(agent.Spec.Workspaces, agentsv1.AgentWorkspace{Name: name})
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
-		s.fail(w, "spawning thread", err)
+		s.fail(w, "spawning workspace", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/threads")
+	s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
 }
 
 func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
@@ -784,23 +802,23 @@ func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	threadName := r.PathValue("thread")
-	for i, t := range agent.Spec.Threads {
-		if t.Name == threadName {
-			agent.Spec.Threads[i].Suspended = !agent.Spec.Threads[i].Suspended
+	workspaceName := r.PathValue("workspace")
+	for i, t := range agent.Spec.Workspaces {
+		if t.Name == workspaceName {
+			agent.Spec.Workspaces[i].Suspended = !agent.Spec.Workspaces[i].Suspended
 			err := s.cfg.Store.Upsert(ctx, agent)
 			if err != nil {
-				s.fail(w, "toggling thread suspend", err)
+				s.fail(w, "toggling workspace suspend", err)
 				return
 			}
-			s.redirect(w, r, "/agents/"+agent.Name+"/threads")
+			s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
 			return
 		}
 	}
-	http.Error(w, "thread not found", http.StatusNotFound)
+	http.Error(w, "workspace not found", http.StatusNotFound)
 }
 
-func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
 		return
@@ -810,20 +828,20 @@ func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	threadName := r.PathValue("thread")
-	threads := agent.Spec.Threads[:0]
-	for _, t := range agent.Spec.Threads {
-		if t.Name != threadName {
-			threads = append(threads, t)
+	workspaceName := r.PathValue("workspace")
+	workspaces := agent.Spec.Workspaces[:0]
+	for _, t := range agent.Spec.Workspaces {
+		if t.Name != workspaceName {
+			workspaces = append(workspaces, t)
 		}
 	}
-	agent.Spec.Threads = threads
+	agent.Spec.Workspaces = workspaces
 	err := s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
-		s.fail(w, "deleting thread", err)
+		s.fail(w, "deleting workspace", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/threads")
+	s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
 }
 
 // ownedAgent loads the agent named in the path and enforces that the current user may act
@@ -886,8 +904,8 @@ func (s *Server) limits() AgentLimits {
 	if l.MaxWorkspace == "" {
 		l.MaxWorkspace = d.MaxWorkspace
 	}
-	if l.MaxThreads == 0 {
-		l.MaxThreads = d.MaxThreads
+	if l.MaxWorkspaces == 0 {
+		l.MaxWorkspaces = d.MaxWorkspaces
 	}
 	if l.DefaultImage == "" {
 		l.DefaultImage = d.Image
@@ -916,12 +934,12 @@ func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, b
 // parseAgentRuntime reads the runtime section of a submission, or leaves the agent's runtime
 // alone in an environment where the portal does not offer it. Without that guard a form posted
 // against a portal with the runtime disabled would silently clear an existing runtime.
-func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentThread, error) {
+func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentWorkspace, error) {
 	if !s.cfg.AgentRuntime {
 		if current == nil {
 			return nil, nil, nil
 		}
-		return current.Spec.Runtime, current.Spec.Threads, nil
+		return current.Spec.Runtime, current.Spec.Workspaces, nil
 	}
 	return parseRuntime(r, current, s.limits(), isAdmin)
 }

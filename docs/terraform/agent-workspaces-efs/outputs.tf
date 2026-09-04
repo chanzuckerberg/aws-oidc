@@ -4,7 +4,7 @@ output "file_system_id" {
 }
 
 output "file_system_dns_name" {
-  description = "DNS name to mount by hand when debugging a thread pod."
+  description = "DNS name to mount by hand when debugging a workspace pod."
   value       = aws_efs_file_system.agent_workspaces.dns_name
 }
 

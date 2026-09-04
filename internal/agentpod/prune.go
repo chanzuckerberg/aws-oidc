@@ -14,17 +14,16 @@ import (
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
 
-
-// pruneThreads deletes the StatefulSets and ServiceAccounts of threads the agent no longer
+// pruneWorkspaces deletes the StatefulSets and ServiceAccounts of workspaces the agent no longer
 // declares. Owner references do not cover this: the agent still exists, so nothing
-// garbage-collects a thread that was merely removed from the spec.
+// garbage-collects a workspace that was merely removed from the spec.
 //
-// The shared workspace PVC is not pruned per thread. Removing a thread leaves its subdirectory
+// The shared workspace PVC is not pruned per workspace. Removing a workspace leaves its subdirectory
 // in the volume, because silently deleting a person's work is worse than leaving it behind.
 // The whole PVC is released when the agent itself is deleted, via the owner reference on it.
 //
-// keep is the set of thread names to preserve; a nil or empty set removes every thread.
-func (r *Reconciler) pruneThreads(ctx context.Context, agent *agentsv1.Agent, keep map[string]bool) error {
+// keep is the set of workspace names to preserve; a nil or empty set removes every workspace.
+func (r *Reconciler) pruneWorkspaces(ctx context.Context, agent *agentsv1.Agent, keep map[string]bool) error {
 	log := logf.FromContext(ctx)
 
 	inAgent := client.MatchingLabels{LabelAgent: agent.Name}
@@ -47,20 +46,20 @@ func (r *Reconciler) pruneThreads(ctx context.Context, agent *agentsv1.Agent, ke
 		errs  []error
 	)
 	for i := range sets.Items {
-		if !keep[sets.Items[i].Labels[LabelThread]] {
+		if !keep[sets.Items[i].Labels[LabelWorkspace]] {
 			stale = append(stale, &sets.Items[i])
 		}
 	}
 	for i := range accounts.Items {
-		if !keep[accounts.Items[i].Labels[LabelThread]] {
+		if !keep[accounts.Items[i].Labels[LabelWorkspace]] {
 			stale = append(stale, &accounts.Items[i])
 		}
 	}
 
 	for _, obj := range stale {
-		log.Info("pruning object of removed agent thread",
+		log.Info("pruning object of removed agent workspace",
 			"agent", agent.Name,
-			"thread", obj.GetLabels()[LabelThread],
+			"workspace", obj.GetLabels()[LabelWorkspace],
 			"kind", fmt.Sprintf("%T", obj),
 			"name", obj.GetName())
 
@@ -72,8 +71,8 @@ func (r *Reconciler) pruneThreads(ctx context.Context, agent *agentsv1.Agent, ke
 	return errors.Join(errs...)
 }
 
-// pruneShared removes the objects an agent's threads share, for an agent that no longer runs
-// in the cluster at all. They are keyed on kind rather than labels, so a thread's objects are
+// pruneShared removes the objects an agent's workspaces share, for an agent that no longer runs
+// in the cluster at all. They are keyed on kind rather than labels, so a workspace's objects are
 // never caught by this.
 func (r *Reconciler) pruneShared(ctx context.Context, agent *agentsv1.Agent) error {
 	shared := []client.Object{

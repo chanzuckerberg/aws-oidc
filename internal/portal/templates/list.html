@@ -8,7 +8,7 @@
       <th>Name</th>
       {{if .User.Admin}}<th>Owner</th>{{end}}
       <th>AWS access</th>
-      {{if .RuntimeOffered}}<th>Threads</th>{{end}}
+      {{if .RuntimeOffered}}<th>Workspaces</th>{{end}}
       <th></th>
     </tr>
     {{range .Agents}}
@@ -21,8 +21,8 @@
       {{if $.RuntimeOffered}}
       {{$ag := .}}
       <td>
-        {{range .Status.Threads}}
-        <div class="thread-row">
+        {{range .Status.Workspaces}}
+        <div class="workspace-row">
           <span>{{.Name}} <span class="muted">{{.State}}</span></span>
           {{if eq (print .State) "Running"}}
           <details class="connect-details">
@@ -48,7 +48,7 @@
       <td class="actions">
         <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}">edit</a>
         {{if $.RuntimeOffered}}
-        <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}/threads">threads</a>
+        <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}/workspaces">workspaces</a>
         {{end}}
         <form class="inline" method="post" action="{{$.BasePath}}/agents/{{.Name}}/delete"
           onsubmit="return confirm('Delete {{.Name}}?');">

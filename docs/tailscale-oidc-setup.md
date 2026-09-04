@@ -1,6 +1,6 @@
-# Tailscale OIDC enrollment for agent thread pods
+# Tailscale OIDC enrollment for agent workspace pods
 
-Agent thread pods join the tailnet by exchanging a Kubernetes projected service-account
+Agent workspace pods join the tailnet by exchanging a Kubernetes projected service-account
 token for a Tailscale machine key. The token carries a custom audience
 (`api.tailscale.com/<client-id>`) that Tailscale's token-exchange endpoint validates
 against a registered OIDC trust relationship.
@@ -23,7 +23,7 @@ existing `modules/tailscale-federated-identity` module:
 ```hcl
 module "tailscale-federated-identity" {
   source      = "../../../modules/tailscale-federated-identity"
-  description = "Agent thread pods on dev-central EKS — OIDC token exchange for tag:mantis-shrimp"
+  description = "Agent workspace pods on dev-central EKS — OIDC token exchange for tag:mantis-shrimp"
   issuer_url  = "https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03"
   subject     = "system:serviceaccount:aws-oidc:*"
   scopes      = ["openid"]
@@ -36,7 +36,7 @@ Key inputs:
 | Field | Value |
 |---|---|
 | `issuer_url` | `https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03` |
-| `subject` | `system:serviceaccount:aws-oidc:*` (all thread service accounts in the operator namespace) |
+| `subject` | `system:serviceaccount:aws-oidc:*` (all workspace service accounts in the operator namespace) |
 | `scopes` | `["openid"]` |
 | `tags` | `["tag:mantis-shrimp"]` |
 
@@ -51,13 +51,13 @@ The module outputs `client_id`. Once applied, replace the placeholder value in
 ## How the enrollment works
 
 1. The operator projects a service-account token with audience
-   `api.tailscale.com/<client-id>` into each thread pod at
+   `api.tailscale.com/<client-id>` into each workspace pod at
    `/var/run/secrets/tailscale.com/token`.
 2. `docker/agent/entrypoint.sh` decodes the `aud` claim from the token's JWT payload to
    recover the bare `<client-id>`, then calls:
    ```
    tailscale up --client-id=<client-id> --id-token=<token> \
-     --advertise-tags=tag:mantis-shrimp --hostname=agent-<name>-<thread>
+     --advertise-tags=tag:mantis-shrimp --hostname=agent-<name>-<workspace>
    ```
 3. Tailscale validates the token against the registered OIDC trust relationship and issues
    a machine key. The pod appears in the tailnet as `tag:mantis-shrimp`.

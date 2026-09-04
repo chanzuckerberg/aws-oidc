@@ -18,11 +18,11 @@ import (
 	awsconfigclient "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_client"
 )
 
-// ensureStatefulSet creates or updates the workload running one thread and returns its current
-// state. A thread is one replica: each pod mounts the agent's shared EFS workspace at its own
-// subPath, so the thread has an isolated working tree even though the volume is shared.
-func (r *Reconciler) ensureStatefulSet(ctx context.Context, agent *agentsv1.Agent, thread agentsv1.AgentThread) (*appsv1.StatefulSet, error) {
-	desired := r.statefulSet(agent, thread)
+// ensureStatefulSet creates or updates the workload running one workspace and returns its current
+// state. A workspace is one replica: each pod mounts the agent's shared EFS workspace at its own
+// subPath, so the workspace has an isolated working tree even though the volume is shared.
+func (r *Reconciler) ensureStatefulSet(ctx context.Context, agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) (*appsv1.StatefulSet, error) {
+	desired := r.statefulSet(agent, workspace)
 
 	existing := &appsv1.StatefulSet{}
 	err := r.Get(ctx, client.ObjectKeyFromObject(desired), existing)
@@ -55,16 +55,16 @@ func (r *Reconciler) ensureStatefulSet(ctx context.Context, agent *agentsv1.Agen
 	return updated, nil
 }
 
-func (r *Reconciler) statefulSet(agent *agentsv1.Agent, thread agentsv1.AgentThread) *appsv1.StatefulSet {
-	labels := threadLabels(agent, thread.Name)
+func (r *Reconciler) statefulSet(agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) *appsv1.StatefulSet {
+	labels := workspaceLabels(agent, workspace.Name)
 	replicas := int32(1)
-	if thread.Suspended {
+	if workspace.Suspended {
 		replicas = 0
 	}
 
 	set := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      agent.ThreadStatefulSetName(thread.Name),
+			Name:      agent.WorkspaceStatefulSetName(workspace.Name),
 			Namespace: r.Namespace,
 			Labels:    labels,
 		},
@@ -74,7 +74,7 @@ func (r *Reconciler) statefulSet(agent *agentsv1.Agent, thread agentsv1.AgentThr
 			Selector:    &metav1.LabelSelector{MatchLabels: labels},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
-				Spec:       r.podSpec(agent, thread),
+				Spec:       r.podSpec(agent, workspace),
 			},
 		},
 	}
@@ -83,7 +83,7 @@ func (r *Reconciler) statefulSet(agent *agentsv1.Agent, thread agentsv1.AgentThr
 	return set
 }
 
-// sharedMountPath is where the shared workspace directory is mounted in every thread pod.
+// sharedMountPath is where the shared workspace directory is mounted in every workspace pod.
 const sharedMountPath = "/shared"
 
 // nodeSelector merges the caller's selectors with the agent-image architecture constraint.
@@ -98,15 +98,15 @@ func nodeSelector(user map[string]string) map[string]string {
 	return out
 }
 
-// podSpec is the thread's pod: the agent container, its thread-private working tree and the
+// podSpec is the workspace's pod: the agent container, its workspace-private working tree and the
 // shared directory (both subPaths of the agent's EFS workspace PVC), the AWS config, and the
 // projected token it exchanges for the agent's roles.
-func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread) corev1.PodSpec {
+func (r *Reconciler) podSpec(agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) corev1.PodSpec {
 	agentRuntime := agent.Spec.Runtime
 	uid := int64(1000)
 
 	return corev1.PodSpec{
-		ServiceAccountName: agent.ThreadServiceAccountName(thread.Name),
+		ServiceAccountName: agent.WorkspaceServiceAccountName(workspace.Name),
 		NodeSelector:       nodeSelector(agentRuntime.NodeSelector),
 		// The pod's only credential is the token projected below, minted for STS. Leaving the
 		// default Kubernetes API token out means agent code cannot talk to the cluster at all.
@@ -129,9 +129,9 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			Command:         nil,
 			Args:            r.containerArgs(agent, agentRuntime),
 			WorkingDir:      workspaceMountPath,
-			Env:             r.env(agent, thread),
+			Env:             r.env(agent, workspace),
 			SecurityContext: r.securityContext(agent),
-			VolumeMounts:    r.volumeMounts(agent, thread),
+			VolumeMounts:    r.volumeMounts(agent, workspace),
 		}},
 		Volumes: r.volumes(agent),
 	}
@@ -177,12 +177,12 @@ func (r *Reconciler) securityContext(agent *agentsv1.Agent) *corev1.SecurityCont
 
 // volumeMounts returns the container's volume mounts, including the Anthropic token when WIF
 // is configured.
-func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.VolumeMount {
+func (r *Reconciler) volumeMounts(agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
 			Name:      agentsv1.WorkspaceVolumeName,
 			MountPath: workspaceMountPath,
-			SubPath:   agent.ThreadWorkspaceSubPath(thread.Name),
+			SubPath:   agent.WorkspaceSubPath(workspace.Name),
 		},
 		{
 			Name:      agentsv1.WorkspaceVolumeName,
@@ -319,20 +319,20 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 	return vols
 }
 
-// env points the AWS SDK at the rendered config and tells the agent which agent and thread it
+// env points the AWS SDK at the rendered config and tells the agent which agent and workspace it
 // is. Anthropic WIF env vars are injected when the operator is configured for Claude WIF. The
 // agent's own variables come last so they cannot overwrite these reserved names.
-func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []corev1.EnvVar {
+func (r *Reconciler) env(agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		// HOME must be writable so the AWS CLI can cache STS credentials and SSO tokens.
-		// /workspace is the thread's own persistent directory; using it keeps the cache across
+		// /workspace is the workspace's own persistent directory; using it keeps the cache across
 		// pod restarts without needing a separate writable volume.
 		{Name: "HOME", Value: workspaceMountPath},
 		{Name: "AWS_CONFIG_FILE", Value: awsConfigFilePath},
 		{Name: "AWS_PROFILE", Value: awsconfigclient.AgentScopedProfile},
 		{Name: "AWS_REGION", Value: r.Region},
 		{Name: "AGENT_NAME", Value: agent.Name},
-		{Name: "AGENT_THREAD", Value: thread.Name},
+		{Name: "AGENT_WORKSPACE", Value: workspace.Name},
 		{Name: "AGENT_OWNER_EMAIL", Value: agent.Spec.OwnerEmail},
 	}
 	if agent.Spec.OwnerEmail != "" {
@@ -393,7 +393,7 @@ func (r *Reconciler) env(agent *agentsv1.Agent, thread agentsv1.AgentThread) []c
 	return env
 }
 
-// gitIdentityName is the name on every commit a thread makes, for example
+// gitIdentityName is the name on every commit a workspace makes, for example
 // "jheath's agent (reviewer)". A commit has to name the person accountable for it, and the
 // agent is not that person, so the identity names both: whose agent it is, and which one.
 func gitIdentityName(agent *agentsv1.Agent) string {
@@ -411,7 +411,7 @@ func (r *Reconciler) anthropicWIFConfigured() bool {
 		r.AnthropicTokenAudience != ""
 }
 
-// githubAppConfigured reports whether the operator has everything needed to give a thread the
+// githubAppConfigured reports whether the operator has everything needed to give a workspace the
 // GitHub App's identity.
 func (r *Reconciler) githubAppConfigured() bool {
 	return r.GitHubAppID != "" &&

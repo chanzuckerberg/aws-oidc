@@ -1,6 +1,6 @@
 ###### Generated using `argus bootstrap` command ######
 
-# Agent image for thread pods. Updated automatically by Argus CI on every agent build.
+# Agent image for workspace pods. Updated automatically by Argus CI on every agent build.
 # The anchor is targeted by the 'agent' image entry in .argus-ci.yaml (anchors: [agent-image]).
 # The Helm template for agent-defaults.yaml composes repository + tag into the full image ref.
 agentImage:
@@ -54,7 +54,7 @@ stack:
       args:
         - serve-portal
         # Offer running agents as pods. The operator below is configured with the cluster's
-        # OIDC issuer, so a thread's pod can assume the agent's roles.
+        # OIDC issuer, so a workspace's pod can assume the agent's roles.
         - --agent-runtime
         - --tailscale
         - --defaults-config=/etc/aws-oidc/defaults.yaml
@@ -144,12 +144,12 @@ stack:
         # managedBy/owner and per-agent tags.
         - --role-tags=project=agent-registry,env=rdev,service=aws-oidc
         # dev-central's OIDC issuer. Setting it is what turns on running agents in the cluster:
-        # each agent role trusts this issuer for that agent's thread service accounts, so a
-        # thread's pod assumes the role with its projected token. The provider must also be
+        # each agent role trusts this issuer for that agent's workspace service accounts, so a
+        # workspace's pod assumes the role with its projected token. The provider must also be
         # registered in every account holding agent roles (shared-infra).
         - --cluster-oidc-provider=oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
         - --defaults-config=/etc/aws-oidc/defaults.yaml
-        # Mount Claude's enterprise settings and SSH guard into every thread pod.
+        # Mount Claude's enterprise settings and SSH guard into every workspace pod.
         - --managed-settings-configmap=agent-managed-settings
         - -v
       env:

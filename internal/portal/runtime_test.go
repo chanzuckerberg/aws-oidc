@@ -24,22 +24,22 @@ func form(t *testing.T, values url.Values) *http.Request {
 }
 
 func TestParseRuntimeDisabled(t *testing.T) {
-	runtime, threads, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{}, true)
+	runtime, workspaces, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 	require.Nil(t, runtime)
-	require.Nil(t, threads)
+	require.Nil(t, workspaces)
 }
 
-// Turning the runtime on without naming a thread gives the agent one, so enabling it is a
+// Turning the runtime on without naming a workspace gives the agent one, so enabling it is a
 // single click rather than two steps.
-func TestParseRuntimeGivesAFirstThread(t *testing.T) {
-	runtime, threads, err := parseRuntime(form(t, url.Values{"runtime": {"on"}}), nil, AgentLimits{}, true)
+func TestParseRuntimeGivesAFirstWorkspace(t *testing.T) {
+	runtime, workspaces, err := parseRuntime(form(t, url.Values{"runtime": {"on"}}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 	require.NotNil(t, runtime)
-	require.Len(t, threads, 1)
-	require.Equal(t, firstThreadName, threads[0].Name)
+	require.Len(t, workspaces, 1)
+	require.Equal(t, firstWorkspaceName, workspaces[0].Name)
 
-	// Sizing lands on both requests and limits, so a thread cannot burst past what its owner
+	// Sizing lands on both requests and limits, so a workspace cannot burst past what its owner
 	// asked for.
 	require.Equal(t, defaultCPU, runtime.Resources.Requests.Cpu().String())
 	require.Equal(t, defaultCPU, runtime.Resources.Limits.Cpu().String())
@@ -68,89 +68,89 @@ func TestParseRuntimeRejectsOversizedRequests(t *testing.T) {
 	require.ErrorContains(t, err, "not a valid quantity")
 }
 
-func TestParseThreadsAddsSuspendsAndRemoves(t *testing.T) {
+func TestParseWorkspacesAddsSuspendsAndRemoves(t *testing.T) {
 	values := url.Values{
-		"runtime":       {"on"},
-		"thread":        {"main", "review", "stale"},
-		"suspended":     {"review"},
-		"remove-thread": {"stale"},
-		"new-thread":    {"Docs"},
+		"runtime":          {"on"},
+		"workspace":        {"main", "review", "stale"},
+		"suspended":        {"review"},
+		"remove-workspace": {"stale"},
+		"new-workspace":    {"Docs"},
 	}
 
-	_, threads, err := parseRuntime(form(t, values), nil, AgentLimits{}, true)
+	_, workspaces, err := parseRuntime(form(t, values), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 
-	require.Equal(t, []agentsv1.AgentThread{
+	require.Equal(t, []agentsv1.AgentWorkspace{
 		{Name: "main"},
 		{Name: "review", Suspended: true},
 		// A name typed with capitals is lowercased rather than rejected, since the CRD only
 		// accepts a DNS label.
 		{Name: "docs"},
-	}, threads)
+	}, workspaces)
 }
 
-func TestParseThreadsRejectsBadAndDuplicateNames(t *testing.T) {
+func TestParseWorkspacesRejectsBadAndDuplicateNames(t *testing.T) {
 	_, _, err := parseRuntime(form(t, url.Values{
-		"runtime":    {"on"},
-		"new-thread": {"my_thread"},
+		"runtime":       {"on"},
+		"new-workspace": {"my_workspace"},
 	}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "lowercase letters, numbers, and dashes")
 
 	_, _, err = parseRuntime(form(t, url.Values{
-		"runtime":    {"on"},
-		"thread":     {"main"},
-		"new-thread": {"main"},
+		"runtime":       {"on"},
+		"workspace":     {"main"},
+		"new-workspace": {"main"},
 	}), nil, AgentLimits{}, true)
-	require.ErrorContains(t, err, "already a thread named")
+	require.ErrorContains(t, err, "already a workspace named")
 
 	_, _, err = parseRuntime(form(t, url.Values{
-		"runtime":    {"on"},
-		"new-thread": {strings.Repeat("a", 25)},
+		"runtime":       {"on"},
+		"new-workspace": {strings.Repeat("a", 25)},
 	}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "limited to 24 characters")
 }
 
-func TestParseThreadsEnforcesTheLimit(t *testing.T) {
+func TestParseWorkspacesEnforcesTheLimit(t *testing.T) {
 	_, _, err := parseRuntime(form(t, url.Values{
-		"runtime": {"on"},
-		"thread":  {"a", "b", "c"},
-	}), nil, AgentLimits{MaxThreads: 2}, true)
-	require.ErrorContains(t, err, "limited to 2 threads")
+		"runtime":   {"on"},
+		"workspace": {"a", "b", "c"},
+	}), nil, AgentLimits{MaxWorkspaces: 2}, true)
+	require.ErrorContains(t, err, "limited to 2 workspaces")
 }
 
-// Removing the last thread means the agent runs nothing, which is expressed by suspending or
-// disabling the runtime, not by an empty thread list.
-func TestParseThreadsRemovingTheLastThreadKeepsOne(t *testing.T) {
-	_, threads, err := parseRuntime(form(t, url.Values{
-		"runtime":       {"on"},
-		"thread":        {"main"},
-		"remove-thread": {"main"},
+// Removing the last workspace means the agent runs nothing, which is expressed by suspending or
+// disabling the runtime, not by an empty workspace list.
+func TestParseWorkspacesRemovingTheLastWorkspaceKeepsOne(t *testing.T) {
+	_, workspaces, err := parseRuntime(form(t, url.Values{
+		"runtime":          {"on"},
+		"workspace":        {"main"},
+		"remove-workspace": {"main"},
 	}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
-	require.Len(t, threads, 1)
-	require.Equal(t, firstThreadName, threads[0].Name)
+	require.Len(t, workspaces, 1)
+	require.Equal(t, firstWorkspaceName, workspaces[0].Name)
 }
 
 func TestRuntimeFromAgentShowsStoredSizingAndState(t *testing.T) {
 	agent := &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}}
 	agent.Spec.Runtime = &agentsv1.AgentRuntime{}
-	agent.Spec.Threads = []agentsv1.AgentThread{{Name: "main"}, {Name: "review", Suspended: true}}
-	agent.Status.Threads = []agentsv1.ThreadStatus{
-		{Name: "main", State: agentsv1.ThreadStateRunning},
-		{Name: "review", State: agentsv1.ThreadStateSuspended},
+	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}, {Name: "review", Suspended: true}}
+	agent.Status.Workspaces = []agentsv1.WorkspaceStatus{
+		{Name: "main", State: agentsv1.WorkspaceStateRunning},
+		{Name: "review", State: agentsv1.WorkspaceStateSuspended},
 	}
 
 	form := runtimeFromAgent(agent, AgentLimits{}.defaults())
 	require.True(t, form.Enabled)
 	// Sizing the agent never set falls back to the default rather than rendering blank.
 	require.Equal(t, defaultCPU, form.CPU)
-	require.Equal(t, []threadForm{
+	require.Equal(t, []workspaceForm{
 		{Name: "main", State: "Running"},
 		{Name: "review", Suspended: true, State: "Suspended"},
-	}, form.Threads)
+	}, form.Workspaces)
 }
 
-// The runtime section is only rendered where the operator can actually run threads.
+// The runtime section is only rendered where the operator can actually run workspaces.
 func TestFormHidesRuntimeWhenNotOffered(t *testing.T) {
 	withRuntime, err := NewServer(Config{AgentRuntime: true})
 	require.NoError(t, err)
@@ -181,12 +181,12 @@ func TestParseAgentRuntimeLeavesStoredRuntimeAloneWhenNotOffered(t *testing.T) {
 	require.NoError(t, err)
 
 	current := &agentsv1.Agent{Spec: agentsv1.AgentSpec{
-		Runtime: &agentsv1.AgentRuntime{},
-		Threads: []agentsv1.AgentThread{{Name: "main"}},
+		Runtime:    &agentsv1.AgentRuntime{},
+		Workspaces: []agentsv1.AgentWorkspace{{Name: "main"}},
 	}}
 
-	runtime, threads, err := s.parseAgentRuntime(form(t, url.Values{}), current, false)
+	runtime, workspaces, err := s.parseAgentRuntime(form(t, url.Values{}), current, false)
 	require.NoError(t, err)
 	require.Equal(t, current.Spec.Runtime, runtime)
-	require.Equal(t, current.Spec.Threads, threads)
+	require.Equal(t, current.Spec.Workspaces, workspaces)
 }

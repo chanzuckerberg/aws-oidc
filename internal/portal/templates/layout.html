@@ -39,7 +39,7 @@
     p.sizing { display: flex; align-items: center; flex-wrap: wrap; gap: .9rem; }
     .err { color: #b00020; font-weight: 600; }
     form.inline { display: inline; }
-    .thread-row { display: flex; align-items: center; gap: .5rem; margin: .2rem 0; }
+    .workspace-row { display: flex; align-items: center; gap: .5rem; margin: .2rem 0; }
     .connect-details summary { cursor: pointer; }
     .connect-details summary::marker { display: none; }
     .connect-panel { margin-top: .4rem; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px; padding: .4rem .6rem; }
@@ -76,7 +76,8 @@
   {{if .TailscaleOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/tailscale" {{if eq .Nav "tailscale"}}class="active"{{end}}>Tailscale</a>{{end}}
   {{if .RuntimeOffered}}
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/runtime" {{if eq .Nav "runtime"}}class="active"{{end}}>Runtime</a>
-  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/threads" {{if eq .Nav "threads"}}class="active"{{end}}>Threads</a>
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/workspaces" {{if eq .Nav "workspaces"}}class="active"{{end}}>Workspaces</a>
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/connection" {{if eq .Nav "connection"}}class="active"{{end}}>Connection</a>
   {{end}}
   {{end}}
 </nav>
