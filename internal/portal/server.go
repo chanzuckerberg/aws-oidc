@@ -10,6 +10,7 @@ package portal
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -34,6 +35,10 @@ var templatesFS embed.FS
 
 var agentNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
+// repoRe matches an "owner/repo" reference. It mirrors the Repository pattern on the CRD so
+// the portal rejects the same shapes the API server would.
+var repoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+
 // Config wires the portal's dependencies. BasePath is the URL prefix the portal is served
 // under (for example "/portal" when the gateway routes a sub-path to it); empty means root.
 type Config struct {
@@ -48,6 +53,10 @@ type Config struct {
 	// AgentTailscale offers the Tailscale page. Off unless the operator is configured for
 	// tailnet enrollment, so the nav item is not shown in environments without tailscale.
 	AgentTailscale bool
+	// Repositories powers the Repositories page's type-ahead and validates saved entries
+	// against the repositories the fleet's GitHub App can reach. Nil where the portal has no
+	// GitHub credentials, which hides the page.
+	Repositories repoSuggester
 	// Limits caps the sizing an owner may ask for. Unset fields fall back to defaults.
 	Limits AgentLimits
 	// Namespace is the Kubernetes namespace the operator and agent pods run in. It is shown
@@ -99,6 +108,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /agents/{name}/tailscale", s.handleUpdateTailscale)
 	mux.HandleFunc("GET /agents/{name}/runtime", s.handleRuntime)
 	mux.HandleFunc("POST /agents/{name}/runtime", s.handleUpdateRuntime)
+	mux.HandleFunc("GET /agents/{name}/repositories", s.handleRepositories)
+	mux.HandleFunc("POST /agents/{name}/repositories", s.handleUpdateRepositories)
+	mux.HandleFunc("GET /agents/{name}/repositories/search", s.handleRepositorySearch)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
 	mux.HandleFunc("GET /agents/{name}/threads", s.handleThreadsView)
 	mux.HandleFunc("POST /agents/{name}/threads", s.handleSpawnThread)
@@ -176,8 +188,14 @@ type pageData struct {
 	RuntimeOffered bool
 	// TailscaleOffered mirrors Config.AgentTailscale.
 	TailscaleOffered bool
-	Runtime          runtimeForm
-	TailscaleForm    tailscaleForm
+	// RepositoriesOffered is true when the portal has GitHub credentials to power the
+	// Repositories page.
+	RepositoriesOffered bool
+	Runtime             runtimeForm
+	TailscaleForm       tailscaleForm
+	// Repositories is the agent's current (or just-submitted) "owner/repo" list, shown as
+	// chips on the Repositories page.
+	Repositories []string
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
@@ -522,6 +540,147 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 	s.redirect(w, r, "/agents/"+agent.Name+"/runtime")
 }
 
+func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Repositories == nil {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	s.render(w, "agent_repositories", pageData{
+		Title:        "Repositories — " + agent.Name,
+		User:         user,
+		Agent:        agent,
+		Nav:          "repositories",
+		Repositories: repositoriesFromAgent(agent),
+	})
+}
+
+func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Repositories == nil {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	repos := normalizeRepos(r.Form["repository"])
+	renderErr := func(msg string) {
+		s.render(w, "agent_repositories", pageData{
+			Title: "Repositories — " + agent.Name, User: user, Agent: agent, Nav: "repositories",
+			Repositories: repos, Error: msg,
+		})
+	}
+	for _, repo := range repos {
+		if !repoRe.MatchString(repo) {
+			renderErr(fmt.Sprintf("%q is not a valid owner/repo.", repo))
+			return
+		}
+		reachable, err := s.cfg.Repositories.Reachable(ctx, repo)
+		if err != nil {
+			s.fail(w, "checking repository access", err)
+			return
+		}
+		if !reachable {
+			renderErr(fmt.Sprintf("The agent's GitHub App cannot reach %q. Pick a repository from the suggestions.", repo))
+			return
+		}
+	}
+	agent.Spec.Repositories = toRepositories(repos)
+	err = s.cfg.Store.Upsert(ctx, agent)
+	if err != nil {
+		s.fail(w, "updating agent", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/repositories")
+}
+
+// handleRepositorySearch answers the type-ahead with a JSON array of "owner/repo" strings the
+// agent's GitHub App can reach and that match the q query.
+func (s *Server) handleRepositorySearch(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Repositories == nil {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	if _, ok := s.ownedAgent(w, r, user); !ok {
+		return
+	}
+	repos, err := s.cfg.Repositories.Suggest(r.Context(), r.URL.Query().Get("q"), 20)
+	if err != nil {
+		slog.Warn("repository suggestions failed", "error", err)
+		http.Error(w, "suggestions unavailable", http.StatusBadGateway)
+		return
+	}
+	if repos == nil {
+		repos = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(repos)
+	if err != nil {
+		slog.Error("encoding repository suggestions", "error", err)
+	}
+}
+
+func repositoriesFromAgent(agent *agentsv1.Agent) []string {
+	repos := make([]string, 0, len(agent.Spec.Repositories))
+	for _, repo := range agent.Spec.Repositories {
+		repos = append(repos, string(repo))
+	}
+	return repos
+}
+
+// normalizeRepos trims each value, drops blanks, and removes case-insensitive duplicates while
+// keeping the submitted order.
+func normalizeRepos(values []string) []string {
+	seen := make(map[string]bool, len(values))
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		key := strings.ToLower(v)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, v)
+	}
+	return out
+}
+
+func toRepositories(values []string) []agentsv1.Repository {
+	if len(values) == 0 {
+		return nil
+	}
+	repos := make([]agentsv1.Repository, len(values))
+	for i, v := range values {
+		repos[i] = agentsv1.Repository(v)
+	}
+	return repos
+}
+
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
@@ -772,6 +931,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
 	data.Namespace = s.cfg.Namespace
 	data.RuntimeOffered = s.cfg.AgentRuntime
 	data.TailscaleOffered = s.cfg.AgentTailscale
+	data.RepositoriesOffered = s.cfg.Repositories != nil
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := s.tmpl.ExecuteTemplate(w, name, data)
 	if err != nil {
