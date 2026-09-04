@@ -119,13 +119,14 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 			Name:      agentContainerName,
 			Image:     r.image(agent),
 			Resources: r.resources(agent, agentRuntime),
-			// When Tailscale is active the Dockerfile ENTRYPOINT (agent-entrypoint) must run
-			// to start tailscaled and enroll the pod before handing off to the user's command.
-			// Leaving Command nil tells Kubernetes to use the image ENTRYPOINT; the user's
-			// command becomes Args, which agent-entrypoint receives as "$@" and execs.
-			// When Tailscale is not active we set Command directly to avoid any dependency on
-			// the image's ENTRYPOINT.
-			Command:         r.containerCommand(agent),
+			// Command is always nil so Kubernetes uses the Dockerfile ENTRYPOINT
+			// (agent-entrypoint). The entrypoint clones repositories, installs plugins,
+			// propagates the environment to SSH sessions and, when enabled, starts tailscaled
+			// before exec-ing the workload. Setting Command would replace the ENTRYPOINT and
+			// skip all of that, which is why non-tailscale agents never cloned their
+			// repositories. The workload command is passed as Args, which agent-entrypoint
+			// receives as "$@" and execs.
+			Command:         nil,
 			Args:            r.containerArgs(agent, agentRuntime),
 			WorkingDir:      workspaceMountPath,
 			Env:             r.env(agent, thread),
@@ -136,25 +137,11 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, thread agentsv1.AgentThread)
 	}
 }
 
-// containerCommand returns the Kubernetes Command field for the agent container.
-// When Tailscale is active we return nil so Kubernetes uses the Dockerfile's ENTRYPOINT
-// (agent-entrypoint), which starts tailscaled before handing off to the user's command.
-// When Tailscale is not active we set the command directly.
-func (r *Reconciler) containerCommand(agent *agentsv1.Agent) []string {
-	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		return nil
-	}
-	return r.command(agent)
-}
-
-// containerArgs returns the Kubernetes Args field for the agent container.
-// When Tailscale is active the user's command becomes args to agent-entrypoint ("$@").
-// When Tailscale is not active the args are the extra flags from the runtime spec.
+// containerArgs is the command agent-entrypoint execs as "$@": the agent's command (or the
+// configured default) followed by any extra runtime args. Command is left nil so the image
+// ENTRYPOINT always runs, so this is the only field that carries the workload command.
 func (r *Reconciler) containerArgs(agent *agentsv1.Agent, runtime *agentsv1.AgentRuntime) []string {
-	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		return append(r.command(agent), runtime.Args...)
-	}
-	return runtime.Args
+	return append(r.command(agent), runtime.Args...)
 }
 
 func (r *Reconciler) resources(agent *agentsv1.Agent, runtime *agentsv1.AgentRuntime) corev1.ResourceRequirements {

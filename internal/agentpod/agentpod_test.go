@@ -38,6 +38,31 @@ func testReconciler(t *testing.T, objects ...client.Object) (*Reconciler, client
 	}), c
 }
 
+// The agent container always runs through the image ENTRYPOINT (agent-entrypoint): Command is
+// nil and the workload command is passed as Args. Setting Command replaces the ENTRYPOINT and
+// skips the repository clone, plugin install and env propagation, which is the regression this
+// guards. The default command is set here so the buggy behavior would leave a non-nil Command.
+func TestReconcileContainerRunsEntrypoint(t *testing.T) {
+	ctx := context.Background()
+	scheme := testScheme(t)
+	agent := testAgent()
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:      testNamespace,
+		DefaultImage:   "ubuntu:24.04",
+		DefaultCommand: []string{"sleep", "infinity"},
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	container := set.Spec.Template.Spec.Containers[0]
+	require.Nil(t, container.Command, "Command must be nil so the image ENTRYPOINT (agent-entrypoint) runs")
+	require.Equal(t, []string{"sleep", "infinity"}, container.Args, "the workload command is passed as Args for the entrypoint to exec")
+}
+
 // testAgent is an agent with one provisioned grant and two threads, one of them suspended.
 func testAgent() *agentsv1.Agent {
 	agent := &agentsv1.Agent{
