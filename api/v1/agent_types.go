@@ -66,6 +66,14 @@ type TailscaleAccess struct {
 	SSHUser string `json:"sshUser"`
 }
 
+// Repository is a GitHub repository in "owner/repo" form that the agent clones into its
+// workspace at boot. The portal validates each entry is reachable by the agent's GitHub App
+// installations before saving; the pattern here is a second line of defense for writes that
+// bypass the portal, and keeps the value safe to hand to a shell as a single argument.
+// +kubebuilder:validation:Pattern=`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`
+// +kubebuilder:validation:MaxLength=128
+type Repository string
+
 // AgentEnvVar is a plain environment variable for an agent's containers. It deliberately has
 // no valueFrom: an agent owner must not be able to project arbitrary namespace secrets into
 // their own pod.
@@ -162,6 +170,14 @@ type AgentSpec struct {
 	// +optional
 	// +listType=atomic
 	Grants []Grant `json:"grants,omitempty"`
+
+	// Repositories is the set of GitHub repositories, each "owner/repo", to clone into
+	// /workspace when a thread pod boots, so sessions find the source already checked out.
+	// Clones are idempotent: a repository already present is left as is. Only meaningful when
+	// Runtime is set, since it is the thread pods that clone.
+	// +optional
+	// +listType=set
+	Repositories []Repository `json:"repositories,omitempty"`
 
 	// Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
 	// owner's email local part. When nil the agent has no tailnet identity.

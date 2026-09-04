@@ -1,0 +1,162 @@
+{{define "agent_repositories"}}{{template "head" .}}
+<style>
+  .repo-typeahead { position: relative; max-width: 32rem; }
+  .repo-typeahead input[type=text] { width: 100%; padding: .4rem .5rem; border: 1px solid #bbb; border-radius: 5px; }
+  .repo-suggestions { position: absolute; z-index: 10; left: 0; right: 0; margin: 2px 0 0; padding: 0; list-style: none; background: #fff; border: 1px solid #bbb; border-radius: 5px; box-shadow: 0 4px 12px rgba(0,0,0,.08); max-height: 16rem; overflow-y: auto; }
+  .repo-suggestions:empty { display: none; }
+  .repo-suggestions li { padding: .4rem .6rem; cursor: pointer; font-size: .9em; }
+  .repo-suggestions li:hover, .repo-suggestions li.active { background: #f0faf4; }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0 0; padding: 0; }
+  .chips:empty::before { content: "No repositories yet. Start typing above to add one."; color: #999; font-size: .9em; }
+  .chip { display: inline-flex; align-items: center; gap: .35rem; background: #f0faf4; border: 1px solid #1a5; border-radius: 999px; padding: .2rem .3rem .2rem .7rem; font-size: .85em; }
+  .chip-remove { border: none; background: none; cursor: pointer; color: #1a5; font-size: 1.1em; line-height: 1; padding: 0 .2rem; }
+</style>
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div class="card">
+      <h1>Repositories</h1>
+      {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+      <p class="muted">
+        These repositories are cloned into <code>/workspace</code> when a thread pod boots, so
+        sessions find the source already checked out and authenticated. Start typing to search
+        the repositories this agent's GitHub App can reach, and pick from the suggestions.
+      </p>
+
+      <form id="repo-form" method="post"
+            action="{{.BasePath}}/agents/{{.Agent.Name}}/repositories"
+            data-base-path="{{.BasePath}}" data-agent="{{.Agent.Name}}">
+        <div class="repo-typeahead">
+          <input type="text" id="repo-input" autocomplete="off" spellcheck="false"
+                 placeholder="owner/repo">
+          <ul class="repo-suggestions" id="repo-suggestions"></ul>
+        </div>
+
+        <div class="chips" id="repo-chips">
+          {{range .Repositories}}
+          <span class="chip" data-repo="{{.}}">
+            <span class="chip-label">{{.}}</span>
+            <button type="button" class="chip-remove" aria-label="Remove {{.}}">&times;</button>
+            <input type="hidden" name="repository" value="{{.}}">
+          </span>
+          {{end}}
+        </div>
+
+        <p style="margin-top:1rem;">
+          <button class="btn primary" type="submit">Save</button>
+        </p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById("repo-form");
+  var input = document.getElementById("repo-input");
+  var suggestions = document.getElementById("repo-suggestions");
+  var chips = document.getElementById("repo-chips");
+  var basePath = form.dataset.basePath || "";
+  var agent = form.dataset.agent;
+  var repoPattern = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+  var debounce;
+
+  function selected() {
+    var set = {};
+    chips.querySelectorAll(".chip").forEach(function (chip) {
+      set[(chip.dataset.repo || "").toLowerCase()] = true;
+    });
+    return set;
+  }
+
+  function clearSuggestions() { suggestions.innerHTML = ""; }
+
+  function addChip(repo) {
+    repo = (repo || "").trim();
+    if (!repo || selected()[repo.toLowerCase()]) { return; }
+
+    var chip = document.createElement("span");
+    chip.className = "chip";
+    chip.dataset.repo = repo;
+
+    var label = document.createElement("span");
+    label.className = "chip-label";
+    label.textContent = repo;
+
+    var remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "chip-remove";
+    remove.setAttribute("aria-label", "Remove " + repo);
+    remove.textContent = "\u00d7";
+    remove.addEventListener("click", function () { chip.remove(); });
+
+    var hidden = document.createElement("input");
+    hidden.type = "hidden";
+    hidden.name = "repository";
+    hidden.value = repo;
+
+    chip.appendChild(label);
+    chip.appendChild(remove);
+    chip.appendChild(hidden);
+    chips.appendChild(chip);
+  }
+
+  function renderSuggestions(repos) {
+    clearSuggestions();
+    var have = selected();
+    repos.forEach(function (repo) {
+      if (have[repo.toLowerCase()]) { return; }
+      var li = document.createElement("li");
+      li.textContent = repo;
+      li.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+        addChip(repo);
+        input.value = "";
+        clearSuggestions();
+      });
+      suggestions.appendChild(li);
+    });
+  }
+
+  function search(query) {
+    var url = basePath + "/agents/" + encodeURIComponent(agent) +
+      "/repositories/search?q=" + encodeURIComponent(query);
+    fetch(url, { headers: { "Accept": "application/json" } })
+      .then(function (resp) { return resp.ok ? resp.json() : []; })
+      .then(renderSuggestions)
+      .catch(clearSuggestions);
+  }
+
+  input.addEventListener("input", function () {
+    var query = input.value.trim();
+    clearTimeout(debounce);
+    if (query.length < 2) { clearSuggestions(); return; }
+    debounce = setTimeout(function () { search(query); }, 150);
+  });
+
+  input.addEventListener("keydown", function (event) {
+    if (event.key !== "Enter") { return; }
+    event.preventDefault();
+    var first = suggestions.querySelector("li");
+    if (first) {
+      addChip(first.textContent);
+    } else if (repoPattern.test(input.value.trim())) {
+      addChip(input.value.trim());
+    }
+    input.value = "";
+    clearSuggestions();
+  });
+
+  document.addEventListener("click", function (event) {
+    if (!form.contains(event.target)) { clearSuggestions(); }
+  });
+
+  chips.querySelectorAll(".chip-remove").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var chip = button.closest(".chip");
+      if (chip) { chip.remove(); }
+    });
+  });
+})();
+</script>
+{{template "foot" .}}{{end}}

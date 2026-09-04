@@ -113,7 +113,12 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("creating identity resolver: %w", err)
 	}
 
-	srv, err := portal.NewServer(portal.Config{
+	githubApp, err := githubAppFromEnv()
+	if err != nil {
+		return fmt.Errorf("configuring github repositories: %w", err)
+	}
+
+	cfg := portal.Config{
 		Apps:             oktaAppClient,
 		MappingsProvider: mappingsProvider,
 		Store:            store,
@@ -124,7 +129,14 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		Limits:           limits,
 		Namespace:        namespace,
 		DefaultsLoader:   agentdefaults.NewLoader(defaultsConfigPath),
-	})
+	}
+	// Assign only when configured: a nil *GitHubApp stored in the interface field would read
+	// as non-nil and turn the Repositories page on without a working backend.
+	if githubApp != nil {
+		cfg.Repositories = githubApp
+	}
+
+	srv, err := portal.NewServer(cfg)
 	if err != nil {
 		return fmt.Errorf("creating portal server: %w", err)
 	}
@@ -137,8 +149,43 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		"rolemap_configmap", rolemapName,
 		"agent_runtime", agentRuntime,
 		"agent_tailscale", agentTailscale,
+		"agent_repositories", githubApp != nil,
 	)
 	return http.ListenAndServe(addr, srv.Handler())
+}
+
+// githubAppFromEnv builds the GitHub App client the Repositories page uses to search and
+// validate repositories. It reads the same credentials the operator uses: the app id, the
+// default installation, the owner-to-installation map, and the private key (inline in
+// GITHUB_APP_PRIVATE_KEY or a path in GITHUB_APP_PRIVATE_KEY_FILE). Returns nil when the app
+// id or key is absent, which leaves the Repositories page hidden.
+func githubAppFromEnv() (*portal.GitHubApp, error) {
+	key, err := githubAppPrivateKey()
+	if err != nil {
+		return nil, err
+	}
+	return portal.NewGitHubApp(
+		os.Getenv("GITHUB_APP_ID"),
+		key,
+		os.Getenv("GITHUB_APP_INSTALLATION_ID"),
+		os.Getenv("GITHUB_APP_INSTALLATION_MAP"),
+		os.Getenv("GITHUB_API_URL"),
+	)
+}
+
+func githubAppPrivateKey() ([]byte, error) {
+	if pem := os.Getenv("GITHUB_APP_PRIVATE_KEY"); pem != "" {
+		return []byte(pem), nil
+	}
+	path := os.Getenv("GITHUB_APP_PRIVATE_KEY_FILE")
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading github app private key file: %w", err)
+	}
+	return data, nil
 }
 
 // agentLimits reads the ceilings an agent owner is held to when sizing their threads.

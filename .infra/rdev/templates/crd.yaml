@@ -121,6 +121,23 @@ spec:
                 description: OwnerEmail is the owner's email, kept for display and
                   audit.
                 type: string
+              repositories:
+                description: |-
+                  Repositories is the set of GitHub repositories, each "owner/repo", to clone into
+                  /workspace when a thread pod boots, so sessions find the source already checked out.
+                  Clones are idempotent: a repository already present is left as is. Only meaningful when
+                  Runtime is set, since it is the thread pods that clone.
+                items:
+                  description: |-
+                    Repository is a GitHub repository in "owner/repo" form that the agent clones into its
+                    workspace at boot. The portal validates each entry is reachable by the agent's GitHub App
+                    installations before saving; the pattern here is a second line of defense for writes that
+                    bypass the portal, and keeps the value safe to hand to a shell as a single argument.
+                  maxLength: 128
+                  pattern: ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               runtime:
                 description: |-
                   Runtime describes how the agent runs in the cluster. When unset the agent has no pods
