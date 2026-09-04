@@ -42,21 +42,31 @@ ensure_agent_repositories() {
     done
 }
 
-# ensure_agent_plugins installs the shared CZI ai-toolchain plugin so every
-# agent has it by default. Claude Code's CLI does not auto-install plugins from
-# managed settings, so the install runs here. State lives on the persistent
-# workspace volume; a marker keeps this to a single install per volume.
+# ensure_agent_plugins installs the shared CZI Claude Code plugins so every agent has them by
+# default. The czi-ai-toolchain marketplace splits its content into czi-general and czi-infra;
+# the earlier single ai-toolchain plugin no longer exists. Claude Code's CLI does not
+# auto-install plugins from managed settings, so the install runs here. State lives on the
+# persistent workspace volume; a marker keeps this to a single successful install per volume,
+# and is written only when every plugin installed so a partial failure is retried next boot.
 ensure_agent_plugins() {
     command -v claude >/dev/null 2>&1 || return 0
-    local marker=/workspace/.claude/.ai-toolchain-installed
+    local marker=/workspace/.claude/.czi-plugins-installed
     [[ -f "${marker}" ]] && return 0
-    log "installing default plugin ai-toolchain@czi-ai-toolchain"
+    log "adding marketplace czi-ai-toolchain"
     run_as_agent claude plugin marketplace add chanzuckerberg/ai-toolchain >/dev/null 2>&1 || true
-    if run_as_agent claude plugin install ai-toolchain@czi-ai-toolchain >/dev/null 2>&1; then
-        run_as_agent bash -c 'mkdir -p /workspace/.claude && touch /workspace/.claude/.ai-toolchain-installed'
-        log "ai-toolchain plugin installed"
-    else
-        log "WARN: ai-toolchain plugin install failed (needs network egress and GitHub App read access to chanzuckerberg/ai-toolchain)"
+    local plugin all_ok=1
+    for plugin in czi-general czi-infra; do
+        log "installing plugin ${plugin}@czi-ai-toolchain"
+        if run_as_agent claude plugin install "${plugin}@czi-ai-toolchain" >/dev/null 2>&1; then
+            log "installed ${plugin}"
+        else
+            all_ok=0
+            log "WARN: failed to install ${plugin}@czi-ai-toolchain (needs network egress and GitHub App read access to chanzuckerberg/ai-toolchain)"
+        fi
+    done
+    if [[ "${all_ok}" -eq 1 ]]; then
+        run_as_agent bash -c 'mkdir -p /workspace/.claude && touch /workspace/.claude/.czi-plugins-installed'
+        log "czi plugins installed"
     fi
 }
 
