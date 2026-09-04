@@ -50,11 +50,13 @@ type GitHubApp struct {
 	httpClient    *http.Client
 	cacheTTL      time.Duration
 
-	mu        sync.Mutex
-	tokens    map[string]cachedToken
-	repos     []string
-	reposByID map[string]bool
-	fetchedAt time.Time
+	mu         sync.Mutex
+	tokens     map[string]cachedToken
+	repos      []string
+	reposByID  map[string]bool
+	fetchedAt  time.Time
+	refreshing chan struct{}
+	lastErr    error
 }
 
 type cachedToken struct {
@@ -98,7 +100,7 @@ func NewGitHubApp(appID string, privateKeyPEM []byte, defaultInstallation, insta
 	if len(installations) == 0 {
 		return nil, fmt.Errorf("github app has no installations: set a default installation id")
 	}
-	return &GitHubApp{
+	app := &GitHubApp{
 		appID:         appID,
 		key:           key,
 		apiURL:        strings.TrimRight(apiURL, "/"),
@@ -106,7 +108,13 @@ func NewGitHubApp(appID string, privateKeyPEM []byte, defaultInstallation, insta
 		httpClient:    &http.Client{Timeout: 15 * time.Second},
 		cacheTTL:      githubReposCacheTTL,
 		tokens:        map[string]cachedToken{},
-	}, nil
+	}
+	// Warm the cache now, so the first search hits it instead of enumerating thousands of
+	// repositories while the user waits.
+	app.mu.Lock()
+	app.ensureRefreshLocked()
+	app.mu.Unlock()
+	return app, nil
 }
 
 func parseRSAPrivateKey(pemBytes []byte) (*rsa.PrivateKey, error) {
@@ -155,22 +163,72 @@ func (g *GitHubApp) Reachable(ctx context.Context, repo string) (bool, error) {
 }
 
 // accessible returns the union of every installation's repositories as sorted "owner/repo"
-// strings, plus a lowercase membership set. The result is cached for cacheTTL.
+// strings, plus a lowercase membership set. The set is cached for cacheTTL and refreshed in
+// the background. Enumerating an org's repositories takes seconds and spans many pages, so
+// doing it on the request's context once per keystroke made every search cancel the previous
+// one and never finish. Detaching the refresh means a keystroke that gives up still leaves the
+// enumeration running to warm the cache, and concurrent searches share one refresh.
 func (g *GitHubApp) accessible(ctx context.Context) ([]string, map[string]bool, error) {
 	g.mu.Lock()
-	if g.repos != nil && time.Since(g.fetchedAt) < g.cacheTTL {
+	fresh := g.repos != nil && time.Since(g.fetchedAt) < g.cacheTTL
+	if fresh {
+		repos, byID := g.repos, g.reposByID
+		g.mu.Unlock()
+		return repos, byID, nil
+	}
+	wait := g.ensureRefreshLocked()
+	// Serve a stale set immediately rather than blocking a keystroke on a full refresh.
+	if g.repos != nil {
 		repos, byID := g.repos, g.reposByID
 		g.mu.Unlock()
 		return repos, byID, nil
 	}
 	g.mu.Unlock()
 
+	// No cache yet: wait for the in-flight refresh, but give up if the caller does. The refresh
+	// runs on its own context, so giving up here does not abort it.
+	select {
+	case <-wait:
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	}
+
+	g.mu.Lock()
+	repos, byID, err := g.repos, g.reposByID, g.lastErr
+	g.mu.Unlock()
+	if repos == nil {
+		if err == nil {
+			err = fmt.Errorf("no repositories available")
+		}
+		return nil, nil, err
+	}
+	return repos, byID, nil
+}
+
+// ensureRefreshLocked starts a background refresh unless one is already running, and returns a
+// channel closed when it finishes. The caller must hold g.mu.
+func (g *GitHubApp) ensureRefreshLocked() chan struct{} {
+	if g.refreshing != nil {
+		return g.refreshing
+	}
+	done := make(chan struct{})
+	g.refreshing = done
+	go g.refresh(done)
+	return done
+}
+
+func (g *GitHubApp) refresh(done chan struct{}) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
 	byID := map[string]bool{}
 	var all []string
+	var refreshErr error
 	for _, id := range g.installations {
 		repos, err := g.listInstallationRepos(ctx, id)
 		if err != nil {
-			return nil, nil, err
+			refreshErr = err
+			break
 		}
 		for _, repo := range repos {
 			key := strings.ToLower(repo)
@@ -183,9 +241,14 @@ func (g *GitHubApp) accessible(ctx context.Context) ([]string, map[string]bool, 
 	sort.Strings(all)
 
 	g.mu.Lock()
-	g.repos, g.reposByID, g.fetchedAt = all, byID, time.Now()
+	if refreshErr == nil {
+		g.repos, g.reposByID, g.fetchedAt, g.lastErr = all, byID, time.Now(), nil
+	} else {
+		g.lastErr = refreshErr
+	}
+	g.refreshing = nil
 	g.mu.Unlock()
-	return all, byID, nil
+	close(done)
 }
 
 func (g *GitHubApp) listInstallationRepos(ctx context.Context, installationID string) ([]string, error) {
