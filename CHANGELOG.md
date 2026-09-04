@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.38.5](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.4...v0.38.5) (2026-08-31)
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions from 6.33.0 to 6.35.0 ([#1242](https://github.com/chanzuckerberg/aws-oidc/issues/1242)) ([a4c8b5f](https://github.com/chanzuckerberg/aws-oidc/commit/a4c8b5f57824709b9dcb7b52fc1e259c518f650b))
+* bump chanzuckerberg/github-actions from 6.35.0 to 6.35.2 ([#1246](https://github.com/chanzuckerberg/aws-oidc/issues/1246)) ([e40c3e4](https://github.com/chanzuckerberg/aws-oidc/commit/e40c3e432d718c98a9aa8f9b24d7bf69570ffc7f))
+* bump chanzuckerberg/github-actions from 6.35.2 to 6.38.0 ([#1248](https://github.com/chanzuckerberg/aws-oidc/issues/1248)) ([1f59627](https://github.com/chanzuckerberg/aws-oidc/commit/1f596273dfac319b1dc039898f2791bcf4147505))
+* bump chanzuckerberg/github-actions from 6.38.0 to 6.38.1 ([#1249](https://github.com/chanzuckerberg/aws-oidc/issues/1249)) ([d89b887](https://github.com/chanzuckerberg/aws-oidc/commit/d89b887ca73a9e00d84232b136d13cfdd1c3c761))
+* bump chanzuckerberg/github-actions from 6.38.1 to 6.39.2 ([#1254](https://github.com/chanzuckerberg/aws-oidc/issues/1254)) ([5b766aa](https://github.com/chanzuckerberg/aws-oidc/commit/5b766aa0ffc26cc2e77693ce391c44ef1e9cf82c))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.33.0 to 6.35.0 ([#1243](https://github.com/chanzuckerberg/aws-oidc/issues/1243)) ([0167420](https://github.com/chanzuckerberg/aws-oidc/commit/0167420614122f8f6f7a5d0d8e5740d2cb23d2db))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.35.0 to 6.35.2 ([#1245](https://github.com/chanzuckerberg/aws-oidc/issues/1245)) ([cc73df8](https://github.com/chanzuckerberg/aws-oidc/commit/cc73df84f6715143c0742719ead7c2e403f0bee1))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.35.2 to 6.38.0 ([#1247](https://github.com/chanzuckerberg/aws-oidc/issues/1247)) ([29e933d](https://github.com/chanzuckerberg/aws-oidc/commit/29e933d7e40984896c47238eeb035fa1e488ffca))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.38.0 to 6.38.1 ([#1250](https://github.com/chanzuckerberg/aws-oidc/issues/1250)) ([280a4d5](https://github.com/chanzuckerberg/aws-oidc/commit/280a4d5390efe33ea642c6a777edad6ed961c16f))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.38.1 to 6.39.2 ([#1255](https://github.com/chanzuckerberg/aws-oidc/issues/1255)) ([58dc709](https://github.com/chanzuckerberg/aws-oidc/commit/58dc709020a7e34afc6cbdd25c327c3cb8b86d11))
+
 ## [0.38.4](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.3...v0.38.4) (2026-08-06)
 
 
