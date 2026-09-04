@@ -14,6 +14,22 @@ run_as_agent() {
     fi
 }
 
+# wait_for_dns blocks until a public name resolves or a short timeout elapses. tailscale up
+# points resolv.conf at MagicDNS, whose forwarder needs a moment before it answers; without
+# this the repository clone and plugin install below, and a session that connects at once, can
+# hit a window where every lookup fails.
+wait_for_dns() {
+    local host="${DNS_READY_HOST:-github.com}" i
+    for i in $(seq 1 20); do
+        if getent hosts "${host}" >/dev/null 2>&1; then
+            log "DNS ready (${host} resolved after $((i - 1))s)"
+            return 0
+        fi
+        sleep 1
+    done
+    log "WARN: DNS not ready after 20s (${host} did not resolve); continuing"
+}
+
 # ensure_agent_repositories clones the repositories in AGENT_REPOSITORIES into /workspace so
 # sessions find the source already checked out. It is idempotent: a repository whose checkout
 # already exists is left untouched, which is what happens after the first session on a
@@ -166,11 +182,11 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
                 --id-token="${id_token}" \
                 --advertise-tags="${TAILSCALE_TAG:-tag:mantis-shrimp}" \
                 --hostname="${hostname}" \
-                --accept-dns=false \
                 --reset; then
             log "enrolled — $(tailscale ip 2>/dev/null || echo 'ip unknown')"
             tailscale set --ssh
             log "SSH enabled"
+            wait_for_dns
         else
             log "ERROR: tailscale up failed — continuing without tailscale"
         fi
