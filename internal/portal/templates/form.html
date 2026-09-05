@@ -22,5 +22,21 @@
       </p>
     </form>
   </div>
+
+  <div class="card" style="max-width:480px;margin-top:1rem;">
+    <h2 style="margin-top:0;">Next, setup walks you through</h2>
+    <ol class="steps" style="padding-left:0;">
+      {{range $i, $step := .Onboarding.Steps}}
+      <li><span class="marker">{{add $i 1}}</span> <span>{{$step.Label}}</span></li>
+      {{end}}
+    </ol>
+    {{if .RuntimeOffered}}
+    <p class="hint">
+      The agent starts out running as pods with one workspace named <code>main</code>{{if .TailscaleOffered}},
+      enrolled in the tailnet so you can <code>ssh</code> to it from your laptop{{end}}. Accept the
+      defaults on every step and you still end up with something you can connect to.
+    </p>
+    {{end}}
+  </div>
 </div>
 {{template "foot" .}}{{end}}

@@ -4,6 +4,12 @@
     {{template "agentnav" .}}
     <div class="card">
       <h1>Runtime</h1>
+      {{if .Onboarding.Active}}
+      <p class="setup-banner">
+        This agent already runs as pods with a workspace named <code>main</code>, so you can take
+        the defaults and continue. Change the sizing here if it needs more room.
+      </p>
+      {{end}}
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
       {{if .RuntimeOffered}}{{with .Runtime}}
       <form method="post" action="{{$.BasePath}}/agents/{{$.Agent.Name}}/runtime">
@@ -14,8 +20,8 @@
             Run this agent as pods in the cluster
           </label>
           <p class="muted" style="margin:.5rem 0;">
-            Each workspace gets its own pod and its own persistent workspace, and assumes the
-            access granted above. Manage workspaces on the Workspaces page.
+            Each workspace gets its own pod and its own persistent workspace, and assumes the AWS
+            access you grant this agent. Manage workspaces on the Workspaces page.
           </p>
 
           <p class="sizing">
@@ -45,9 +51,7 @@
             {{if $.User.Admin}}<p class="hint">Admins only.</p>{{end}}
           </p>
         </fieldset>
-        <p>
-          <button class="btn primary" type="submit">Save</button>
-        </p>
+        {{template "formactions" $}}
       </form>
       {{end}}{{end}}
     </div>

@@ -83,6 +83,7 @@ func NewServer(cfg Config) (*Server, error) {
 			local, _, _ := strings.Cut(email, "@")
 			return local
 		},
+		"add": func(a, b int) int { return a + b },
 	}).ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parsing templates: %w", err)
@@ -197,6 +198,9 @@ type pageData struct {
 	// Repositories is the agent's current (or just-submitted) "owner/repo" list, shown as
 	// chips on the Repositories page.
 	Repositories []string
+	// Onboarding drives the post-create walkthrough. Its zero value renders the page as a
+	// standalone edit screen.
+	Onboarding onboarding
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
@@ -228,7 +232,12 @@ func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.render(w, "form", pageData{Title: "Register agent", User: user})
+	s.entCache.Warm(user.Sub)
+	s.render(w, "form", pageData{
+		Title:      "Register agent",
+		User:       user,
+		Onboarding: onboarding{Steps: s.onboardingSteps("")},
+	})
 }
 
 func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +254,12 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderErr := func(msg string) {
-		s.render(w, "form", pageData{Title: "Register agent", User: user, Error: msg})
+		s.render(w, "form", pageData{
+			Title:      "Register agent",
+			User:       user,
+			Error:      msg,
+			Onboarding: onboarding{Steps: s.onboardingSteps("")},
+		})
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -277,13 +291,32 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 			OwnerEmail:  user.Email,
 		},
 	}
+	if s.cfg.AgentRuntime {
+		agent.Spec.Runtime, agent.Spec.Workspaces = defaultRuntime(s.limits())
+	}
+	if s.cfg.AgentTailscale {
+		// Nearly everyone reaches an agent over the tailnet, so enrollment is on unless the
+		// owner's email yields no usable SSH user. That is not worth refusing to create an
+		// agent over, so it just leaves the agent off the tailnet for its owner to sort out on
+		// the Tailscale step.
+		sshUser, err := deriveTailscaleUser(user.Email)
+		if err != nil {
+			slog.Warn("creating agent without tailscale", "agent", name, "sub", user.Sub, "error", err)
+		} else {
+			agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: sshUser}
+		}
+	}
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "saving agent", err)
 		return
 	}
 
-	s.redirect(w, r, "/agents/"+name+"/aws")
+	// The walkthrough ends on AWS access, whose Okta lookup is the slowest thing the portal
+	// does. Starting it here means it has the earlier steps to finish in.
+	s.entCache.Warm(user.Sub)
+
+	s.redirect(w, r, s.onboardingStart(name))
 }
 
 func (s *Server) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -351,6 +384,7 @@ func (s *Server) handleAWS(w http.ResponseWriter, r *http.Request) {
 		Nav:          "aws",
 		Entitlements: ent,
 		Checked:      checkedFromAgent(agent),
+		Onboarding:   s.onboardingFor(r, agent.Name, "aws"),
 	})
 }
 
@@ -378,6 +412,7 @@ func (s *Server) handleUpdateAWS(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "agent_aws", pageData{
 			Title: "AWS access — " + agent.Name, User: user, Agent: agent, Nav: "aws",
 			Entitlements: ent, Checked: checkedFromForm(r), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "aws"),
 		})
 	}
 	grants, err := parseGrants(r, ent)
@@ -391,7 +426,7 @@ func (s *Server) handleUpdateAWS(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/aws")
+	s.redirectAfterSave(w, r, agent.Name, "aws")
 }
 
 func (s *Server) handleTailscale(w http.ResponseWriter, r *http.Request) {
@@ -413,12 +448,14 @@ func (s *Server) handleTailscale(w http.ResponseWriter, r *http.Request) {
 			tf.SSHUser = derived
 		}
 	}
+	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_tailscale", pageData{
 		Title:         "Tailscale — " + agent.Name,
 		User:          user,
 		Agent:         agent,
 		Nav:           "tailscale",
 		TailscaleForm: tf,
+		Onboarding:    s.onboardingFor(r, agent.Name, "tailscale"),
 	})
 }
 
@@ -445,6 +482,7 @@ func (s *Server) handleUpdateTailscale(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "agent_tailscale", pageData{
 			Title: "Tailscale — " + agent.Name, User: user, Agent: agent, Nav: "tailscale",
 			TailscaleForm: tailscaleFormFromAgent(agent), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "tailscale"),
 		})
 	}
 	if r.FormValue("tailscale") == "on" {
@@ -476,7 +514,7 @@ func (s *Server) handleUpdateTailscale(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/tailscale")
+	s.redirectAfterSave(w, r, agent.Name, "tailscale")
 }
 
 func (s *Server) handleRuntime(w http.ResponseWriter, r *http.Request) {
@@ -492,12 +530,14 @@ func (s *Server) handleRuntime(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_runtime", pageData{
-		Title:   "Runtime — " + agent.Name,
-		User:    user,
-		Agent:   agent,
-		Nav:     "runtime",
-		Runtime: runtimeFromAgent(agent, s.limits()),
+		Title:      "Runtime — " + agent.Name,
+		User:       user,
+		Agent:      agent,
+		Nav:        "runtime",
+		Runtime:    runtimeFromAgent(agent, s.limits()),
+		Onboarding: s.onboardingFor(r, agent.Name, "runtime"),
 	})
 }
 
@@ -524,6 +564,7 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "agent_runtime", pageData{
 			Title: "Runtime — " + agent.Name, User: user, Agent: agent, Nav: "runtime",
 			Runtime: runtimeFromForm(r, s.limits()), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "runtime"),
 		})
 	}
 	runtime, workspaces, err := s.parseAgentRuntime(r, agent, user.Admin)
@@ -538,7 +579,7 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/runtime")
+	s.redirectAfterSave(w, r, agent.Name, "runtime")
 }
 
 func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
@@ -554,12 +595,14 @@ func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_repositories", pageData{
 		Title:        "Repositories — " + agent.Name,
 		User:         user,
 		Agent:        agent,
 		Nav:          "repositories",
 		Repositories: repositoriesFromAgent(agent),
+		Onboarding:   s.onboardingFor(r, agent.Name, "repositories"),
 	})
 }
 
@@ -587,6 +630,7 @@ func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request
 		s.render(w, "agent_repositories", pageData{
 			Title: "Repositories — " + agent.Name, User: user, Agent: agent, Nav: "repositories",
 			Repositories: repos, Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "repositories"),
 		})
 	}
 	for _, repo := range repos {
@@ -610,7 +654,7 @@ func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/repositories")
+	s.redirectAfterSave(w, r, agent.Name, "repositories")
 }
 
 // handleRepositorySearch answers the type-ahead with a JSON array of "owner/repo" strings the
