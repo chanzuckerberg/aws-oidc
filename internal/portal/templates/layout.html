@@ -57,6 +57,9 @@
     .steps li .marker { flex: 0 0 1.15rem; height: 1.15rem; border-radius: 50%; border: 1px solid currentColor; font-size: .7em; line-height: 1.05rem; text-align: center; }
     .steps li.done { color: #1a5; }
     .steps li.done .marker { background: #1a5; border-color: #1a5; color: #fff; }
+    .steps li a { color: inherit; text-decoration: none; }
+    .steps li a:hover { text-decoration: underline; }
+    .steps li.done:hover { background: #f0faf4; }
     .steps li.current { color: #1a5; font-weight: 600; border-left-color: #1a5; background: #f0faf4; }
     .steps li.current .marker { border-color: #1a5; }
     .setup-banner { background: #f0faf4; border: 1px solid #cbe8d8; border-radius: 6px; padding: .6rem .85rem; margin: 0 0 1rem; font-size: .9em; }
@@ -78,12 +81,13 @@
 {{end}}
 
 {{define "steplist"}}
-{{$here := .Index}}
+{{$base := .BasePath}}
+{{$here := .Onboarding.Index}}
 <ol class="steps">
-  {{range $i, $step := .Steps}}
+  {{range $i, $step := .Onboarding.Steps}}
   <li class="{{if eq $i $here}}current{{else if lt $i $here}}done{{end}}">
     <span class="marker">{{if lt $i $here}}&#10003;{{else}}{{add $i 1}}{{end}}</span>
-    <span>{{$step.Label}}</span>
+    {{if lt $i $here}}<a href="{{$base}}{{$step.URL}}">{{$step.Label}}</a>{{else}}<span>{{$step.Label}}</span>{{end}}
   </li>
   {{end}}
 </ol>
@@ -94,7 +98,7 @@
 <nav class="sidenav">
   <div class="sidenav-agent">{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}</div>
   <div class="sidenav-section">Setup — step {{.Onboarding.Number}} of {{.Onboarding.Total}}</div>
-  {{template "steplist" .Onboarding}}
+  {{template "steplist" .}}
   <a class="setup-exit" href="{{.BasePath}}/agents/{{.Agent.Name}}">Exit setup</a>
 </nav>
 {{else}}
@@ -120,6 +124,7 @@
 <p style="margin-top:1rem;">
   {{if .Onboarding.Active}}
   <input type="hidden" name="onboarding" value="1">
+  {{if .Onboarding.Prev}}<a class="btn" href="{{.BasePath}}{{.Onboarding.PrevURL}}">Back</a>{{end}}
   <button class="btn primary" type="submit">{{if .Onboarding.Last}}Finish setup{{else}}Save and continue{{end}}</button>
   {{if not .Onboarding.Last}}<a class="btn" href="{{.BasePath}}{{.Onboarding.NextURL}}">Skip for now</a>{{end}}
   {{else}}

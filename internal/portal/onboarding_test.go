@@ -138,11 +138,44 @@ func TestOnboardingForMarksPositionAndNext(t *testing.T) {
 	require.Equal(t, 4, o.Total())
 	require.False(t, o.Last())
 	require.Equal(t, "/agents/bot/repositories?onboarding=1", o.NextURL())
+	require.Equal(t, "/agents/bot/runtime?onboarding=1", o.PrevURL())
+
+	// The first step has nowhere to go back to, so the template renders no Back button.
+	first := s.onboardingFor(httptest.NewRequest(http.MethodGet, "/agents/bot/runtime?onboarding=1", nil), "bot", "runtime")
+	require.Equal(t, "", first.Prev)
+	require.Equal(t, "", first.PrevURL())
 
 	last := s.onboardingFor(httptest.NewRequest(http.MethodGet, "/agents/bot/aws?onboarding=1", nil), "bot", "aws")
 	require.True(t, last.Last())
 	require.Equal(t, "", last.Next)
+	require.Equal(t, "/agents/bot/repositories?onboarding=1", last.PrevURL())
 	require.Equal(t, "/agents/bot/connection", last.Done)
+}
+
+// Going back is both a Back button and a click on any step already completed, so a person who
+// notices a mistake two steps later can reach it.
+func TestCompletedStepsLinkBack(t *testing.T) {
+	s := fullServer(t, newMemStore())
+	data := pageData{
+		Title:               "Repositories",
+		User:                &identity.User{Sub: "s"},
+		Agent:               &agentsv1.Agent{ObjectMeta: metav1.ObjectMeta{Name: "bot"}},
+		Nav:                 "repositories",
+		RepositoriesOffered: true,
+		Onboarding: s.onboardingFor(
+			httptest.NewRequest(http.MethodGet, "/agents/bot/repositories?onboarding=1", nil), "bot", "repositories"),
+	}
+
+	rec := httptest.NewRecorder()
+	s.render(rec, "agent_repositories", data)
+	body := rec.Body.String()
+
+	require.Contains(t, body, `href="/agents/bot/tailscale?onboarding=1">Back</a>`)
+	require.Contains(t, body, `href="/agents/bot/runtime?onboarding=1">Runtime</a>`)
+	require.Contains(t, body, `href="/agents/bot/tailscale?onboarding=1">Tailscale</a>`)
+	// The step being edited and the ones still ahead are not links.
+	require.NotContains(t, body, `href="/agents/bot/repositories?onboarding=1">Repositories</a>`)
+	require.NotContains(t, body, `href="/agents/bot/aws?onboarding=1">AWS access</a>`)
 }
 
 // Editing a page on its own must not pick up the walkthrough chrome.
@@ -177,13 +210,13 @@ func TestRedirectAfterSave(t *testing.T) {
 	}
 }
 
-// Creating an agent hands it a runtime and a workspace, so a person who accepts every default
-// still ends up with a pod they can connect to.
-func TestCreateTurnsTheRuntimeOnWithAWorkspace(t *testing.T) {
+// Creating an agent hands it a runtime, a workspace and tailnet enrollment, so a person who
+// accepts every default still ends up with a pod they can SSH into.
+func TestCreateTurnsOnTheRuntimeAndTailscale(t *testing.T) {
 	store := newMemStore()
 	s := fullServer(t, store)
 
-	rec := postCreate(t, s, "bot")
+	rec := postCreate(t, s, "bot", "a@example.com")
 	require.Equal(t, http.StatusSeeOther, rec.Code)
 	require.Equal(t, "/agents/bot/runtime?onboarding=1", rec.Header().Get("Location"))
 
@@ -194,10 +227,30 @@ func TestCreateTurnsTheRuntimeOnWithAWorkspace(t *testing.T) {
 	require.Equal(t, defaultMemory, agent.Spec.Runtime.Resources.Requests.Memory().String())
 	require.Equal(t, defaultWorkspaceSize, agent.Spec.Runtime.WorkspaceSize.String())
 	require.Equal(t, []agentsv1.AgentWorkspace{{Name: firstWorkspaceName}}, agent.Spec.Workspaces)
+
+	require.NotNil(t, agent.Spec.Tailscale)
+	require.Equal(t, "a", agent.Spec.Tailscale.SSHUser)
 }
 
-// A portal that cannot run pods must not promise one, so the agent is created without a runtime.
-func TestCreateLeavesTheRuntimeOffWhenNotOffered(t *testing.T) {
+// An owner whose email yields no usable SSH user still gets an agent. Enrollment is the thing
+// that is left off, not the agent.
+func TestCreateSkipsTailscaleWhenNoSSHUserCanBeDerived(t *testing.T) {
+	store := newMemStore()
+	s := fullServer(t, store)
+	s.cfg.Identity = &IdentityResolver{devSub: "s"}
+
+	rec := postCreate(t, s, "bot", "")
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+
+	agent, err := store.Get(context.Background(), "bot")
+	require.NoError(t, err)
+	require.Nil(t, agent.Spec.Tailscale)
+	require.NotNil(t, agent.Spec.Runtime)
+}
+
+// A portal offering neither must not promise either, so the agent is created with no runtime
+// and no tailnet enrollment.
+func TestCreateLeavesTheRuntimeAndTailscaleOffWhenNotOffered(t *testing.T) {
 	store := newMemStore()
 	s, err := NewServer(Config{
 		Store:    store,
@@ -208,17 +261,19 @@ func TestCreateLeavesTheRuntimeOffWhenNotOffered(t *testing.T) {
 		return &Entitlements{}, nil
 	})
 
-	rec := postCreate(t, s, "bot")
+	rec := postCreate(t, s, "bot", "a@example.com")
 	require.Equal(t, "/agents/bot/aws?onboarding=1", rec.Header().Get("Location"))
 
 	agent, err := store.Get(context.Background(), "bot")
 	require.NoError(t, err)
 	require.Nil(t, agent.Spec.Runtime)
 	require.Nil(t, agent.Spec.Workspaces)
+	require.Nil(t, agent.Spec.Tailscale)
 }
 
-func postCreate(t *testing.T, s *Server, name string) *httptest.ResponseRecorder {
+func postCreate(t *testing.T, s *Server, name, email string) *httptest.ResponseRecorder {
 	t.Helper()
+	s.cfg.Identity = &IdentityResolver{devSub: "s", devEmail: email}
 	body := url.Values{"name": {name}}.Encode()
 	r := httptest.NewRequest(http.MethodPost, "/agents", strings.NewReader(body))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")

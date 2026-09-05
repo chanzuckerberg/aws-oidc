@@ -13,6 +13,18 @@ type onboardingStep struct {
 	Path  string
 }
 
+// URL is the step's path with the walkthrough marker, for a link that stays in setup.
+func (s onboardingStep) URL() string { return withOnboarding(s.Path) }
+
+// withOnboarding marks a path as part of the walkthrough, leaving an empty path empty so a
+// template can test it.
+func withOnboarding(path string) string {
+	if path == "" {
+		return ""
+	}
+	return path + "?" + onboardingParam + "=1"
+}
+
 // onboarding is the walkthrough state handed to a template. The zero value means the page is
 // being edited on its own rather than as part of setup.
 type onboarding struct {
@@ -22,16 +34,17 @@ type onboarding struct {
 	Index int
 	// Next is the path of the following step, empty on the last one.
 	Next string
+	// Prev is the path of the preceding step, empty on the first one.
+	Prev string
 	// Done is where the walkthrough sends the browser after its last step.
 	Done string
 }
 
-func (o onboarding) Number() int { return o.Index + 1 }
-func (o onboarding) Total() int  { return len(o.Steps) }
-func (o onboarding) Last() bool  { return o.Index == len(o.Steps)-1 }
-func (o onboarding) NextURL() string {
-	return o.Next + "?" + onboardingParam + "=1"
-}
+func (o onboarding) Number() int     { return o.Index + 1 }
+func (o onboarding) Total() int      { return len(o.Steps) }
+func (o onboarding) Last() bool      { return o.Index == len(o.Steps)-1 }
+func (o onboarding) NextURL() string { return withOnboarding(o.Next) }
+func (o onboarding) PrevURL() string { return withOnboarding(o.Prev) }
 
 // onboardingSteps returns the walkthrough in order, leaving out the pages this portal does not
 // offer. AWS access comes last because it is the one page that waits on Okta, which gives the
@@ -81,6 +94,9 @@ func (s *Server) onboardingFor(r *http.Request, agent, nav string) onboarding {
 		o := onboarding{Active: true, Steps: steps, Index: i, Done: s.onboardingDone(agent)}
 		if i+1 < len(steps) {
 			o.Next = steps[i+1].Path
+		}
+		if i > 0 {
+			o.Prev = steps[i-1].Path
 		}
 		return o
 	}
