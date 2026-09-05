@@ -6,8 +6,8 @@
       <h1>Tailscale</h1>
       {{if .Onboarding.Active}}
       <p class="setup-banner">
-        Turn this on to reach the agent over SSH from your laptop. Without it you connect with
-        <code>kubectl exec</code> instead.
+        This agent is already enrolled, so <code>ssh</code> from your laptop reaches it once a
+        workspace is running. Turn it off to connect with <code>kubectl exec</code> instead.
       </p>
       {{end}}
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}

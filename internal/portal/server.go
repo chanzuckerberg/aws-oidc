@@ -294,6 +294,18 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.AgentRuntime {
 		agent.Spec.Runtime, agent.Spec.Workspaces = defaultRuntime(s.limits())
 	}
+	if s.cfg.AgentTailscale {
+		// Nearly everyone reaches an agent over the tailnet, so enrollment is on unless the
+		// owner's email yields no usable SSH user. That is not worth refusing to create an
+		// agent over, so it just leaves the agent off the tailnet for its owner to sort out on
+		// the Tailscale step.
+		sshUser, err := deriveTailscaleUser(user.Email)
+		if err != nil {
+			slog.Warn("creating agent without tailscale", "agent", name, "sub", user.Sub, "error", err)
+		} else {
+			agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: sshUser}
+		}
+	}
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "saving agent", err)
