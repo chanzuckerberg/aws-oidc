@@ -32,19 +32,15 @@
           <ul class="repo-suggestions" id="repo-suggestions"></ul>
         </div>
 
-        <div class="chips" id="repo-chips">
-          {{range .Repositories}}
+        <div class="chips" id="repo-chips">{{range .Repositories}}
           <span class="chip" data-repo="{{.}}">
             <span class="chip-label">{{.}}</span>
             <button type="button" class="chip-remove" aria-label="Remove {{.}}">&times;</button>
             <input type="hidden" name="repository" value="{{.}}">
           </span>
-          {{end}}
-        </div>
+          {{end}}</div>
 
-        <p style="margin-top:1rem;">
-          <button class="btn primary" type="submit">Save</button>
-        </p>
+        {{template "formactions" .}}
       </form>
     </div>
   </div>

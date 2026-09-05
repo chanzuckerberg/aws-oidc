@@ -22,5 +22,18 @@
       </p>
     </form>
   </div>
+
+  <div class="card" style="max-width:480px;margin-top:1rem;">
+    <h2 style="margin-top:0;">Next, setup walks you through</h2>
+    <ol class="steps" style="padding-left:0;">
+      {{range $i, $step := .Onboarding.Steps}}
+      <li><span class="marker">{{add $i 1}}</span> <span>{{$step.Label}}</span></li>
+      {{end}}
+    </ol>
+    <p class="hint">
+      The agent starts out running as pods with one workspace named <code>main</code>, so you can
+      accept the defaults on every step and still end up with something you can connect to.
+    </p>
+  </div>
 </div>
 {{template "foot" .}}{{end}}

@@ -97,6 +97,24 @@ func (l AgentLimits) defaults() AgentLimits {
 	return l
 }
 
+// defaultRuntime is what a new agent runs with before its owner has opened the Runtime page, so
+// creating an agent already gives it a workspace pod rather than an inert record.
+func defaultRuntime(limits AgentLimits) (*agentsv1.AgentRuntime, []agentsv1.AgentWorkspace) {
+	limits = limits.defaults()
+	sizing := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse(defaultCPU),
+		corev1.ResourceMemory: resource.MustParse(defaultMemory),
+	}
+	workspaceSize := resource.MustParse(defaultWorkspaceSize)
+	runtime := &agentsv1.AgentRuntime{
+		Image:         limits.DefaultImage,
+		StorageClass:  limits.DefaultStorageClass,
+		WorkspaceSize: &workspaceSize,
+		Resources:     corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
+	}
+	return runtime, []agentsv1.AgentWorkspace{{Name: firstWorkspaceName}}
+}
+
 // runtimeForm is the runtime section of the agent form, both what is rendered and what a
 // submission is read back into so a rejected form comes back with the values the person typed.
 type runtimeForm struct {

@@ -36,9 +36,7 @@
         {{else}}
         <p class="muted">You have no AWS access to grant.</p>
         {{end}}
-        <p>
-          <button class="btn primary" type="submit">Save</button>
-        </p>
+        {{template "formactions" .}}
       </form>
     </div>
   </div>

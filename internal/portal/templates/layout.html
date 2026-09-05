@@ -50,6 +50,18 @@
     .hint { color: #666; font-size: .85em; margin: .2rem 0 0; }
     input[type=text], input[type=email], input[type=password] { font-size: inherit; }
     input:disabled { background: #f4f4f4; color: #666; cursor: not-allowed; }
+
+    /* Setup walkthrough */
+    .steps { list-style: none; margin: 0; padding: .2rem 0 .4rem; counter-reset: step; }
+    .steps li { display: flex; align-items: baseline; gap: .5rem; padding: .4rem .9rem; font-size: .9em; color: #999; border-left: 3px solid transparent; }
+    .steps li .marker { flex: 0 0 1.15rem; height: 1.15rem; border-radius: 50%; border: 1px solid currentColor; font-size: .7em; line-height: 1.05rem; text-align: center; }
+    .steps li.done { color: #1a5; }
+    .steps li.done .marker { background: #1a5; border-color: #1a5; color: #fff; }
+    .steps li.current { color: #1a5; font-weight: 600; border-left-color: #1a5; background: #f0faf4; }
+    .steps li.current .marker { border-color: #1a5; }
+    .setup-banner { background: #f0faf4; border: 1px solid #cbe8d8; border-radius: 6px; padding: .6rem .85rem; margin: 0 0 1rem; font-size: .9em; }
+    .setup-exit { display: block; padding: .5rem .9rem; border-top: 1px solid #e0e0e0; font-size: .85em; color: #666; text-decoration: none; }
+    .setup-exit:hover { background: #f4f4f4; }
   </style>
 </head>
 <body>
@@ -65,7 +77,27 @@
 </html>
 {{end}}
 
+{{define "steplist"}}
+{{$here := .Index}}
+<ol class="steps">
+  {{range $i, $step := .Steps}}
+  <li class="{{if eq $i $here}}current{{else if lt $i $here}}done{{end}}">
+    <span class="marker">{{if lt $i $here}}&#10003;{{else}}{{add $i 1}}{{end}}</span>
+    <span>{{$step.Label}}</span>
+  </li>
+  {{end}}
+</ol>
+{{end}}
+
 {{define "agentnav"}}
+{{if .Onboarding.Active}}
+<nav class="sidenav">
+  <div class="sidenav-agent">{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}</div>
+  <div class="sidenav-section">Setup — step {{.Onboarding.Number}} of {{.Onboarding.Total}}</div>
+  {{template "steplist" .Onboarding}}
+  <a class="setup-exit" href="{{.BasePath}}/agents/{{.Agent.Name}}">Exit setup</a>
+</nav>
+{{else}}
 <nav class="sidenav">
   <div class="sidenav-agent">{{if .Agent}}{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}{{else}}New agent{{end}}</div>
   {{if .Agent}}
@@ -81,4 +113,17 @@
   {{end}}
   {{end}}
 </nav>
+{{end}}
+{{end}}
+
+{{define "formactions"}}
+<p style="margin-top:1rem;">
+  {{if .Onboarding.Active}}
+  <input type="hidden" name="onboarding" value="1">
+  <button class="btn primary" type="submit">{{if .Onboarding.Last}}Finish setup{{else}}Save and continue{{end}}</button>
+  {{if not .Onboarding.Last}}<a class="btn" href="{{.BasePath}}{{.Onboarding.NextURL}}">Skip for now</a>{{end}}
+  {{else}}
+  <button class="btn primary" type="submit">Save</button>
+  {{end}}
+</p>
 {{end}}

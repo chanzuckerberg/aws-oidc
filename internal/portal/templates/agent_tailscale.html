@@ -4,6 +4,12 @@
     {{template "agentnav" .}}
     <div class="card">
       <h1>Tailscale</h1>
+      {{if .Onboarding.Active}}
+      <p class="setup-banner">
+        Turn this on to reach the agent over SSH from your laptop. Without it you connect with
+        <code>kubectl exec</code> instead.
+      </p>
+      {{end}}
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
       <p class="muted">
         Enroll this agent's workspace pods in the tailnet. The agent will authenticate using its
@@ -30,9 +36,7 @@
             {{end}}
           </p>
         </fieldset>
-        <p>
-          <button class="btn primary" type="submit">Save</button>
-        </p>
+        {{template "formactions" .}}
       </form>
     </div>
   </div>
