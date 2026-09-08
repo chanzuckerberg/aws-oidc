@@ -2,6 +2,13 @@ FROM 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/library/debi
 
 ARG CLAUDE_CODE_VERSION=2.1.251
 ARG GH_CLI_VERSION=2.98.0
+ARG HELM_VERSION=4.2.4
+ARG KUBECTL_VERSION=1.37.0
+ARG TERRAFORM_VERSION=1.16.1
+ARG YQ_VERSION=4.53.6
+ARG FOGG_VERSION=0.92.54
+ARG GO_VERSION=1.27.1
+ARG NODE_VERSION=24.20.0
 ARG TARGETARCH
 
 RUN apt-get update \
@@ -25,9 +32,11 @@ RUN apt-get update \
         openssl \
         patch \
         procps \
+        postgresql-client \
         python3 \
         python3-pip \
         python3-venv \
+        redis-tools \
         ripgrep \
         rsync \
         sed \
@@ -61,6 +70,82 @@ RUN case "${TARGETARCH}" in \
     && /tmp/aws/install \
     && rm -rf /tmp/awscliv2.zip /tmp/aws \
     && aws --version
+
+# Install Go.
+RUN case "${TARGETARCH}" in \
+        amd64) GO_ARCH=amd64 ;; \
+        arm64) GO_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://golang.org/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tar.gz \
+    && tar -xzf /tmp/go.tar.gz -C /usr/local \
+    && rm -f /tmp/go.tar.gz \
+    && ln -sf /usr/local/go/bin/go /usr/local/bin/go \
+    && go version
+
+# Install Node.js (includes npm).
+RUN case "${TARGETARCH}" in \
+        amd64) NODE_ARCH=x64 ;; \
+        arm64) NODE_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+        -o /tmp/node.tar.xz \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+    && rm -f /tmp/node.tar.xz \
+    && node --version && npm --version
+
+# Install helm.
+RUN curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz" -o /tmp/helm.tar.gz \
+    && tar -xzf /tmp/helm.tar.gz -C /tmp \
+    && mv /tmp/linux-${TARGETARCH}/helm /usr/local/bin/helm \
+    && rm -rf /tmp/helm.tar.gz /tmp/linux-${TARGETARCH} \
+    && helm version
+
+# Install kubectl.
+RUN curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
+        -o /usr/local/bin/kubectl \
+    && chmod +x /usr/local/bin/kubectl \
+    && kubectl version --client
+
+# Install Terraform.
+RUN case "${TARGETARCH}" in \
+        amd64) TF_ARCH=amd64 ;; \
+        arm64) TF_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${TF_ARCH}.zip" \
+        -o /tmp/terraform.zip \
+    && unzip -q /tmp/terraform.zip -d /usr/local/bin \
+    && rm -f /tmp/terraform.zip \
+    && terraform version
+
+# Install yq.
+RUN case "${TARGETARCH}" in \
+        amd64) YQ_ARCH=amd64 ;; \
+        arm64) YQ_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_${YQ_ARCH}" \
+        -o /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && yq --version
+
+# Install fogg.
+RUN case "${TARGETARCH}" in \
+        amd64) FOGG_ARCH=x86_64 ;; \
+        arm64) FOGG_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/chanzuckerberg/fogg/releases/download/v${FOGG_VERSION}/fogg_linux_${FOGG_ARCH}.tar.gz" \
+        -o /tmp/fogg.tar.gz \
+    && tar -xzf /tmp/fogg.tar.gz -C /usr/local/bin fogg \
+    && rm -f /tmp/fogg.tar.gz \
+    && fogg --version
+
+# Install awscurl and expose pip as an alias for pip3.
+RUN pip3 install --break-system-packages awscurl \
+    && ln -sf "$(which pip3)" /usr/local/bin/pip
 
 # Install Claude Code CLI from the official release location.
 RUN case "${TARGETARCH}" in \
