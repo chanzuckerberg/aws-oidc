@@ -115,6 +115,7 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, workspace agentsv1.AgentWork
 			FSGroup:        &uid,
 			SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 		},
+		InitContainers: r.initContainers(agent),
 		Containers: []corev1.Container{{
 			Name:      agentContainerName,
 			Image:     r.image(agent),
@@ -135,6 +136,24 @@ func (r *Reconciler) podSpec(agent *agentsv1.Agent, workspace agentsv1.AgentWork
 		}},
 		Volumes: r.volumes(agent),
 	}
+}
+
+// initContainers returns a privileged init container that sets net.ipv4.conf.all.src_valid_mark=1
+// when Tailscale is configured. Tailscale's router requires this sysctl to manage policy routing;
+// without it tailscaled logs a warning and WireGuard packets may be misrouted. The init container
+// uses the same agent image (which ships sysctl via procps) so no additional image pull is needed.
+func (r *Reconciler) initContainers(agent *agentsv1.Agent) []corev1.Container {
+	if !r.tailscaleConfigured() || agent.Spec.Tailscale == nil {
+		return nil
+	}
+	return []corev1.Container{{
+		Name:    "init-sysctl",
+		Image:   r.image(agent),
+		Command: []string{"sysctl", "-w", "net.ipv4.conf.all.src_valid_mark=1"},
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: ptr(true),
+		},
+	}}
 }
 
 // containerArgs is the command agent-entrypoint execs as "$@": the agent's command (or the
