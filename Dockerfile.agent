@@ -154,7 +154,7 @@ RUN case "${TARGETARCH}" in \
         -o /tmp/fogg.tar.gz \
     && tar -xzf /tmp/fogg.tar.gz -C /usr/local/bin fogg \
     && rm -f /tmp/fogg.tar.gz \
-    && fogg --version
+    && fogg version
 
 # Install awscurl and expose pip as an alias for pip3.
 RUN pip3 install --break-system-packages awscurl \
