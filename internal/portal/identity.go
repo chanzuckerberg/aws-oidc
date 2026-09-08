@@ -22,22 +22,32 @@ import (
 // errNoIdentity is returned when no authenticated user can be determined.
 var errNoIdentity = errors.New("no authenticated user")
 
-// IdentityResolver extracts the current user from a request. The Envoy gateway OIDC proxy
-// authenticates the browser and forwards the user's Okta access token in the Authorization
-// header (oidcProxyGateway.forwardAccessToken). That token carries the Okta user id in its
-// uid claim but not group membership, so groups are read from Okta's userinfo endpoint. A dev
-// override (PORTAL_DEV_SUB) short-circuits the whole flow for rdev testing.
+// IdentityResolver extracts the current user from a request. Since chart 2.56.0 the Envoy
+// gateway OIDC proxy forwards the signed-in user's ID token on X-ID-Token (bare JWT, no Bearer
+// prefix). Sub, email, and groups are read directly from its claims so no userinfo call is
+// needed. Older charts that do not send X-ID-Token fall back to the forwarded access token in
+// the Authorization header plus a userinfo call for groups. A dev override (PORTAL_DEV_SUB)
+// short-circuits the whole flow for rdev testing.
 type IdentityResolver struct {
 	devSub      string
 	devEmail    string
 	adminGroups map[string]bool
 
+	// verifyIDToken verifies the X-ID-Token JWT and returns the user's sub, email, and groups.
+	// It is a struct field so tests can stub it without a live issuer.
+	verifyIDToken func(ctx context.Context, rawToken string) (sub, email string, groups []string, err error)
 	// verifyToken checks the forwarded access token and returns the Okta user id (its uid
 	// claim). It is a struct field so tests can stub it without a live issuer.
 	verifyToken func(ctx context.Context, rawToken string) (userID string, err error)
 	// fetchUserInfo returns the email and group memberships for the token's user from Okta's
 	// userinfo endpoint. It is a struct field so tests can stub it without a live issuer.
 	fetchUserInfo func(ctx context.Context, rawToken string) (email string, groups []string, err error)
+}
+
+// idTokenClaims are the claims the portal reads from the forwarded OIDC ID token.
+type idTokenClaims struct {
+	Email  string   `json:"email"`
+	Groups []string `json:"groups"`
 }
 
 // accessTokenClaims are the claims the portal reads from the forwarded Okta access token.
@@ -74,10 +84,10 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 		return nil, fmt.Errorf("creating oidc provider: %w", err)
 	}
 
-	// The forwarded token is an access token whose audience is the Okta org, not our client
-	// id, so skip the audience check here and bind to the client via the cid claim below.
-	// Signature, issuer, and expiry are still verified, which stops a request that bypassed
-	// the gateway from spoofing a user.
+	// ID token verifier: the gateway's OIDC client ID is the audience.
+	idVerifier := provider.Verifier(&oidc.Config{ClientID: clientID})
+	// Access token verifier: audience is the Okta org, not our client id, so skip that check
+	// and bind via the cid claim instead. Signature, issuer, and expiry are still verified.
 	verifier := provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
 
 	devSub := os.Getenv("PORTAL_DEV_SUB")
@@ -93,6 +103,18 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 		devSub:      devSub,
 		devEmail:    os.Getenv("PORTAL_DEV_EMAIL"),
 		adminGroups: adminGroups,
+		verifyIDToken: func(ctx context.Context, raw string) (string, string, []string, error) {
+			tok, err := idVerifier.Verify(ctx, raw)
+			if err != nil {
+				return "", "", nil, fmt.Errorf("verifying id token: %w", err)
+			}
+			var claims idTokenClaims
+			err = tok.Claims(&claims)
+			if err != nil {
+				return "", "", nil, fmt.Errorf("reading id token claims: %w", err)
+			}
+			return tok.Subject, claims.Email, claims.Groups, nil
+		},
 		verifyToken: func(ctx context.Context, raw string) (string, error) {
 			token, err := verifier.Verify(ctx, raw)
 			if err != nil {
@@ -130,6 +152,21 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
+	// Chart 2.56.0 and later forward the OIDC ID token on X-ID-Token (bare JWT, no Bearer
+	// prefix). Sub, email, and groups come directly from its claims.
+	if rawIDToken := r.Header.Get("X-Id-Token"); rawIDToken != "" && ir.verifyIDToken != nil {
+		sub, email, groups, err := ir.verifyIDToken(ctx, rawIDToken)
+		if err != nil {
+			slog.Warn("portal rejected X-Id-Token, trying access token", "error", err, describeToken(rawIDToken))
+		} else {
+			user := &identity.User{Sub: sub, Email: email, Groups: groups}
+			user.Admin = isAdmin(groups, ir.adminGroups)
+			slog.Info("portal resolved user from ID token", "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
+			return user, nil
+		}
+	}
+
+	// Fall back to the forwarded access token in Authorization (pre-2.56.0 chart).
 	header := r.Header.Get("Authorization")
 	raw := identity.StripBearer(header)
 	if raw == "" {
@@ -137,7 +174,7 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		if header != "" {
 			reason = "the header held no token after the Bearer prefix"
 		}
-		return nil, fmt.Errorf("%w: no access token in the Authorization header, %s (headers on the request: %s)",
+		return nil, fmt.Errorf("%w: no identity header on the request, %s (headers: %s)",
 			errNoIdentity, reason, strings.Join(headerNames(r), ", "))
 	}
 

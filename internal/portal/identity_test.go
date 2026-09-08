@@ -76,6 +76,60 @@ func TestResolveAccessTokenNonAdmin(t *testing.T) {
 	require.False(t, user.Admin)
 }
 
+func TestResolveIDToken(t *testing.T) {
+	ir := &IdentityResolver{
+		adminGroups: map[string]bool{"infra-eng": true},
+		verifyIDToken: func(_ context.Context, raw string) (string, string, []string, error) {
+			require.Equal(t, "idtok456", raw)
+			return "00uid", "user@example.com", []string{"everyone", "infra-eng"}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Id-Token", "idtok456")
+
+	user, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, "00uid", user.Sub)
+	require.Equal(t, "user@example.com", user.Email)
+	require.True(t, user.Admin, "membership in an admin group should grant admin")
+}
+
+func TestResolveIDTokenNonAdmin(t *testing.T) {
+	ir := &IdentityResolver{
+		adminGroups: map[string]bool{"infra-eng": true},
+		verifyIDToken: func(_ context.Context, _ string) (string, string, []string, error) {
+			return "00uid", "user@example.com", []string{"everyone"}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Id-Token", "idtok")
+
+	user, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+	require.False(t, user.Admin)
+}
+
+func TestResolveIDTokenFallsBackToAccessToken(t *testing.T) {
+	ir := &IdentityResolver{
+		adminGroups: map[string]bool{"infra-eng": true},
+		verifyIDToken: func(_ context.Context, _ string) (string, string, []string, error) {
+			return "", "", nil, errors.New("bad id token")
+		},
+		verifyToken: func(_ context.Context, _ string) (string, error) { return "00ureal", nil },
+		fetchUserInfo: func(_ context.Context, _ string) (string, []string, error) {
+			return "real@example.com", []string{"infra-eng"}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Id-Token", "bad")
+	req.Header.Set("Authorization", "Bearer goodtok")
+
+	user, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, "00ureal", user.Sub, "access token path used after ID token rejection")
+	require.True(t, user.Admin)
+}
+
 func TestResolveMissingAuthHeader(t *testing.T) {
 	ir := &IdentityResolver{
 		verifyToken: func(_ context.Context, _ string) (string, error) {
