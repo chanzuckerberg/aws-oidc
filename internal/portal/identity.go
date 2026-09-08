@@ -152,16 +152,31 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
-	// Chart 2.56.0 and later forward the OIDC ID token on X-ID-Token (bare JWT, no Bearer
-	// prefix). Sub, email, and groups come directly from its claims.
-	if rawIDToken := r.Header.Get("X-Id-Token"); rawIDToken != "" && ir.verifyIDToken != nil {
+	headerAttrs := make([]any, 0, len(r.Header))
+	for name, vals := range r.Header {
+		headerAttrs = append(headerAttrs, slog.String(name, strings.Join(vals, ", ")))
+	}
+	slog.Debug("portal incoming request headers", headerAttrs...)
+
+	rawIDToken := r.Header.Get("X-Id-Token")
+	idTokenPreview := rawIDToken
+	if len(idTokenPreview) > 20 {
+		idTokenPreview = idTokenPreview[:20]
+	}
+	if rawIDToken != "" {
+		slog.Info("portal X-Id-Token header present", "header_preview", idTokenPreview)
+	} else {
+		slog.Info("portal X-Id-Token header absent")
+	}
+
+	if rawIDToken != "" && ir.verifyIDToken != nil {
 		sub, email, groups, err := ir.verifyIDToken(ctx, rawIDToken)
 		if err != nil {
 			slog.Warn("portal rejected X-Id-Token, trying access token", "error", err, describeToken(rawIDToken))
 		} else {
 			user := &identity.User{Sub: sub, Email: email, Groups: groups}
 			user.Admin = isAdmin(groups, ir.adminGroups)
-			slog.Info("portal resolved user from ID token", "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
+			slog.Info("portal resolved user from ID token", "sub", sub, "email", email, "groups", groups, "admin", user.Admin, "header_preview", idTokenPreview)
 			return user, nil
 		}
 	}
@@ -174,6 +189,7 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		if header != "" {
 			reason = "the header held no token after the Bearer prefix"
 		}
+		slog.Warn("portal request has no usable identity header", "header_names", headerNames(r))
 		return nil, fmt.Errorf("%w: no identity header on the request, %s (headers: %s)",
 			errNoIdentity, reason, strings.Join(headerNames(r), ", "))
 	}
