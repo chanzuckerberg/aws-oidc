@@ -9,6 +9,10 @@ agentImage:
 
 stack:
   global:
+    securityPolicies:
+      portal-oidc:
+        oidc:
+          forwardAccessToken: true
     volumes:
       - name: agent-defaults
         configMap:
@@ -60,16 +64,11 @@ stack:
         - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       gateway:
-        oidcProtected: true
+        securityPolicy: portal-oidc
         enabled: true
         paths:
           - path: /portal
             pathType: Prefix
-      oidcProxyGateway:
-        # The gateway encrypts its session cookies, so the portal cannot read the token from
-        # them. Forward the access token in the Authorization header instead; the portal
-        # verifies it against Okta and reads the user id from its uid claim.
-        forwardAccessToken: true
       livenessProbe:
         httpGet:
           path: /health
