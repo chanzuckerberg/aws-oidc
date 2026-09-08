@@ -95,7 +95,10 @@ RUN git config --system user.name "Claude" \
     && git config --system credential.https://github.com.useHttpPath true
 
 # Create a non-root user matching the pod security context (runAsUser: 1000).
-RUN groupadd --gid 1000 agent && useradd --uid 1000 --gid 1000 --no-create-home --shell /bin/bash agent
+RUN groupadd --gid 1000 agent \
+    && useradd --uid 1000 --gid 1000 --no-create-home --home-dir /workspace --shell /bin/bash agent \
+    && mkdir -p /var/run/tailscale \
+    && chown agent:agent /var/run/tailscale
 
 # Containers never auto-update; disable the background check so sessions don't
 # waste time or network on it.
