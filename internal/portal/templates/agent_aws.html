@@ -8,6 +8,20 @@
       <p class="muted">Select the AWS roles to grant. You can only grant access you already have.</p>
 
       <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/aws">
+        <p style="margin-bottom:.75rem;">
+          <button class="btn" type="button" onclick="selectReadonly()">Select all readonly</button>
+        </p>
+        <script>
+        function selectReadonly() {
+          var ro = /readonly|read-only|-ro$/i;
+          document.querySelectorAll('input[name="grant"]').forEach(function(cb) {
+            var label = cb.closest('label');
+            if (label && ro.test(label.textContent.trim())) {
+              cb.checked = true;
+            }
+          });
+        }
+        </script>
         <details style="margin:.75rem 0;">
           <summary class="hint" style="cursor:pointer;">Missing an account or role?</summary>
           <div class="hint" style="margin-top:.5rem;line-height:1.5;">
