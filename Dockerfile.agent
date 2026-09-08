@@ -146,11 +146,11 @@ RUN case "${TARGETARCH}" in \
 
 # Install fogg.
 RUN case "${TARGETARCH}" in \
-        amd64) FOGG_ARCH=x86_64 ;; \
+        amd64) FOGG_ARCH=amd64 ;; \
         arm64) FOGG_ARCH=arm64 ;; \
         *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
     esac \
-    && curl -fsSL "https://github.com/chanzuckerberg/fogg/releases/download/v${FOGG_VERSION}/fogg_linux_${FOGG_ARCH}.tar.gz" \
+    && curl -fsSL "https://github.com/chanzuckerberg/fogg/releases/download/v${FOGG_VERSION}/fogg_${FOGG_VERSION}_linux_${FOGG_ARCH}.tar.gz" \
         -o /tmp/fogg.tar.gz \
     && tar -xzf /tmp/fogg.tar.gz -C /usr/local/bin fogg \
     && rm -f /tmp/fogg.tar.gz \
