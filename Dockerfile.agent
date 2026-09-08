@@ -6,6 +6,7 @@ ARG HELM_VERSION=4.2.4
 ARG KUBECTL_VERSION=1.37.0
 ARG TERRAFORM_VERSION=1.16.1
 ARG YQ_VERSION=4.53.6
+ARG ARGUS_VERSION=0.139.2
 ARG FOGG_VERSION=0.92.54
 ARG GO_VERSION=1.27.1
 ARG NODE_VERSION=24.20.0
@@ -130,6 +131,18 @@ RUN case "${TARGETARCH}" in \
         -o /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq \
     && yq --version
+
+# Install argus.
+RUN case "${TARGETARCH}" in \
+        amd64) ARGUS_ARCH=amd64 ;; \
+        arm64) ARGUS_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/chanzuckerberg/argus-artifacts/releases/download/v${ARGUS_VERSION}/argus_${ARGUS_VERSION}_linux_${ARGUS_ARCH}.tar.gz" \
+        -o /tmp/argus.tar.gz \
+    && tar -xzf /tmp/argus.tar.gz -C /usr/local/bin argus \
+    && rm -f /tmp/argus.tar.gz \
+    && argus version
 
 # Install fogg.
 RUN case "${TARGETARCH}" in \
