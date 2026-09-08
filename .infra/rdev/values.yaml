@@ -93,7 +93,7 @@ stack:
         # Groups are not in the access token, so the portal reads them from Okta userinfo to
         # decide who gets the admin view. Set this to the Okta admin group(s), comma-separated.
         - name: PORTAL_ADMIN_GROUPS
-          value: "infra-eng"
+          value: "team-central-infra-eng"
         # To impersonate a specific user for testing, set PORTAL_DEV_SUB (and PORTAL_DEV_EMAIL)
         # to their Okta user id; that bypasses the gateway token and grants admin.
         # The shared GitHub App powers the Repositories page: the portal searches and validates
