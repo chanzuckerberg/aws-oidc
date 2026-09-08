@@ -22,6 +22,9 @@
       {{$ag := .}}
       <td>
         {{range .Status.Workspaces}}
+        {{$wname := .Name}}
+        {{$suspended := false}}
+        {{range $ag.Spec.Workspaces}}{{if eq .Name $wname}}{{if .Suspended}}{{$suspended = true}}{{end}}{{end}}{{end}}
         <div class="workspace-row">
           <span>{{.Name}} <span class="muted">{{.State}}</span></span>
           {{if eq (print .State) "Running"}}
@@ -41,15 +44,16 @@
             </div>
           </details>
           {{end}}
+          <form class="inline" method="post" action="{{$.BasePath}}/agents/{{$ag.Name}}/workspaces/{{.Name}}/suspend">
+            <button class="btn small" type="submit">{{if $suspended}}resume{{else}}suspend{{end}}</button>
+          </form>
         </div>
         {{else}}<span class="muted">not running</span>{{end}}
       </td>
       {{end}}
       <td class="actions">
         <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}">edit</a>
-        {{if $.RuntimeOffered}}
-        <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}/workspaces">workspaces</a>
-        {{end}}
+        
         <form class="inline" method="post" action="{{$.BasePath}}/agents/{{.Name}}/delete"
           onsubmit="return confirm('Delete {{.Name}}?');">
           <button class="btn danger" type="submit">delete</button>
