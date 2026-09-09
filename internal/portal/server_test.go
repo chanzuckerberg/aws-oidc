@@ -13,7 +13,7 @@ import (
 )
 
 func TestTemplatesRender(t *testing.T) {
-	s, err := NewServer(Config{})
+	s, err := NewServer(Config{AgentRuntime: true})
 	require.NoError(t, err)
 
 	ent := &Entitlements{
@@ -82,7 +82,7 @@ func TestTemplatesRender(t *testing.T) {
 	require.Contains(t, body, `name="repository"`)
 	require.Contains(t, body, "chanzuckerberg/aws-oidc")
 
-	// Connection page shows the Tailscale SSH command for a running workspace, keyed on the
+	// Connection page shows the Tailscale SSH command for a running agent, keyed on the
 	// owner's email local part so the connect string works outside the home page.
 	rec = httptest.NewRecorder()
 	s.render(rec, "connection", pageData{
@@ -95,13 +95,13 @@ func TestTemplatesRender(t *testing.T) {
 				Tailscale:  &agentsv1.TailscaleAccess{},
 			},
 			Status: agentsv1.AgentStatus{
-				Workspaces: []agentsv1.WorkspaceStatus{{Name: "main", State: agentsv1.WorkspaceStateRunning}},
+				Runtime: &agentsv1.RuntimeStatus{State: agentsv1.RuntimeStateRunning},
 			},
 		},
 		Nav: "connection",
 	})
 	require.Equal(t, 200, rec.Code)
-	require.Contains(t, rec.Body.String(), "ssh -t agent@agent-jheath-bot-main claude")
+	require.Contains(t, rec.Body.String(), "ssh -t agent@agent-jheath-bot claude")
 }
 
 func TestNormalizeReposDeduplicatesAndTrims(t *testing.T) {

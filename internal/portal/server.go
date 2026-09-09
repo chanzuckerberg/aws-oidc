@@ -47,7 +47,7 @@ type Config struct {
 	Store            agentstore.AgentStore
 	Identity         *IdentityResolver
 	BasePath         string
-	// AgentRuntime offers the option of running an agent's workspaces as pods. It is off unless
+	// AgentRuntime offers the option of running agents as pods. It is off unless
 	// the operator can actually run them, so the form does not promise what it cannot deliver.
 	AgentRuntime bool
 	// AgentTailscale offers the Tailscale page. Off unless the operator is configured for
@@ -112,11 +112,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /agents/{name}/repositories", s.handleRepositories)
 	mux.HandleFunc("POST /agents/{name}/repositories", s.handleUpdateRepositories)
 	mux.HandleFunc("GET /agents/{name}/repositories/search", s.handleRepositorySearch)
+	mux.HandleFunc("POST /agents/{name}/suspend", s.handleToggleSuspend)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
-	mux.HandleFunc("GET /agents/{name}/workspaces", s.handleWorkspacesView)
-	mux.HandleFunc("POST /agents/{name}/workspaces", s.handleSpawnWorkspace)
-	mux.HandleFunc("POST /agents/{name}/workspaces/{workspace}/suspend", s.handleToggleSuspend)
-	mux.HandleFunc("POST /agents/{name}/workspaces/{workspace}/delete", s.handleDeleteWorkspace)
 	mux.HandleFunc("GET /agents/{name}/connection", s.handleConnection)
 
 	handler := http.Handler(mux)
@@ -184,7 +181,7 @@ type pageData struct {
 	Checked      map[string]bool
 	Action       string
 	Error        string
-	// Nav is the active sidebar item (general, aws, tailscale, runtime, workspaces).
+	// Nav is the active sidebar item (general, aws, tailscale, runtime).
 	Nav string
 	// RuntimeOffered mirrors Config.AgentRuntime.
 	RuntimeOffered bool
@@ -292,7 +289,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if s.cfg.AgentRuntime {
-		agent.Spec.Runtime, agent.Spec.Workspaces = defaultRuntime(s.limits())
+		agent.Spec.Runtime = defaultRuntime(s.limits())
 	}
 	if s.cfg.AgentTailscale {
 		// Nearly everyone reaches an agent over the tailnet, so enrollment is on unless the
@@ -567,13 +564,12 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 			Onboarding: s.onboardingFor(r, agent.Name, "runtime"),
 		})
 	}
-	runtime, workspaces, err := s.parseAgentRuntime(r, agent, user.Admin)
+	runtime, err := s.parseAgentRuntime(r, agent, user.Admin)
 	if err != nil {
 		renderErr(err.Error())
 		return
 	}
 	agent.Spec.Runtime = runtime
-	agent.Spec.Workspaces = workspaces
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
@@ -745,23 +741,6 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	s.redirect(w, r, "/")
 }
 
-func (s *Server) handleWorkspacesView(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.user(w, r)
-	if !ok {
-		return
-	}
-	agent, ok := s.ownedAgent(w, r, user)
-	if !ok {
-		return
-	}
-	s.render(w, "workspaces", pageData{
-		Title: "Workspaces — " + agent.Name,
-		User:  user,
-		Agent: agent,
-		Nav:   "workspaces",
-	})
-}
-
 func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
@@ -779,63 +758,6 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleSpawnWorkspace(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.user(w, r)
-	if !ok {
-		return
-	}
-	ctx := r.Context()
-	agent, ok := s.ownedAgent(w, r, user)
-	if !ok {
-		return
-	}
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
-	}
-
-	renderErr := func(msg string) {
-		s.render(w, "workspaces", pageData{
-			Title: "Workspaces — " + agent.Name,
-			User:  user, Agent: agent, Nav: "workspaces", Error: msg,
-		})
-	}
-
-	name := strings.ToLower(strings.TrimSpace(r.FormValue("new-workspace")))
-	if name == "" {
-		renderErr("Workspace name is required.")
-		return
-	}
-	if len(name) > workspaceNameMaxLength {
-		renderErr(fmt.Sprintf("Workspace names are limited to %d characters.", workspaceNameMaxLength))
-		return
-	}
-	if !workspaceNameRe.MatchString(name) {
-		renderErr(fmt.Sprintf("Workspace name %q must use only lowercase letters, numbers, and dashes.", name))
-		return
-	}
-	for _, t := range agent.Spec.Workspaces {
-		if t.Name == name {
-			renderErr(fmt.Sprintf("A workspace named %q already exists.", name))
-			return
-		}
-	}
-	maxWorkspaces := s.limits().defaults().MaxWorkspaces
-	if len(agent.Spec.Workspaces)+1 > maxWorkspaces {
-		renderErr(fmt.Sprintf("An agent is limited to %d workspaces.", maxWorkspaces))
-		return
-	}
-
-	agent.Spec.Workspaces = append(agent.Spec.Workspaces, agentsv1.AgentWorkspace{Name: name})
-	err = s.cfg.Store.Upsert(ctx, agent)
-	if err != nil {
-		s.fail(w, "spawning workspace", err)
-		return
-	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
-}
-
 func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
@@ -846,46 +768,17 @@ func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceName := r.PathValue("workspace")
-	for i, t := range agent.Spec.Workspaces {
-		if t.Name == workspaceName {
-			agent.Spec.Workspaces[i].Suspended = !agent.Spec.Workspaces[i].Suspended
-			err := s.cfg.Store.Upsert(ctx, agent)
-			if err != nil {
-				s.fail(w, "toggling workspace suspend", err)
-				return
-			}
-			s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
-			return
-		}
-	}
-	http.Error(w, "workspace not found", http.StatusNotFound)
-}
-
-func (s *Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.user(w, r)
-	if !ok {
+	if agent.Spec.Runtime == nil {
+		http.Error(w, "agent runtime is disabled", http.StatusConflict)
 		return
 	}
-	ctx := r.Context()
-	agent, ok := s.ownedAgent(w, r, user)
-	if !ok {
-		return
-	}
-	workspaceName := r.PathValue("workspace")
-	workspaces := agent.Spec.Workspaces[:0]
-	for _, t := range agent.Spec.Workspaces {
-		if t.Name != workspaceName {
-			workspaces = append(workspaces, t)
-		}
-	}
-	agent.Spec.Workspaces = workspaces
+	agent.Spec.Runtime.Suspended = !agent.Spec.Runtime.Suspended
 	err := s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
-		s.fail(w, "deleting workspace", err)
+		s.fail(w, "toggling agent suspend", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
+	s.redirect(w, r, "/")
 }
 
 // ownedAgent loads the agent named in the path and enforces that the current user may act
@@ -945,11 +838,8 @@ func (s *Server) limits() AgentLimits {
 	if l.MaxMemory == "" {
 		l.MaxMemory = d.MaxMemory
 	}
-	if l.MaxWorkspace == "" {
-		l.MaxWorkspace = d.MaxWorkspace
-	}
-	if l.MaxWorkspaces == 0 {
-		l.MaxWorkspaces = d.MaxWorkspaces
+	if l.MaxStorage == "" {
+		l.MaxStorage = d.MaxStorage
 	}
 	if l.DefaultImage == "" {
 		l.DefaultImage = d.Image
@@ -978,12 +868,12 @@ func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, b
 // parseAgentRuntime reads the runtime section of a submission, or leaves the agent's runtime
 // alone in an environment where the portal does not offer it. Without that guard a form posted
 // against a portal with the runtime disabled would silently clear an existing runtime.
-func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentWorkspace, error) {
+func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, error) {
 	if !s.cfg.AgentRuntime {
 		if current == nil {
-			return nil, nil, nil
+			return nil, nil
 		}
-		return current.Spec.Runtime, current.Spec.Workspaces, nil
+		return current.Spec.Runtime, nil
 	}
 	return parseRuntime(r, current, s.limits(), isAdmin)
 }

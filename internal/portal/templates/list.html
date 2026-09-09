@@ -8,7 +8,7 @@
       <th>Name</th>
       {{if .User.Admin}}<th>Owner</th>{{end}}
       <th>AWS access</th>
-      {{if .RuntimeOffered}}<th>Workspaces</th>{{end}}
+      {{if .RuntimeOffered}}<th>Runtime</th>{{end}}
       <th></th>
     </tr>
     {{range .Agents}}
@@ -35,23 +35,20 @@
         {{else}}<span class="muted">none</span>{{end}}
       </td>
       {{if $.RuntimeOffered}}
-      {{$ag := .}}
+      {{$agent := .}}
       <td>
-        {{range .Status.Workspaces}}
-        {{$wname := .Name}}
-        {{$suspended := false}}
-        {{range $ag.Spec.Workspaces}}{{if eq .Name $wname}}{{if .Suspended}}{{$suspended = true}}{{end}}{{end}}{{end}}
-        <div class="workspace-row">
-          <span>{{.Name}} <span class="muted">{{.State}}</span></span>
+        <div class="runtime-row">
+          {{with .Status.Runtime}}
+          <span class="muted">{{if .State}}{{.State}}{{else}}Pending{{end}}</span>
           {{if eq (print .State) "Running"}}
           <details class="connect-details">
             <summary class="btn small">connect</summary>
             <div class="connect-panel">
-              {{if $ag.Spec.Tailscale}}
+              {{if $agent.Spec.Tailscale}}
               <p class="hint">Claude session</p>
-              <code>ssh -t agent@agent-{{localPart $ag.Spec.OwnerEmail}}-{{$ag.Name}}-{{.Name}} claude</code>
+              <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}} claude</code>
               <p class="hint" style="margin-top:.5rem;">Cursor — add to <code>~/.ssh/config</code></p>
-              <pre>Host agent-{{localPart $ag.Spec.OwnerEmail}}-{{$ag.Name}}-{{.Name}}
+              <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}
   User agent
   StrictHostKeyChecking no</pre>
               {{else}}
@@ -60,11 +57,11 @@
             </div>
           </details>
           {{end}}
-          <form class="inline" method="post" action="{{$.BasePath}}/agents/{{$ag.Name}}/workspaces/{{.Name}}/suspend">
-            <button class="btn small" type="submit">{{if $suspended}}resume{{else}}suspend{{end}}</button>
+          <form class="inline" method="post" action="{{$.BasePath}}/agents/{{$agent.Name}}/suspend">
+            <button class="btn small" type="submit">{{if eq (print .State) "Suspended"}}resume{{else}}suspend{{end}}</button>
           </form>
+          {{else}}<span class="muted">not running</span>{{end}}
         </div>
-        {{else}}<span class="muted">not running</span>{{end}}
       </td>
       {{end}}
       <td class="actions">

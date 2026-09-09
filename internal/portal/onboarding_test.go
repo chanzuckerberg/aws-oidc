@@ -210,7 +210,7 @@ func TestRedirectAfterSave(t *testing.T) {
 	}
 }
 
-// Creating an agent hands it a runtime, a workspace and tailnet enrollment, so a person who
+// Creating an agent hands it a runtime and tailnet enrollment, so a person who
 // accepts every default still ends up with a pod they can SSH into.
 func TestCreateTurnsOnTheRuntimeAndTailscale(t *testing.T) {
 	store := newMemStore()
@@ -225,8 +225,7 @@ func TestCreateTurnsOnTheRuntimeAndTailscale(t *testing.T) {
 	require.NotNil(t, agent.Spec.Runtime)
 	require.Equal(t, defaultCPU, agent.Spec.Runtime.Resources.Requests.Cpu().String())
 	require.Equal(t, defaultMemory, agent.Spec.Runtime.Resources.Requests.Memory().String())
-	require.Equal(t, defaultWorkspaceSize, agent.Spec.Runtime.WorkspaceSize.String())
-	require.Equal(t, []agentsv1.AgentWorkspace{{Name: firstWorkspaceName}}, agent.Spec.Workspaces)
+	require.Equal(t, defaultStorageSize, agent.Spec.Runtime.StorageSize.String())
 
 	require.NotNil(t, agent.Spec.Tailscale)
 	require.Equal(t, "a", agent.Spec.Tailscale.SSHUser)
@@ -267,7 +266,6 @@ func TestCreateLeavesTheRuntimeAndTailscaleOffWhenNotOffered(t *testing.T) {
 	agent, err := store.Get(context.Background(), "bot")
 	require.NoError(t, err)
 	require.Nil(t, agent.Spec.Runtime)
-	require.Nil(t, agent.Spec.Workspaces)
 	require.Nil(t, agent.Spec.Tailscale)
 }
 
@@ -337,7 +335,6 @@ func TestWalkthroughDrivesEveryStepInOrder(t *testing.T) {
 	require.Equal(t, "a", agent.Spec.Tailscale.SSHUser)
 	require.Equal(t, []agentsv1.Repository{"chanzuckerberg/aws-oidc"}, agent.Spec.Repositories)
 	require.Len(t, agent.Spec.Grants, 1)
-	require.Equal(t, []agentsv1.AgentWorkspace{{Name: firstWorkspaceName}}, agent.Spec.Workspaces)
 }
 
 // Saving a step outside the walkthrough returns to that step rather than moving on, so an edit

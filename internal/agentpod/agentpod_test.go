@@ -57,13 +57,13 @@ func TestReconcileContainerRunsEntrypoint(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	container := set.Spec.Template.Spec.Containers[0]
 	require.Nil(t, container.Command, "Command must be nil so the image ENTRYPOINT (agent-entrypoint) runs")
 	require.Equal(t, []string{"sleep", "infinity"}, container.Args, "the workload command is passed as Args for the entrypoint to exec")
 }
 
-// testAgent is an agent with one provisioned grant and two workspaces, one of them suspended.
+// testAgent is an agent with one provisioned grant and an enabled runtime.
 func testAgent() *agentsv1.Agent {
 	agent := &agentsv1.Agent{
 		ObjectMeta: metav1.ObjectMeta{
@@ -81,10 +81,6 @@ func testAgent() *agentsv1.Agent {
 				RoleName:     "readonly",
 			}}},
 			Runtime: &agentsv1.AgentRuntime{},
-			Workspaces: []agentsv1.AgentWorkspace{
-				{Name: "main"},
-				{Name: "review", Suspended: true},
-			},
 		},
 		Status: agentsv1.AgentStatus{
 			Grants: []agentsv1.GrantStatus{{
@@ -100,42 +96,67 @@ func testAgent() *agentsv1.Agent {
 	return agent
 }
 
-func TestReconcileCreatesOneStatefulSetPerWorkspace(t *testing.T) {
+func TestReconcileCreatesOneStatefulSet(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
 
-	statuses, err := r.Reconcile(ctx, agent)
+	status, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
-	require.Len(t, statuses, 2)
-
-	// A workspace with no ready pod yet is pending; a suspended one reports suspended rather than
-	// waiting forever on a pod that will not arrive.
-	require.Equal(t, agentsv1.WorkspaceStatePending, statuses[0].State)
-	require.Equal(t, agentsv1.WorkspaceStateSuspended, statuses[1].State)
+	require.Equal(t, agentsv1.RuntimeStatePending, status.State)
 
 	sets := &appsv1.StatefulSetList{}
 	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
-	require.Len(t, sets.Items, 2)
-
-	byName := map[string]appsv1.StatefulSet{}
-	for _, set := range sets.Items {
-		byName[set.Name] = set
-	}
-
-	main := byName["agent-bot-main"]
-	require.Equal(t, int32(1), *main.Spec.Replicas)
-	require.Equal(t, "agent-bot", main.Spec.ServiceName)
-	// Each workspace runs as its own service account, which is what the role trust matches and
-	// what makes a workspace's AWS activity attributable.
-	require.Equal(t, "remote-agent-0f8fad5bd9cb-main", main.Spec.Template.Spec.ServiceAccountName)
-
-	// Suspended means zero replicas, not deleted, so the workspace survives.
-	require.Equal(t, int32(0), *byName["agent-bot-review"].Spec.Replicas)
+	require.Len(t, sets.Items, 1)
+	require.Equal(t, int32(1), *sets.Items[0].Spec.Replicas)
+	require.Equal(t, "agent-bot", sets.Items[0].Spec.ServiceName)
+	require.Equal(t, "remote-agent-0f8fad5bd9cb", sets.Items[0].Spec.Template.Spec.ServiceAccountName)
 
 	accounts := &corev1.ServiceAccountList{}
 	require.NoError(t, c.List(ctx, accounts, client.InNamespace(testNamespace)))
-	require.Len(t, accounts.Items, 2)
+	require.Len(t, accounts.Items, 1)
+}
+
+func TestReconcileSuspendsAgent(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	agent.Spec.Runtime.Suspended = true
+	r, c := testReconciler(t, agent)
+
+	status, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+	require.Equal(t, agentsv1.RuntimeStateSuspended, status.State)
+
+	set := &appsv1.StatefulSet{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set)
+	require.NoError(t, err)
+	require.Equal(t, int32(0), *set.Spec.Replicas)
+}
+
+func TestReconcilePrunesObsoleteRuntimeObjects(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	oldLabels := map[string]string{LabelAgent: agent.Name}
+	oldSet := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{
+		Name: "agent-bot-main", Namespace: testNamespace, Labels: oldLabels,
+	}}
+	oldAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name: "remote-agent-0f8fad5bd9cb-main", Namespace: testNamespace, Labels: oldLabels,
+	}}
+	r, c := testReconciler(t, agent, oldSet, oldAccount)
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	sets := &appsv1.StatefulSetList{}
+	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
+	require.Len(t, sets.Items, 1)
+	require.Equal(t, agent.StatefulSetName(), sets.Items[0].Name)
+
+	accounts := &corev1.ServiceAccountList{}
+	require.NoError(t, c.List(ctx, accounts, client.InNamespace(testNamespace)))
+	require.Len(t, accounts.Items, 1)
+	require.Equal(t, agent.ServiceAccountName(), accounts.Items[0].Name)
 }
 
 func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
@@ -147,7 +168,7 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 
 	pod := set.Spec.Template.Spec
 	var projected *corev1.ServiceAccountTokenProjection
@@ -170,7 +191,8 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	}
 	require.Equal(t, awsConfigFilePath, env["AWS_CONFIG_FILE"])
 	require.Equal(t, "agent-scoped", env["AWS_PROFILE"])
-	require.Equal(t, "main", env["AGENT_WORKSPACE"])
+	_, hasWorkspace := env["AGENT_WORKSPACE"]
+	require.False(t, hasWorkspace)
 
 	// Commits name the person the agent acts for, so nothing in a repository's history is
 	// attributed to an anonymous bot.
@@ -179,8 +201,7 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.Equal(t, "jheath's agent (bot)", env["GIT_COMMITTER_NAME"])
 	require.Equal(t, "jheath@chanzuckerberg.com", env["GIT_COMMITTER_EMAIL"])
 
-	// The rendered config points every profile at the projected token, and all workspaces of the
-	// agent share it.
+	// The rendered config points every profile at the projected token.
 	configMap := &corev1.ConfigMap{}
 	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-aws-config"}, configMap))
 	require.Contains(t, configMap.Data["config"], "web_identity_token_file = "+tokenFilePath)
@@ -225,7 +246,7 @@ func TestReconcileAnthropicWIF(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	pod := set.Spec.Template.Spec
 
 	var anthropicProjected *corev1.ServiceAccountTokenProjection
@@ -280,7 +301,7 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set)
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set)
 	require.NoError(t, err)
 
 	limits := set.Spec.Template.Spec.Containers[0].Resources.Limits
@@ -313,7 +334,7 @@ func TestReconcileGitHubApp(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	pod := set.Spec.Template.Spec
 
 	var keySecret *corev1.SecretVolumeSource
@@ -354,7 +375,7 @@ func TestReconcileGitHubApp(t *testing.T) {
 	require.NotContains(t, env, "GITHUB_APP_INSTALLATION_MAP")
 }
 
-// A configured installation map reaches workspace pods so the image's git credential helper and
+// A configured installation map reaches agent pods so the image's git credential helper and
 // gh wrapper can route other organizations' repositories to the matching installation.
 func TestReconcileGitHubAppInstallationMap(t *testing.T) {
 	ctx := context.Background()
@@ -375,7 +396,7 @@ func TestReconcileGitHubAppInstallationMap(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 
 	env := map[string]string{}
 	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
@@ -418,7 +439,7 @@ func TestReconcileWithoutOwnerEmailSetsNoGitIdentity(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	for _, e := range set.Spec.Template.Spec.Containers[0].Env {
 		require.NotEqual(t, "GIT_AUTHOR_NAME", e.Name)
 		require.NotEqual(t, "GIT_AUTHOR_EMAIL", e.Name)
@@ -444,7 +465,7 @@ func TestReconcileGitHubAppRequiresEveryField(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	for _, v := range set.Spec.Template.Spec.Volumes {
 		require.NotEqual(t, githubAppKeyVolume, v.Name)
 	}
@@ -462,42 +483,17 @@ func TestReconcileIsIdempotent(t *testing.T) {
 	require.NoError(t, err)
 
 	before := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, before))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, before))
 
 	_, err = r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
 	after := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, after))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, after))
 	require.Equal(t, before.ResourceVersion, after.ResourceVersion, "a steady-state resync must not write")
 }
 
-// Removing a workspace from the spec has to delete its objects. Owner references do not cover
-// this, because the agent itself still exists.
-func TestReconcilePrunesRemovedWorkspace(t *testing.T) {
-	ctx := context.Background()
-	agent := testAgent()
-	r, c := testReconciler(t, agent)
-
-	_, err := r.Reconcile(ctx, agent)
-	require.NoError(t, err)
-
-	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}}
-	statuses, err := r.Reconcile(ctx, agent)
-	require.NoError(t, err)
-	require.Len(t, statuses, 1)
-
-	sets := &appsv1.StatefulSetList{}
-	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
-	require.Len(t, sets.Items, 1)
-	require.Equal(t, "agent-bot-main", sets.Items[0].Name)
-
-	accounts := &corev1.ServiceAccountList{}
-	require.NoError(t, c.List(ctx, accounts, client.InNamespace(testNamespace), client.MatchingLabels{LabelAgent: "bot"}))
-	require.Len(t, accounts.Items, 1)
-}
-
-// Disabling the runtime removes everything, including the objects the workspaces shared.
+// Disabling the runtime removes the pod and its supporting objects.
 func TestReconcileWithoutRuntimeRemovesEverything(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
@@ -507,9 +503,9 @@ func TestReconcileWithoutRuntimeRemovesEverything(t *testing.T) {
 	require.NoError(t, err)
 
 	agent.Spec.Runtime = nil
-	statuses, err := r.Reconcile(ctx, agent)
+	status, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
-	require.Empty(t, statuses)
+	require.Nil(t, status)
 
 	sets := &appsv1.StatefulSetList{}
 	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
@@ -524,28 +520,7 @@ func TestReconcileWithoutRuntimeRemovesEverything(t *testing.T) {
 	require.Empty(t, configMaps.Items)
 }
 
-func TestReconcileRefusesWorkspacesBeyondTheLimit(t *testing.T) {
-	ctx := context.Background()
-	agent := testAgent()
-	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "a"}, {Name: "b"}, {Name: "c"}}
-
-	r, c := testReconciler(t, agent)
-	r.MaxWorkspaces = 2
-
-	statuses, err := r.Reconcile(ctx, agent)
-	require.NoError(t, err)
-	require.Len(t, statuses, 3)
-	require.Equal(t, agentsv1.WorkspaceStateFailed, statuses[2].State)
-	require.Contains(t, statuses[2].Message, "limited to 2 workspaces")
-
-	sets := &appsv1.StatefulSetList{}
-	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
-	require.Len(t, sets.Items, 2)
-}
-
-// All workspaces share one ReadWriteMany PVC. Reconciling two workspaces creates exactly one claim,
-// owned by the agent and not bound to any individual workspace.
-func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
+func TestReconcileCreatesOnePersistentVolumePerAgent(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
@@ -555,7 +530,7 @@ func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
 
 	claims := &corev1.PersistentVolumeClaimList{}
 	require.NoError(t, c.List(ctx, claims, client.InNamespace(testNamespace)))
-	require.Len(t, claims.Items, 1, "one PVC regardless of workspace count")
+	require.Len(t, claims.Items, 1)
 
 	claim := claims.Items[0]
 	require.Equal(t, "agent-bot-workspace", claim.Name)
@@ -565,9 +540,7 @@ func TestReconcileCreatesOneWorkspacePerAgent(t *testing.T) {
 	require.Equal(t, "bot", claim.OwnerReferences[0].Name, "agent owns the PVC for GC")
 }
 
-// Each workspace mounts the shared PVC at its own subPath for an isolated working tree, and at
-// the shared subPath for cross-workspace file exchange.
-func TestReconcileWorkspacesGetIsolatedSubPaths(t *testing.T) {
+func TestReconcileMountsPersistentData(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
 	r, c := testReconciler(t, agent)
@@ -576,78 +549,52 @@ func TestReconcileWorkspacesGetIsolatedSubPaths(t *testing.T) {
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 
 	pod := set.Spec.Template.Spec
-	require.Empty(t, set.Spec.VolumeClaimTemplates, "no per-workspace claim templates; one shared PVC is used instead")
+	require.Empty(t, set.Spec.VolumeClaimTemplates)
 
-	var workspaceVolume *corev1.PersistentVolumeClaimVolumeSource
+	var dataVolume *corev1.PersistentVolumeClaimVolumeSource
 	for _, v := range pod.Volumes {
-		if v.Name == agentsv1.WorkspaceVolumeName {
-			workspaceVolume = v.PersistentVolumeClaim
+		if v.Name == agentsv1.DataVolumeName {
+			dataVolume = v.PersistentVolumeClaim
 		}
 	}
-	require.NotNil(t, workspaceVolume)
-	require.Equal(t, agent.WorkspaceClaimName(), workspaceVolume.ClaimName)
+	require.NotNil(t, dataVolume)
+	require.Equal(t, agent.PersistentVolumeClaimName(), dataVolume.ClaimName)
 
 	mounts := map[string]corev1.VolumeMount{}
 	for _, m := range pod.Containers[0].VolumeMounts {
-		if m.Name == agentsv1.WorkspaceVolumeName {
+		if m.Name == agentsv1.DataVolumeName {
 			mounts[m.MountPath] = m
 		}
 	}
-	require.Equal(t, "workspaces/main", mounts[workspaceMountPath].SubPath)
-	require.Equal(t, "shared", mounts[sharedMountPath].SubPath)
+	require.Equal(t, agent.PersistentDataSubPath(), mounts[agentDataMountPath].SubPath)
 
 	require.Equal(t, int64(1000), *pod.SecurityContext.FSGroup)
 	require.Equal(t, int64(1000), *pod.Containers[0].SecurityContext.RunAsUser)
 }
 
-// Removing a workspace removes its StatefulSet and ServiceAccount but keeps the shared PVC.
-// The workspace's subdirectory inside the volume is intentionally left behind — silently deleting
-// a person's work on a spec edit is worse than leaving it for them to clean up.
-func TestReconcileWorkspaceRemovalKeepsWorkspace(t *testing.T) {
+func TestReconcileReportsRunningAgent(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
-	r, c := testReconciler(t, agent)
-
-	_, err := r.Reconcile(ctx, agent)
-	require.NoError(t, err)
-
-	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}}
-	_, err = r.Reconcile(ctx, agent)
-	require.NoError(t, err)
-
-	claims := &corev1.PersistentVolumeClaimList{}
-	require.NoError(t, c.List(ctx, claims, client.InNamespace(testNamespace)))
-	require.Len(t, claims.Items, 1, "PVC must survive workspace removal")
-
-	sets := &appsv1.StatefulSetList{}
-	require.NoError(t, c.List(ctx, sets, client.InNamespace(testNamespace)))
-	require.Len(t, sets.Items, 1, "removed workspace's StatefulSet is pruned")
-}
-
-func TestReconcileReportsRunningWorkspace(t *testing.T) {
-	ctx := context.Background()
-	agent := testAgent()
-	agent.Spec.Workspaces = []agentsv1.AgentWorkspace{{Name: "main"}}
 
 	r, c := testReconciler(t, agent)
 	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	set.Status.ReadyReplicas = 1
 	require.NoError(t, c.Status().Update(ctx, set))
 
-	statuses, err := r.Reconcile(ctx, agent)
+	status, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
-	require.Equal(t, agentsv1.WorkspaceStateRunning, statuses[0].State)
-	require.Equal(t, int32(1), statuses[0].ReadyReplicas)
+	require.Equal(t, agentsv1.RuntimeStateRunning, status.State)
+	require.Equal(t, int32(1), status.ReadyReplicas)
 }
 
-// Repositories in the spec reach the workspace pod as a space-separated AGENT_REPOSITORIES, which
+// Repositories in the spec reach the agent pod as a space-separated AGENT_REPOSITORIES, which
 // the entrypoint clones into /workspace. It is absent when the spec lists none, so a pod
 // without configured repositories gets no clone step.
 func TestReconcileRepositoriesEnv(t *testing.T) {
@@ -658,7 +605,7 @@ func TestReconcileRepositoriesEnv(t *testing.T) {
 	_, err := r.Reconcile(ctx, agent)
 	require.NoError(t, err)
 	set := &appsv1.StatefulSet{}
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	_, present := repoEnvValue(set)
 	require.False(t, present, "no AGENT_REPOSITORIES when the spec lists no repositories")
 
@@ -667,7 +614,7 @@ func TestReconcileRepositoriesEnv(t *testing.T) {
 	r, c = testReconciler(t, agent)
 	_, err = r.Reconcile(ctx, agent)
 	require.NoError(t, err)
-	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot-main"}, set))
+	require.NoError(t, c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set))
 	value, present := repoEnvValue(set)
 	require.True(t, present)
 	require.Equal(t, "chanzuckerberg/aws-oidc evolutionaryscale/foo", value)

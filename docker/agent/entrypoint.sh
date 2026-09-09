@@ -172,7 +172,7 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
         log "ERROR: could not extract client_id from token aud — continuing without tailscale"
     else
         local_part="${AGENT_OWNER_EMAIL%%@*}"
-        hostname="agent-$(echo "${local_part:-unknown}-${AGENT_NAME:-unknown}-${AGENT_WORKSPACE:-0}" \
+        hostname="agent-$(echo "${local_part:-unknown}-${AGENT_NAME:-unknown}" \
             | tr '[:upper:]' '[:lower:]' \
             | tr -cs 'a-z0-9-' '-' \
             | sed 's/-\+/-/g; s/^-//; s/-$//')"

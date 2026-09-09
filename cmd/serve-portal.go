@@ -31,11 +31,10 @@ func init() {
 	servePortalCmd.Flags().IntVar(&portalPort, "web-server-port", 8080, "Port to host the portal on")
 	servePortalCmd.Flags().String(flagConfigMapName, "rolemap", "Name of the ConfigMap to read the rolemap from")
 	servePortalCmd.Flags().String(flagConfigMapKey, "rolemap.yaml", "Key within the ConfigMap that holds the rolemap YAML")
-	servePortalCmd.Flags().Bool(flagAgentRuntime, false, "Offer running an agent's workspaces as pods in the cluster; set this only where the operator is configured to run them")
+	servePortalCmd.Flags().Bool(flagAgentRuntime, false, "Offer running agents as pods in the cluster; set this only where the operator is configured to run them")
 	servePortalCmd.Flags().Bool(flagAgentTailscale, false, "Show the Tailscale page in the agent sidebar; set this only where the operator is configured for tailnet enrollment")
-	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent workspace may request")
-	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent workspace may request")
-	servePortalCmd.Flags().Int(flagMaxWorkspacesPerAgent, 5, "Maximum workspaces one agent may run")
+	servePortalCmd.Flags().String(flagAgentMaxCPU, "4", "Most CPU an agent may request")
+	servePortalCmd.Flags().String(flagAgentMaxMemory, "16Gi", "Most memory an agent may request")
 	servePortalCmd.Flags().String(flagAgentDefaultImage, os.Getenv("AGENT_DEFAULT_IMAGE"), "Default container image shown in the agent form; blank means the form shows an empty placeholder")
 	servePortalCmd.Flags().String(flagAgentDefaultStorageClass, os.Getenv("AGENT_DEFAULT_STORAGE_CLASS"), "Default storage class pre-filled in the agent form")
 	servePortalCmd.Flags().String(flagDefaultsConfig, os.Getenv("AGENT_DEFAULTS_CONFIG"), "Path to the agent-defaults YAML file mounted from the agent-defaults ConfigMap; when set, overrides static default flags without a restart")
@@ -189,7 +188,7 @@ func githubAppPrivateKey() ([]byte, error) {
 	return data, nil
 }
 
-// agentLimits reads the ceilings an agent owner is held to when sizing their workspaces.
+// agentLimits reads the ceilings an agent owner is held to when sizing an agent.
 func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	maxCPU, err := cmd.Flags().GetString(flagAgentMaxCPU)
 	if err != nil {
@@ -198,10 +197,6 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	maxMemory, err := cmd.Flags().GetString(flagAgentMaxMemory)
 	if err != nil {
 		return portal.AgentLimits{}, fmt.Errorf("missing agent-max-memory flag: %w", err)
-	}
-	maxWorkspaces, err := cmd.Flags().GetInt(flagMaxWorkspacesPerAgent)
-	if err != nil {
-		return portal.AgentLimits{}, fmt.Errorf("missing max-workspaces-per-agent flag: %w", err)
 	}
 	defaultImage, err := cmd.Flags().GetString(flagAgentDefaultImage)
 	if err != nil {
@@ -215,7 +210,6 @@ func agentLimits(cmd *cobra.Command) (portal.AgentLimits, error) {
 	return portal.AgentLimits{
 		MaxCPU:              maxCPU,
 		MaxMemory:           maxMemory,
-		MaxWorkspaces:       maxWorkspaces,
 		DefaultImage:        defaultImage,
 		DefaultStorageClass: defaultStorageClass,
 	}, nil

@@ -6,8 +6,8 @@
       <h1>Runtime</h1>
       {{if .Onboarding.Active}}
       <p class="setup-banner">
-        This agent already runs as pods with a workspace named <code>main</code>, so you can take
-        the defaults and continue. Change the sizing here if it needs more room.
+        This agent already runs in the cluster, so you can take the defaults and continue.
+        Change the sizing here if it needs more room.
       </p>
       {{end}}
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
@@ -17,12 +17,16 @@
           <legend>Run in the cluster</legend>
           <label class="grant">
             <input type="checkbox" name="runtime" value="on" {{if .Enabled}}checked{{end}}>
-            Run this agent as pods in the cluster
+            Run this agent in the cluster
           </label>
           <p class="muted" style="margin:.5rem 0;">
-            Each workspace gets its own pod and its own persistent workspace, and assumes the AWS
-            access you grant this agent. Manage workspaces on the Workspaces page.
+            The agent gets one pod and one persistent working directory. Multiple SSH sessions can
+            use the pod at the same time.
           </p>
+          <label class="grant">
+            <input type="checkbox" name="suspended" value="on" {{if .Suspended}}checked{{end}}>
+            Suspend the agent while preserving its data
+          </label>
 
           <p class="sizing">
             <label>CPU <input name="cpu" value="{{.CPU}}" placeholder="500m" size="8"></label>
@@ -31,8 +35,8 @@
           </p>
 
           <p class="sizing">
-            <label>Workspace <input name="workspace-size" value="{{.WorkspaceSize}}" placeholder="50Gi" size="8"></label>
-            <span class="muted">up to {{.Limits.MaxWorkspace}}</span>
+            <label>Storage <input name="storage-size" value="{{.StorageSize}}" placeholder="50Gi" size="8"></label>
+            <span class="muted">up to {{.Limits.MaxStorage}}</span>
           </p>
 
           <p>

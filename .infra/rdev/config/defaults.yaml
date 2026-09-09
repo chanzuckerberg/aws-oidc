@@ -10,7 +10,7 @@
 # .Values.agentImage so that Argus CI can update it automatically on each build.
 
 storageClass: "efs-agent-workspaces"
-workspaceSize: "50Gi"
+storageSize: "50Gi"
 
 # Default pod resource requests. Owners can override per-agent up to the maxCPU / maxMemory
 # ceilings below.
@@ -20,5 +20,4 @@ memory: "1Gi"
 # Ceilings enforced by the portal form. An owner cannot request more than these.
 maxCPU: "4"
 maxMemory: "16Gi"
-maxWorkspace: "500Gi"
-maxWorkspaces: 5
+maxStorage: "500Gi"

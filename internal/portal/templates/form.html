@@ -32,7 +32,7 @@
     </ol>
     {{if .RuntimeOffered}}
     <p class="hint">
-      The agent starts out running as pods with one workspace named <code>main</code>{{if .TailscaleOffered}},
+      The agent starts out running in its own pod{{if .TailscaleOffered}},
       enrolled in the tailnet so you can <code>ssh</code> to it from your laptop{{end}}. Accept the
       defaults on every step and you still end up with something you can connect to.
     </p>
