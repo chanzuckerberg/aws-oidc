@@ -13,6 +13,11 @@ stack:
       portal-oidc:
         oidc:
           forwardAccessToken: true
+          scopes:
+            - openid
+            - profile
+            - email
+            - groups
     volumes:
       - name: agent-defaults
         configMap:
