@@ -109,6 +109,47 @@ func TestResolveIDTokenNonAdmin(t *testing.T) {
 	require.False(t, user.Admin)
 }
 
+// Envoy Gateway forwards its OIDC session cookies upstream even where the controller ignores
+// forwardIDToken and sends no X-ID-Token header. The cookie is then the only carrier of the
+// groups claim, so the resolver must read it.
+func TestResolveIDTokenFromCookie(t *testing.T) {
+	ir := &IdentityResolver{
+		adminGroups: map[string]bool{"team-central-infra-eng": true},
+		verifyIDToken: func(_ context.Context, raw string) (string, string, []string, error) {
+			require.Equal(t, "cookietok", raw)
+			return "00uid", "user@example.com", []string{"team-central-infra-eng"}, nil
+		},
+		verifyToken: func(_ context.Context, _ string) (string, error) {
+			t.Fatal("the access token path must not run once the cookie yields an ID token")
+			return "", nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "AccessToken-portal-oidc-example", Value: "acctok"})
+	req.AddCookie(&http.Cookie{Name: "IdToken-portal-oidc-example", Value: "cookietok"})
+
+	user, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, "00uid", user.Sub)
+	require.True(t, user.Admin)
+}
+
+// The header wins when both carry a token, so an upgraded gateway takes over from the cookie.
+func TestResolveIDTokenHeaderBeatsCookie(t *testing.T) {
+	ir := &IdentityResolver{
+		verifyIDToken: func(_ context.Context, raw string) (string, string, []string, error) {
+			require.Equal(t, "headertok", raw)
+			return "00uid", "user@example.com", nil, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Id-Token", "headertok")
+	req.AddCookie(&http.Cookie{Name: "IdToken-portal-oidc-example", Value: "cookietok"})
+
+	_, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+}
+
 func TestResolveIDTokenFallsBackToAccessToken(t *testing.T) {
 	ir := &IdentityResolver{
 		adminGroups: map[string]bool{"infra-eng": true},
