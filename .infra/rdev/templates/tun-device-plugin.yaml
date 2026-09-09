@@ -28,6 +28,12 @@ spec:
           effect: NoSchedule
         - operator: Exists
           effect: NoExecute
+      initContainers:
+        - name: set-src-valid-mark
+          image: busybox:1.36
+          command: ["sysctl", "-w", "net.ipv4.conf.all.src_valid_mark=1"]
+          securityContext:
+            privileged: true
       containers:
         - name: device-plugin
           image: 533267185808.dkr.ecr.us-west-2.amazonaws.com/docker.io/central/squat/generic-device-plugin:0.2.0
