@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestIDTokenClaimsTeamGroups(t *testing.T) {
+	var claims idTokenClaims
+	err := json.Unmarshal([]byte(`{"email":"user@example.com","teamGroups":["team-central-infra-eng"]}`), &claims)
+	require.NoError(t, err)
+	require.Equal(t, "user@example.com", claims.Email)
+	require.Equal(t, []string{"team-central-infra-eng"}, claims.Groups)
+}
 
 func TestUserIDFromClaims(t *testing.T) {
 	uid, err := userIDFromClaims(accessTokenClaims{UID: "00ureal", CID: "client-a"}, "client-a")

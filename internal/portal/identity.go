@@ -47,7 +47,7 @@ type IdentityResolver struct {
 // idTokenClaims are the claims the portal reads from the forwarded OIDC ID token.
 type idTokenClaims struct {
 	Email  string   `json:"email"`
-	Groups []string `json:"groups"`
+	Groups []string `json:"teamGroups"`
 }
 
 // accessTokenClaims are the claims the portal reads from the forwarded Okta access token.
