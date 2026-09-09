@@ -15,8 +15,24 @@
     <tr>
       <td>{{.Name}}</td>
       {{if $.User.Admin}}<td class="muted">{{if .Spec.OwnerEmail}}{{.Spec.OwnerEmail}}{{else}}{{.Spec.Owner}}{{end}}</td>{{end}}
-      <td>
-        {{range .Spec.Grants}}{{with .AWS}}{{.AccountAlias}} / {{.RoleName}}<br>{{end}}{{else}}<span class="muted">none</span>{{end}}
+      <td class="access-cell">
+        {{if .Spec.Grants}}
+        <details class="access-details">
+          <summary>{{len .Spec.Grants}} AWS role{{if ne (len .Spec.Grants) 1}}s{{end}}</summary>
+          <div class="access-panel">
+            <div class="access-panel-title">AWS access</div>
+            <ul class="access-list">
+              {{range .Spec.Grants}}{{with .AWS}}
+              <li>
+                <span class="muted">{{.AccountAlias}}</span>
+                <strong>{{.RoleName}}</strong>
+              </li>
+              {{end}}{{end}}
+            </ul>
+            <a href="{{$.BasePath}}/agents/{{.Name}}/aws">Manage access</a>
+          </div>
+        </details>
+        {{else}}<span class="muted">none</span>{{end}}
       </td>
       {{if $.RuntimeOffered}}
       {{$ag := .}}

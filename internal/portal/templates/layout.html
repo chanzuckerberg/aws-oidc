@@ -45,6 +45,19 @@
     .connect-panel { margin-top: .4rem; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px; padding: .4rem .6rem; }
     .connect-panel code { font-size: .85em; word-break: break-all; }
     .actions { white-space: nowrap; }
+    .access-cell { min-width: 8rem; }
+    .access-details { position: relative; }
+    .access-details summary { display: inline-block; cursor: pointer; color: #075f35; font-weight: 600; white-space: nowrap; }
+    .access-details summary::marker { display: none; }
+    .access-details summary::-webkit-details-marker { display: none; }
+    .access-details summary::after { content: "›"; display: inline-block; margin-left: .35rem; }
+    .access-details[open] summary::after { transform: rotate(90deg); }
+    .access-panel { position: absolute; z-index: 10; top: calc(100% + .4rem); left: 0; width: 20rem; max-width: 70vw; max-height: 20rem; overflow: auto; padding: .75rem; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .15); }
+    .access-panel-title { font-weight: 700; margin-bottom: .5rem; }
+    .access-list { list-style: none; margin: 0 0 .65rem; padding: 0; }
+    .access-list li { display: grid; grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 1.4fr); gap: .65rem; padding: .35rem 0; border-bottom: 1px solid #eee; }
+    .access-list li:last-child { border-bottom: 0; }
+    .access-list strong { overflow-wrap: anywhere; }
     h1 { margin: 0 0 1rem; font-size: 1.4rem; }
     h2 { margin-top: 1.5rem; font-size: 1.1rem; }
     .hint { color: #666; font-size: .85em; margin: .2rem 0 0; }

@@ -54,7 +54,12 @@ func TestTemplatesRender(t *testing.T) {
 		}},
 	})
 	require.Equal(t, 200, rec.Code)
-	require.Contains(t, rec.Body.String(), "bot")
+	body = rec.Body.String()
+	require.Contains(t, body, "bot")
+	require.Contains(t, body, "1 AWS role")
+	require.Contains(t, body, "prod")
+	require.Contains(t, body, "x")
+	require.Contains(t, body, `href="/agents/bot/aws"`)
 
 	// Repositories page renders existing entries as chips with hidden inputs to resubmit.
 	rec = httptest.NewRecorder()
