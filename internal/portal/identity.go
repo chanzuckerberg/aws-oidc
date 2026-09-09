@@ -22,6 +22,8 @@ import (
 // errNoIdentity is returned when no authenticated user can be determined.
 var errNoIdentity = errors.New("no authenticated user")
 
+const idTokenCookiePrefix = "IdToken-"
+
 // IdentityResolver extracts the current user from a request. Since chart 2.56.0 the Envoy
 // gateway OIDC proxy forwards the signed-in user's ID token on X-ID-Token (bare JWT, no Bearer
 // prefix). Sub, email, and groups are read directly from its claims so no userinfo call is
@@ -152,37 +154,25 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
-	dump := make([]any, 0, len(r.Header))
-	for name, vals := range r.Header {
-		dump = append(dump, slog.String(name, strings.Join(vals, ", ")))
-	}
-	for _, c := range r.Cookies() {
-		dump = append(dump, slog.String("cookie."+c.Name, c.Value))
-	}
-	slog.Info("portal incoming request", dump...)
-
-	rawIDToken := r.Header.Get("X-Id-Token")
-	idTokenPreview := rawIDToken
-	if len(idTokenPreview) > 20 {
-		idTokenPreview = idTokenPreview[:20]
-	}
-	if rawIDToken != "" {
-		slog.Info("portal X-Id-Token header present", "header_preview", idTokenPreview)
-	} else {
-		slog.Info("portal X-Id-Token header absent",
+	idTokens := idTokenCandidates(r)
+	if len(idTokens) == 0 {
+		slog.Info("portal found no ID token",
 			"header_names", headerNames(r),
 			"cookie_names", requestCookieNames(r),
 		)
 	}
 
-	if rawIDToken != "" && ir.verifyIDToken != nil {
-		sub, email, groups, err := ir.verifyIDToken(ctx, rawIDToken)
+	for _, idToken := range idTokens {
+		if ir.verifyIDToken == nil {
+			break
+		}
+		sub, email, groups, err := ir.verifyIDToken(ctx, idToken.raw)
 		if err != nil {
-			slog.Warn("portal rejected X-Id-Token, trying access token", "error", err, describeToken(rawIDToken))
+			slog.Warn("portal rejected an ID token", "source", idToken.source, "error", err, describeToken(idToken.raw))
 		} else {
 			user := &identity.User{Sub: sub, Email: email, Groups: groups}
 			user.Admin = isAdmin(groups, ir.adminGroups)
-			slog.Info("portal resolved user from ID token", "sub", sub, "email", email, "groups", groups, "admin", user.Admin, "header_preview", idTokenPreview)
+			slog.Info("portal resolved user from ID token", "source", idToken.source, "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
 			return user, nil
 		}
 	}
@@ -298,6 +288,25 @@ func headerNames(r *http.Request) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+type idTokenCandidate struct {
+	raw    string
+	source string
+}
+
+func idTokenCandidates(r *http.Request) []idTokenCandidate {
+	cookies := r.Cookies()
+	candidates := make([]idTokenCandidate, 0, len(cookies)+1)
+	if raw := r.Header.Get("X-Id-Token"); raw != "" {
+		candidates = append(candidates, idTokenCandidate{raw: raw, source: "header"})
+	}
+	for _, cookie := range cookies {
+		if strings.HasPrefix(cookie.Name, idTokenCookiePrefix) && cookie.Value != "" {
+			candidates = append(candidates, idTokenCandidate{raw: cookie.Value, source: "cookie:" + cookie.Name})
+		}
+	}
+	return candidates
 }
 
 func requestCookieNames(r *http.Request) []string {

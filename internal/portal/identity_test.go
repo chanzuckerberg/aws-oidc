@@ -118,6 +118,47 @@ func TestResolveIDTokenNonAdmin(t *testing.T) {
 	require.False(t, user.Admin)
 }
 
+func TestResolveIDTokenFromCookie(t *testing.T) {
+	ir := &IdentityResolver{
+		adminGroups: map[string]bool{"team-central-infra-eng": true},
+		verifyIDToken: func(_ context.Context, raw string) (string, string, []string, error) {
+			if raw == "encrypted" {
+				return "", "", nil, errors.New("not a JWT")
+			}
+			require.Equal(t, "cookietok", raw)
+			return "00uid", "user@example.com", []string{"team-central-infra-eng"}, nil
+		},
+		verifyToken: func(_ context.Context, _ string) (string, error) {
+			t.Fatal("access token verification should not run")
+			return "", nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "IdToken-old-policy", Value: "encrypted"})
+	req.AddCookie(&http.Cookie{Name: "IdToken-oidc-protected-default", Value: "cookietok"})
+
+	user, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+	require.Equal(t, "00uid", user.Sub)
+	require.Equal(t, []string{"team-central-infra-eng"}, user.Groups)
+	require.True(t, user.Admin)
+}
+
+func TestResolveIDTokenHeaderBeforeCookie(t *testing.T) {
+	ir := &IdentityResolver{
+		verifyIDToken: func(_ context.Context, raw string) (string, string, []string, error) {
+			require.Equal(t, "headertok", raw)
+			return "00uid", "user@example.com", nil, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Id-Token", "headertok")
+	req.AddCookie(&http.Cookie{Name: "IdToken-oidc-protected-default", Value: "cookietok"})
+
+	_, err := ir.Resolve(context.Background(), req)
+	require.NoError(t, err)
+}
+
 func TestResolveIDTokenFallsBackToAccessToken(t *testing.T) {
 	ir := &IdentityResolver{
 		adminGroups: map[string]bool{"infra-eng": true},
