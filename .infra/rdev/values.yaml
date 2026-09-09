@@ -9,10 +9,6 @@ agentImage:
 
 stack:
   global:
-    securityPolicies:
-      portal-oidc:
-        oidc:
-          forwardAccessToken: true
     volumes:
       - name: agent-defaults
         configMap:
@@ -64,7 +60,7 @@ stack:
         - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       gateway:
-        securityPolicy: portal-oidc
+        securityPolicy: oidc-protected-default
         enabled: true
         paths:
           - path: /portal
