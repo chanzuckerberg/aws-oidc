@@ -19,7 +19,7 @@ stack:
         create: true
         name: rolemap-updater
         annotations:
-          eks.amazonaws.com/role-arn: arn:aws:iam::533267185808:role/in-cluster/aws-oidc-prod-central-argus
+          eks.amazonaws.com/role-arn: arn:aws:iam::533267185808:role/in-cluster/aws-oidc-state-reader-iam-prod-core-platform-infra
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         tag: sha-b3edf28
