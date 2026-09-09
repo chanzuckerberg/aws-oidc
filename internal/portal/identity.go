@@ -157,6 +157,15 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
+	dump := make([]any, 0, len(r.Header))
+	for name, vals := range r.Header {
+		dump = append(dump, slog.String(name, strings.Join(vals, ", ")))
+	}
+	for _, c := range r.Cookies() {
+		dump = append(dump, slog.String("cookie."+c.Name, c.Value))
+	}
+	slog.Info("portal incoming request", dump...)
+
 	rawIDToken := r.Header.Get("X-Id-Token")
 	idTokenSource := "header"
 	if rawIDToken == "" {
