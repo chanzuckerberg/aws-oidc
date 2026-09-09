@@ -152,12 +152,6 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
 	}
 
-	headerAttrs := make([]any, 0, len(r.Header))
-	for name, vals := range r.Header {
-		headerAttrs = append(headerAttrs, slog.String(name, strings.Join(vals, ", ")))
-	}
-	slog.Debug("portal incoming request headers", headerAttrs...)
-
 	rawIDToken := r.Header.Get("X-Id-Token")
 	idTokenPreview := rawIDToken
 	if len(idTokenPreview) > 20 {
@@ -166,7 +160,10 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 	if rawIDToken != "" {
 		slog.Info("portal X-Id-Token header present", "header_preview", idTokenPreview)
 	} else {
-		slog.Info("portal X-Id-Token header absent")
+		slog.Info("portal X-Id-Token header absent",
+			"header_names", headerNames(r),
+			"cookie_names", requestCookieNames(r),
+		)
 	}
 
 	if rawIDToken != "" && ir.verifyIDToken != nil {
@@ -289,6 +286,16 @@ func headerNames(r *http.Request) []string {
 	names := make([]string, 0, len(r.Header))
 	for name := range r.Header {
 		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func requestCookieNames(r *http.Request) []string {
+	cookies := r.Cookies()
+	names := make([]string, 0, len(cookies))
+	for _, c := range cookies {
+		names = append(names, c.Name)
 	}
 	sort.Strings(names)
 	return names
