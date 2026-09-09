@@ -21,8 +21,6 @@ import (
 // errNoIdentity is returned when no authenticated user can be determined.
 var errNoIdentity = errors.New("no authenticated user")
 
-const idTokenCookiePrefix = "IdToken-"
-
 // IdentityResolver extracts the current user from the gateway's verified OIDC ID token.
 type IdentityResolver struct {
 	devSub      string
@@ -109,41 +107,33 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 		}, nil
 	}
 
-	idTokens := idTokenCandidates(r)
-	if len(idTokens) == 0 {
-		slog.Info("portal found no ID token",
-			"header_names", headerNames(r),
-			"cookie_names", requestCookieNames(r),
+	rawIDToken := r.Header.Get("X-Id-Token")
+	if rawIDToken == "" {
+		slog.Warn("portal request has no ID token header", "header_names", headerNames(r))
+		return nil, fmt.Errorf("%w: no X-ID-Token header on request (headers: %s)",
+			errNoIdentity,
+			strings.Join(headerNames(r), ", "),
 		)
 	}
 
-	for _, idToken := range idTokens {
-		if ir.verifyIDToken == nil {
-			break
-		}
-		sub, email, groups, err := ir.verifyIDToken(ctx, idToken.raw)
-		if err != nil {
-			slog.Warn("portal rejected an ID token", "source", idToken.source, "error", err, describeToken(idToken.raw))
-		} else {
-			user := &identity.User{Sub: sub, Email: email, Groups: groups}
-			if group := matchingAdminGroup(groups, ir.adminGroups); group != "" {
-				user.Admin = true
-				user.AdminReason = "Admin through Okta group " + group
-			}
-			slog.Info("portal resolved user from ID token", "source", idToken.source, "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
-			return user, nil
-		}
+	if ir.verifyIDToken == nil {
+		slog.Warn("portal cannot verify ID token header")
+		return nil, fmt.Errorf("%w: ID token verifier is not configured", errNoIdentity)
 	}
 
-	slog.Warn("portal request has no valid ID token",
-		"header_names", headerNames(r),
-		"cookie_names", requestCookieNames(r),
-	)
-	return nil, fmt.Errorf("%w: no valid ID token on request (headers: %s; cookies: %s)",
-		errNoIdentity,
-		strings.Join(headerNames(r), ", "),
-		strings.Join(requestCookieNames(r), ", "),
-	)
+	sub, email, groups, err := ir.verifyIDToken(ctx, rawIDToken)
+	if err != nil {
+		slog.Warn("portal rejected ID token header", "error", err, describeToken(rawIDToken))
+		return nil, fmt.Errorf("%w: invalid X-ID-Token header: %w", errNoIdentity, err)
+	}
+
+	user := &identity.User{Sub: sub, Email: email, Groups: groups}
+	if group := matchingAdminGroup(groups, ir.adminGroups); group != "" {
+		user.Admin = true
+		user.AdminReason = "Admin through Okta group " + group
+	}
+	slog.Info("portal resolved user from ID token", "source", "header", "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
+	return user, nil
 }
 
 func matchingAdminGroup(groups []string, adminGroups map[string]bool) string {
@@ -199,35 +189,6 @@ func headerNames(r *http.Request) []string {
 	names := make([]string, 0, len(r.Header))
 	for name := range r.Header {
 		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-type idTokenCandidate struct {
-	raw    string
-	source string
-}
-
-func idTokenCandidates(r *http.Request) []idTokenCandidate {
-	cookies := r.Cookies()
-	candidates := make([]idTokenCandidate, 0, len(cookies)+1)
-	if raw := r.Header.Get("X-Id-Token"); raw != "" {
-		candidates = append(candidates, idTokenCandidate{raw: raw, source: "header"})
-	}
-	for _, cookie := range cookies {
-		if strings.HasPrefix(cookie.Name, idTokenCookiePrefix) && cookie.Value != "" {
-			candidates = append(candidates, idTokenCandidate{raw: cookie.Value, source: "cookie:" + cookie.Name})
-		}
-	}
-	return candidates
-}
-
-func requestCookieNames(r *http.Request) []string {
-	cookies := r.Cookies()
-	names := make([]string, 0, len(cookies))
-	for _, c := range cookies {
-		names = append(names, c.Name)
 	}
 	sort.Strings(names)
 	return names
