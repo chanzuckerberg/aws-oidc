@@ -45,7 +45,11 @@ func TestTemplatesRender(t *testing.T) {
 	rec = httptest.NewRecorder()
 	s.render(rec, "list", pageData{
 		Title: "Your agents",
-		User:  &identity.User{Sub: "s"},
+		User: &identity.User{
+			Sub:         "s",
+			Admin:       true,
+			AdminReason: "Admin through Okta group infra-eng",
+		},
 		Agents: []agentsv1.Agent{{
 			ObjectMeta: metav1.ObjectMeta{Name: "bot"},
 			Spec: agentsv1.AgentSpec{
@@ -60,6 +64,8 @@ func TestTemplatesRender(t *testing.T) {
 	require.Contains(t, body, "prod")
 	require.Contains(t, body, "x")
 	require.Contains(t, body, `href="/agents/bot/aws"`)
+	require.Contains(t, body, `class="admin-badge"`)
+	require.Contains(t, body, `title="Admin through Okta group infra-eng"`)
 
 	// Repositories page renders existing entries as chips with hidden inputs to resubmit.
 	rec = httptest.NewRecorder()

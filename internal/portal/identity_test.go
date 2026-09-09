@@ -29,6 +29,7 @@ func TestResolveDevOverride(t *testing.T) {
 	require.Equal(t, "00udev", user.Sub)
 	require.Equal(t, "dev@example.com", user.Email)
 	require.True(t, user.Admin, "dev override should be admin")
+	require.Equal(t, "Admin access granted by PORTAL_DEV_SUB", user.AdminReason)
 }
 
 func TestResolveIDToken(t *testing.T) {
@@ -47,6 +48,7 @@ func TestResolveIDToken(t *testing.T) {
 	require.Equal(t, "00uid", user.Sub)
 	require.Equal(t, "user@example.com", user.Email)
 	require.True(t, user.Admin, "membership in an admin group should grant admin")
+	require.Equal(t, "Admin through Okta group infra-eng", user.AdminReason)
 }
 
 func TestResolveIDTokenNonAdmin(t *testing.T) {
@@ -62,6 +64,7 @@ func TestResolveIDTokenNonAdmin(t *testing.T) {
 	user, err := ir.Resolve(context.Background(), req)
 	require.NoError(t, err)
 	require.False(t, user.Admin)
+	require.Empty(t, user.AdminReason)
 }
 
 func TestResolveIDTokenFromCookie(t *testing.T) {

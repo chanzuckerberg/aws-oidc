@@ -101,7 +101,12 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*identity.User, error) {
 	if ir.devSub != "" {
 		slog.Info("portal identity taken from PORTAL_DEV_SUB override", "sub", ir.devSub, "email", ir.devEmail)
-		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
+		return &identity.User{
+			Sub:         ir.devSub,
+			Email:       ir.devEmail,
+			Admin:       true,
+			AdminReason: "Admin access granted by PORTAL_DEV_SUB",
+		}, nil
 	}
 
 	idTokens := idTokenCandidates(r)
@@ -121,7 +126,10 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 			slog.Warn("portal rejected an ID token", "source", idToken.source, "error", err, describeToken(idToken.raw))
 		} else {
 			user := &identity.User{Sub: sub, Email: email, Groups: groups}
-			user.Admin = isAdmin(groups, ir.adminGroups)
+			if group := matchingAdminGroup(groups, ir.adminGroups); group != "" {
+				user.Admin = true
+				user.AdminReason = "Admin through Okta group " + group
+			}
 			slog.Info("portal resolved user from ID token", "source", idToken.source, "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
 			return user, nil
 		}
@@ -138,13 +146,14 @@ func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*iden
 	)
 }
 
-func isAdmin(groups []string, adminGroups map[string]bool) bool {
+func matchingAdminGroup(groups []string, adminGroups map[string]bool) string {
 	for _, g := range groups {
-		if adminGroups[strings.TrimSpace(g)] {
-			return true
+		group := strings.TrimSpace(g)
+		if adminGroups[group] {
+			return group
 		}
 	}
-	return false
+	return ""
 }
 
 func describeToken(raw string) slog.Attr {
