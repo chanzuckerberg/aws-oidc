@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -358,6 +359,7 @@ func runtimeObjectCache(namespace string) map[client.Object]cache.ByObject {
 	own := cache.ByObject{Namespaces: map[string]cache.Config{namespace: {}}}
 	return map[client.Object]cache.ByObject{
 		&appsv1.StatefulSet{}:           own,
+		&batchv1.Job{}:                  own,
 		&corev1.ServiceAccount{}:        own,
 		&corev1.Service{}:               own,
 		&corev1.ConfigMap{}:             own,
