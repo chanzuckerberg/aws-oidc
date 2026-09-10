@@ -287,7 +287,7 @@ func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent)
 }
 
 func (r *Reconciler) ensureClaudeConfig(ctx context.Context, agent *agentsv1.Agent) error {
-	claudeMD := ""
+	claudeMD := r.loadDefaults().ClaudeMD
 	settingsJSON := "{}\n"
 	if agent.Spec.Claude != nil {
 		claudeMD = agent.Spec.Claude.ClaudeMD

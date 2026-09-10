@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
 )
@@ -131,6 +134,23 @@ func TestUpdateClaudeConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "# Personal instructions\n", agent.Spec.Claude.ClaudeMD)
 	require.Equal(t, "{\"theme\":\"dark\"}\n", agent.Spec.Claude.SettingsJSON)
+}
+
+func TestClaudePageShowsEditableDefault(t *testing.T) {
+	defaultsPath := filepath.Join(t.TempDir(), "defaults.yaml")
+	err := os.WriteFile(defaultsPath, []byte("claudeMD: |\n  # Default instructions\n"), 0o600)
+	require.NoError(t, err)
+
+	store := newMemStore()
+	server := fullServer(t, store)
+	server.cfg.DefaultsLoader = agentdefaults.NewLoader(defaultsPath)
+	postCreate(t, server, "bot", "a@example.com")
+
+	request := httptest.NewRequest(http.MethodGet, "/agents/bot/claude", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), "# Default instructions")
 }
 
 func TestUpdateClaudeConfigRejectsNonObjectSettings(t *testing.T) {

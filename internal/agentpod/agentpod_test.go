@@ -2,6 +2,8 @@ package agentpod
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 )
 
 const testNamespace = "argus-aws-oidc-rdev"
@@ -610,6 +613,32 @@ func TestReconcileMountsUserClaudeConfig(t *testing.T) {
 		MountPath: userClaudeConfigMountPath,
 		ReadOnly:  true,
 	})
+}
+
+func TestReconcileUsesEditableClaudeDefault(t *testing.T) {
+	ctx := context.Background()
+	defaultsPath := filepath.Join(t.TempDir(), "defaults.yaml")
+	err := os.WriteFile(defaultsPath, []byte("claudeMD: |\n  # Default instructions\n"), 0o600)
+	require.NoError(t, err)
+
+	agent := testAgent()
+	r, c := testReconciler(t, agent)
+	r.DefaultsLoader = agentdefaults.NewLoader(defaultsPath)
+	_, err = r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	configMap := &corev1.ConfigMap{}
+	key := types.NamespacedName{Namespace: testNamespace, Name: agent.ClaudeConfigMapName()}
+	err = c.Get(ctx, key, configMap)
+	require.NoError(t, err)
+	require.Equal(t, "# Default instructions\n", configMap.Data["CLAUDE.md"])
+
+	agent.Spec.Claude = &agentsv1.ClaudeConfig{}
+	_, err = r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+	err = c.Get(ctx, key, configMap)
+	require.NoError(t, err)
+	require.Empty(t, configMap.Data["CLAUDE.md"])
 }
 
 func TestReconcileReportsRunningAgent(t *testing.T) {

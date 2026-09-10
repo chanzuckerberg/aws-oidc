@@ -36,6 +36,7 @@ type Defaults struct {
 	MaxMemory string `yaml:"maxMemory"`
 	// MaxStorage is the ceiling the portal enforces on storage size requests.
 	MaxStorage string `yaml:"maxStorage"`
+	ClaudeMD   string `yaml:"claudeMD"`
 }
 
 // Loader reads Defaults from a YAML file and caches the result. Re-reads happen in the

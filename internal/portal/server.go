@@ -375,6 +375,14 @@ func (s *Server) handleClaude(w http.ResponseWriter, r *http.Request) {
 	}
 	claudeMD := ""
 	settingsJSON := "{}"
+	if s.cfg.DefaultsLoader != nil {
+		defaults, err := s.cfg.DefaultsLoader.Load()
+		if err != nil {
+			slog.Warn("loading Claude defaults in portal", "error", err)
+		} else {
+			claudeMD = defaults.ClaudeMD
+		}
+	}
 	if agent.Spec.Claude != nil {
 		claudeMD = agent.Spec.Claude.ClaudeMD
 		if agent.Spec.Claude.SettingsJSON != "" {
