@@ -85,6 +85,13 @@ type AgentEnvVar struct {
 	Value string `json:"value,omitempty"`
 }
 
+type ProjectMemoryImport struct {
+	Repository Repository `json:"repository"`
+
+	// +kubebuilder:validation:Pattern=`^[a-f0-9]{64}$`
+	Revision string `json:"revision"`
+}
+
 type ClaudeConfig struct {
 	// +optional
 	// +kubebuilder:validation:MaxLength=262144
@@ -93,6 +100,11 @@ type ClaudeConfig struct {
 	// +optional
 	// +kubebuilder:validation:MaxLength=262144
 	SettingsJSON string `json:"settingsJson,omitempty"`
+
+	// +optional
+	// +listType=map
+	// +listMapKey=repository
+	MemoryImports []ProjectMemoryImport `json:"memoryImports,omitempty"`
 }
 
 // AgentRuntime describes how the agent pod runs. It is a curated subset of a
@@ -267,6 +279,31 @@ type RuntimeStatus struct {
 	State RuntimeState `json:"state,omitempty"`
 
 	// Message carries the reason when State is Failed.
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// +optional
+	// +listType=map
+	// +listMapKey=repository
+	MemoryImports []ProjectMemoryImportStatus `json:"memoryImports,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=Pending;Applied;Failed
+type ProjectMemoryImportState string
+
+const (
+	ProjectMemoryImportPending ProjectMemoryImportState = "Pending"
+	ProjectMemoryImportApplied ProjectMemoryImportState = "Applied"
+	ProjectMemoryImportFailed  ProjectMemoryImportState = "Failed"
+)
+
+type ProjectMemoryImportStatus struct {
+	Repository Repository `json:"repository"`
+
+	Revision string `json:"revision"`
+
+	State ProjectMemoryImportState `json:"state"`
+
 	// +optional
 	Message string `json:"message,omitempty"`
 }

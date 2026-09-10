@@ -54,6 +54,12 @@ func (r *Reconciler) pruneObsoleteRuntimeObjects(ctx context.Context, agent *age
 // pruneRuntime removes runtime objects when the agent no longer runs in the cluster. The PVC
 // remains until the Agent is deleted so disabling the runtime does not destroy the owner's data.
 func (r *Reconciler) pruneRuntime(ctx context.Context, agent *agentsv1.Agent) error {
+	var errs []error
+	err := r.pruneMemoryImportArtifacts(ctx, agent, map[string]bool{})
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	objects := []client.Object{
 		&appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: agent.StatefulSetName(), Namespace: r.Namespace}},
 		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: agent.ServiceAccountName(), Namespace: r.Namespace}},
@@ -62,9 +68,8 @@ func (r *Reconciler) pruneRuntime(ctx context.Context, agent *agentsv1.Agent) er
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: agent.ClaudeConfigMapName(), Namespace: r.Namespace}},
 	}
 
-	var errs []error
 	for _, obj := range objects {
-		err := ignoreNotFound(r.Delete(ctx, obj))
+		err = ignoreNotFound(r.Delete(ctx, obj))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("pruning %s: %w", obj.GetName(), err))
 		}

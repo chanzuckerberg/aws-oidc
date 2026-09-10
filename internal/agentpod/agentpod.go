@@ -225,6 +225,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) (*age
 		return status, err
 	}
 
+	status.MemoryImports, err = r.reconcileMemoryImports(ctx, agent)
+	if err != nil {
+		status.State = agentsv1.RuntimeStateFailed
+		status.Message = err.Error()
+		return status, err
+	}
+
 	set, err := r.ensureStatefulSet(ctx, agent)
 	if err != nil {
 		status.State = agentsv1.RuntimeStateFailed

@@ -30,6 +30,8 @@ func TestRuntimeObjectNamesFitKubernetesLimits(t *testing.T) {
 	require.LessOrEqual(t, len(long.AWSConfigMapName()), 63)
 	require.LessOrEqual(t, len(long.ClaudeConfigMapName()), 63)
 	require.LessOrEqual(t, len(long.ServiceName()), 63)
+	require.LessOrEqual(t, len(long.MemoryImportConfigMapName("chanzuckerberg/aws-oidc", strings.Repeat("a", 64))), 63)
+	require.LessOrEqual(t, len(long.MemoryImportJobName("chanzuckerberg/aws-oidc", strings.Repeat("a", 64))), 63)
 	require.Equal(t, long.StatefulSetName(), agentNamed(long.Name, "").StatefulSetName())
 }
 

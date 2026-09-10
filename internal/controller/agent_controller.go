@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,6 +63,7 @@ type AgentReconciler struct {
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=agents.czi.team,resources=agents/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;services;configmaps;persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile drives one Agent toward its desired state.
@@ -304,5 +306,6 @@ func (r *AgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&agentsv1.Agent{}).
 		Owns(&appsv1.StatefulSet{}).
+		Owns(&batchv1.Job{}).
 		Complete(r)
 }

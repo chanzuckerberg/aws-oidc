@@ -5,18 +5,109 @@
     <div class="card">
       <h1>Claude</h1>
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
-      <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/claude">
+      <form id="claude-config-form" method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/claude">
+        <div class="import-panel">
+          <strong>Import from this computer</strong>
+          <p class="hint">Choose <code>~/.claude/CLAUDE.md</code>, <code>settings.json</code>, or both. On macOS, press <code>Command-Shift-G</code> in the file picker to open <code>~/.claude</code>.</p>
+          <input id="claude-config-import" type="file" multiple accept=".md,.json,text/markdown,application/json">
+          <button id="undo-claude-import" class="btn small" type="button" hidden>Undo import</button>
+          <span id="claude-import-status" class="import-status" role="status"></span>
+          <p id="claude-import-error" class="err" hidden></p>
+        </div>
         <p><label><strong>CLAUDE.md</strong><br>
-          <textarea class="code" name="claude-md" spellcheck="false">{{.ClaudeMD}}</textarea>
+          <textarea id="claude-md" class="code" name="claude-md" spellcheck="false">{{.ClaudeMD}}</textarea>
         </label></p>
         <p class="hint">User instructions for this agent. Managed instructions still apply.</p>
         <p><label><strong>settings.json</strong><br>
-          <textarea class="code" name="settings-json" spellcheck="false">{{.SettingsJSON}}</textarea>
+          <textarea id="settings-json" class="code" name="settings-json" spellcheck="false">{{.SettingsJSON}}</textarea>
         </label></p>
         <p class="hint">User settings merge with the managed settings. Managed values always take precedence.</p>
+        <p class="notice">Do not put credentials or secrets in settings.json. The portal stores this configuration in the Agent resource, not a Kubernetes Secret.</p>
         <p><button class="btn primary" type="submit">Save</button></p>
       </form>
     </div>
   </div>
 </div>
+<script>
+(function () {
+  var picker = document.getElementById("claude-config-import");
+  var claudeMD = document.getElementById("claude-md");
+  var settingsJSON = document.getElementById("settings-json");
+  var undo = document.getElementById("undo-claude-import");
+  var status = document.getElementById("claude-import-status");
+  var error = document.getElementById("claude-import-error");
+  var previous;
+  var maxBytes = 262144;
+
+  picker.addEventListener("change", function () {
+    var files = Array.from(picker.files || []);
+    var seen = {};
+    error.hidden = true;
+    status.textContent = "";
+
+    for (var i = 0; i < files.length; i++) {
+      var name = files[i].name;
+      if (name !== "CLAUDE.md" && name !== "settings.json") {
+        error.textContent = "Choose only files named CLAUDE.md or settings.json.";
+        error.hidden = false;
+        picker.value = "";
+        return;
+      }
+      if (seen[name]) {
+        error.textContent = "Choose each file only once.";
+        error.hidden = false;
+        picker.value = "";
+        return;
+      }
+      if (files[i].size > maxBytes) {
+        error.textContent = name + " exceeds the 256 KiB limit.";
+        error.hidden = false;
+        picker.value = "";
+        return;
+      }
+      seen[name] = true;
+    }
+
+    Promise.all(files.map(function (file) {
+      return file.text().then(function (text) { return { name: file.name, text: text }; });
+    })).then(function (imports) {
+      for (var i = 0; i < imports.length; i++) {
+        if (imports[i].name !== "settings.json") { continue; }
+        var parsed;
+        try {
+          parsed = JSON.parse(imports[i].text);
+        } catch (_) {
+          error.textContent = "settings.json must contain valid JSON.";
+          error.hidden = false;
+          return;
+        }
+        if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+          error.textContent = "settings.json must contain a JSON object.";
+          error.hidden = false;
+          return;
+        }
+      }
+
+      previous = { claudeMD: claudeMD.value, settingsJSON: settingsJSON.value };
+      imports.forEach(function (item) {
+        if (item.name === "CLAUDE.md") { claudeMD.value = item.text; }
+        if (item.name === "settings.json") { settingsJSON.value = item.text; }
+      });
+      undo.hidden = false;
+      status.textContent = "Imported locally. Review the editors, then save.";
+      picker.value = "";
+    });
+  });
+
+  undo.addEventListener("click", function () {
+    if (!previous) { return; }
+    claudeMD.value = previous.claudeMD;
+    settingsJSON.value = previous.settingsJSON;
+    previous = null;
+    undo.hidden = true;
+    status.textContent = "Import undone.";
+    error.hidden = true;
+  });
+})();
+</script>
 {{template "foot" .}}{{end}}

@@ -25,6 +25,20 @@ func (a *Agent) ClaudeConfigMapName() string {
 	return truncateName("agent-"+sanitizeName(a.Name)+"-claude-config", objectNameMaxLength)
 }
 
+func (a *Agent) MemoryImportConfigMapName(repository Repository, revision string) string {
+	return truncateName(
+		"agent-"+sanitizeName(a.Name)+"-memory-"+hashHex(string(repository))[:8]+"-"+hashHex(revision)[:8],
+		objectNameMaxLength,
+	)
+}
+
+func (a *Agent) MemoryImportJobName(repository Repository, revision string) string {
+	return truncateName(
+		"agent-"+sanitizeName(a.Name)+"-memory-"+hashHex(string(repository))[:8]+"-"+hashHex(revision)[:8],
+		objectNameMaxLength,
+	)
+}
+
 func (a *Agent) StatefulSetName() string {
 	return truncateName("agent-"+sanitizeName(a.Name), statefulSetNameMaxLength)
 }

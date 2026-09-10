@@ -9,18 +9,27 @@ package portal
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gorilla/handlers"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
@@ -38,6 +47,15 @@ var agentNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // repoRe matches an "owner/repo" reference. It mirrors the Repository pattern on the CRD so
 // the portal rejects the same shapes the API server would.
 var repoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+var memoryFileRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*\.md$`)
+
+const (
+	maxClaudeConfigBytes       = 256 * 1024
+	maxMemoryImportFiles       = 64
+	maxMemoryImportFileBytes   = 64 * 1024
+	maxMemoryImportTotalBytes  = 512 * 1024
+	maxMemoryImportRequestSize = 600 * 1024
+)
 
 // Config wires the portal's dependencies. BasePath is the URL prefix the portal is served
 // under (for example "/portal" when the gateway routes a sub-path to it); empty means root.
@@ -56,7 +74,8 @@ type Config struct {
 	// Repositories powers the Repositories page's type-ahead and validates saved entries
 	// against the repositories the fleet's GitHub App can reach. Nil where the portal has no
 	// GitHub credentials, which hides the page.
-	Repositories repoSuggester
+	Repositories     repoSuggester
+	MemoryConfigMaps typedcorev1.ConfigMapInterface
 	// Limits caps the sizing an owner may ask for. Unset fields fall back to defaults.
 	Limits AgentLimits
 	// Namespace is the Kubernetes namespace the operator and agent pods run in. It is shown
@@ -112,6 +131,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /agents/{name}/repositories", s.handleRepositories)
 	mux.HandleFunc("POST /agents/{name}/repositories", s.handleUpdateRepositories)
 	mux.HandleFunc("GET /agents/{name}/repositories/search", s.handleRepositorySearch)
+	mux.HandleFunc("POST /agents/{name}/repositories/memory", s.handleImportRepositoryMemory)
 	mux.HandleFunc("GET /agents/{name}/claude", s.handleClaude)
 	mux.HandleFunc("POST /agents/{name}/claude", s.handleUpdateClaude)
 	mux.HandleFunc("POST /agents/{name}/suspend", s.handleToggleSuspend)
@@ -196,9 +216,10 @@ type pageData struct {
 	TailscaleForm       tailscaleForm
 	// Repositories is the agent's current (or just-submitted) "owner/repo" list, shown as
 	// chips on the Repositories page.
-	Repositories []string
-	ClaudeMD     string
-	SettingsJSON string
+	Repositories  []string
+	MemoryImports map[string]memoryImportView
+	ClaudeMD      string
+	SettingsJSON  string
 	// Onboarding drives the post-create walkthrough. Its zero value renders the page as a
 	// standalone edit screen.
 	Onboarding onboarding
@@ -418,6 +439,14 @@ func (s *Server) handleUpdateClaude(w http.ResponseWriter, r *http.Request) {
 	if settingsJSON == "" {
 		settingsJSON = "{}"
 	}
+	if len(claudeMD) > maxClaudeConfigBytes || len(settingsJSON) > maxClaudeConfigBytes {
+		s.render(w, "agent_claude", pageData{
+			Title: "Claude — " + agent.Name, User: user, Agent: agent, Nav: "claude",
+			ClaudeMD: claudeMD, SettingsJSON: settingsJSON,
+			Error: "CLAUDE.md and settings.json must each be no larger than 256 KiB",
+		})
+		return
+	}
 	var settings map[string]json.RawMessage
 	err = json.Unmarshal([]byte(settingsJSON), &settings)
 	if err != nil || settings == nil {
@@ -432,9 +461,14 @@ func (s *Server) handleUpdateClaude(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	var memoryImports []agentsv1.ProjectMemoryImport
+	if agent.Spec.Claude != nil {
+		memoryImports = agent.Spec.Claude.MemoryImports
+	}
 	agent.Spec.Claude = &agentsv1.ClaudeConfig{
-		ClaudeMD:     claudeMD,
-		SettingsJSON: settingsJSON + "\n",
+		ClaudeMD:      claudeMD,
+		SettingsJSON:  settingsJSON + "\n",
+		MemoryImports: memoryImports,
 	}
 	err = s.cfg.Store.Upsert(r.Context(), agent)
 	if err != nil {
@@ -677,12 +711,13 @@ func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
 	}
 	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_repositories", pageData{
-		Title:        "Repositories — " + agent.Name,
-		User:         user,
-		Agent:        agent,
-		Nav:          "repositories",
-		Repositories: repositoriesFromAgent(agent),
-		Onboarding:   s.onboardingFor(r, agent.Name, "repositories"),
+		Title:         "Repositories — " + agent.Name,
+		User:          user,
+		Agent:         agent,
+		Nav:           "repositories",
+		Repositories:  repositoriesFromAgent(agent),
+		MemoryImports: memoryImportsFromAgent(agent),
+		Onboarding:    s.onboardingFor(r, agent.Name, "repositories"),
 	})
 }
 
@@ -709,7 +744,7 @@ func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request
 	renderErr := func(msg string) {
 		s.render(w, "agent_repositories", pageData{
 			Title: "Repositories — " + agent.Name, User: user, Agent: agent, Nav: "repositories",
-			Repositories: repos, Error: msg,
+			Repositories: repos, MemoryImports: memoryImportsFromAgent(agent), Error: msg,
 			Onboarding: s.onboardingFor(r, agent.Name, "repositories"),
 		})
 	}
@@ -729,12 +764,241 @@ func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request
 		}
 	}
 	agent.Spec.Repositories = toRepositories(repos)
+	if agent.Spec.Claude != nil {
+		configured := make(map[string]bool, len(repos))
+		for _, repo := range repos {
+			configured[strings.ToLower(repo)] = true
+		}
+		imports := make([]agentsv1.ProjectMemoryImport, 0, len(agent.Spec.Claude.MemoryImports))
+		for _, memoryImport := range agent.Spec.Claude.MemoryImports {
+			if configured[strings.ToLower(string(memoryImport.Repository))] {
+				imports = append(imports, memoryImport)
+			}
+		}
+		agent.Spec.Claude.MemoryImports = imports
+	}
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
 		return
 	}
 	s.redirectAfterSave(w, r, agent.Name, "repositories")
+}
+
+type memoryImportView struct {
+	Revision string
+	State    agentsv1.ProjectMemoryImportState
+	Message  string
+}
+
+func memoryImportsFromAgent(agent *agentsv1.Agent) map[string]memoryImportView {
+	views := make(map[string]memoryImportView)
+	if agent.Spec.Claude != nil {
+		for _, memoryImport := range agent.Spec.Claude.MemoryImports {
+			views[string(memoryImport.Repository)] = memoryImportView{
+				Revision: memoryImport.Revision,
+				State:    agentsv1.ProjectMemoryImportPending,
+			}
+		}
+	}
+	if agent.Status.Runtime != nil {
+		for _, status := range agent.Status.Runtime.MemoryImports {
+			view, ok := views[string(status.Repository)]
+			if !ok || view.Revision != status.Revision {
+				continue
+			}
+			view.State = status.State
+			view.Message = status.Message
+			views[string(status.Repository)] = view
+		}
+	}
+	return views
+}
+
+func (s *Server) handleImportRepositoryMemory(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Repositories == nil || s.cfg.MemoryConfigMaps == nil {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	if agent.Spec.Runtime == nil {
+		http.Error(w, "agent runtime is disabled", http.StatusConflict)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxMemoryImportRequestSize)
+	err := r.ParseMultipartForm(maxMemoryImportRequestSize)
+	if err != nil {
+		http.Error(w, "memory import exceeds the 600 KiB request limit", http.StatusBadRequest)
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	repository := strings.TrimSpace(r.FormValue("repository"))
+	configured := false
+	for _, candidate := range agent.Spec.Repositories {
+		if strings.EqualFold(string(candidate), repository) {
+			repository = string(candidate)
+			configured = true
+			break
+		}
+	}
+	if !configured {
+		http.Error(w, "memory repository is not configured on this agent", http.StatusBadRequest)
+		return
+	}
+	reachable, err := s.cfg.Repositories.Reachable(r.Context(), repository)
+	if err != nil {
+		s.fail(w, "checking repository access", err)
+		return
+	}
+	if !reachable {
+		http.Error(w, "the agent's GitHub App cannot reach this repository", http.StatusBadRequest)
+		return
+	}
+
+	headers := r.MultipartForm.File["memory-files"]
+	if len(headers) == 0 || len(headers) > maxMemoryImportFiles {
+		http.Error(w, "choose between 1 and 64 memory files", http.StatusBadRequest)
+		return
+	}
+	paths := r.MultipartForm.Value["memory-path"]
+	if len(paths) != len(headers) {
+		http.Error(w, "memory file paths are missing", http.StatusBadRequest)
+		return
+	}
+	data := make(map[string]string, len(headers))
+	totalBytes := 0
+	hasIndex := false
+	root := ""
+	for index, header := range headers {
+		name := header.Filename
+		_, disposition, dispositionErr := mime.ParseMediaType(header.Header.Get("Content-Disposition"))
+		rawName := disposition["filename"]
+		pathParts := strings.Split(paths[index], "/")
+		if len(pathParts) != 2 || pathParts[0] == "" || pathParts[0] == "." || pathParts[0] == ".." ||
+			pathParts[1] != name || dispositionErr != nil || filepath.Base(rawName) != rawName ||
+			strings.Contains(rawName, `\`) ||
+			!memoryFileRe.MatchString(name) {
+			http.Error(w, "memory folders may contain only flat Markdown files", http.StatusBadRequest)
+			return
+		}
+		if root == "" {
+			root = pathParts[0]
+		} else if root != pathParts[0] {
+			http.Error(w, "memory files must come from one folder", http.StatusBadRequest)
+			return
+		}
+		key := strings.ToLower(name)
+		for existing := range data {
+			if strings.ToLower(existing) == key {
+				http.Error(w, "memory file names must be unique", http.StatusBadRequest)
+				return
+			}
+		}
+		file, err := header.Open()
+		if err != nil {
+			http.Error(w, "reading memory files", http.StatusBadRequest)
+			return
+		}
+		content, readErr := io.ReadAll(io.LimitReader(file, maxMemoryImportFileBytes+1))
+		closeErr := file.Close()
+		if readErr != nil || closeErr != nil {
+			http.Error(w, "reading memory files", http.StatusBadRequest)
+			return
+		}
+		if len(content) > maxMemoryImportFileBytes {
+			http.Error(w, name+" exceeds the 64 KiB file limit", http.StatusBadRequest)
+			return
+		}
+		totalBytes += len(content)
+		if totalBytes > maxMemoryImportTotalBytes {
+			http.Error(w, "memory import exceeds the 512 KiB total limit", http.StatusBadRequest)
+			return
+		}
+		data[name] = string(content)
+		hasIndex = hasIndex || name == "MEMORY.md"
+	}
+	if !hasIndex {
+		http.Error(w, "memory import requires MEMORY.md", http.StatusBadRequest)
+		return
+	}
+
+	names := make([]string, 0, len(data))
+	for name := range data {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	hasher := sha256.New()
+	for _, name := range names {
+		_, _ = hasher.Write([]byte(name))
+		_, _ = hasher.Write([]byte{0})
+		_, _ = hasher.Write([]byte(data[name]))
+		_, _ = hasher.Write([]byte{0})
+	}
+	nonce := make([]byte, 32)
+	_, err = rand.Read(nonce)
+	if err != nil {
+		s.fail(w, "creating memory import revision", err)
+		return
+	}
+	_, _ = hasher.Write(nonce)
+	revision := fmt.Sprintf("%x", hasher.Sum(nil))
+	repo := agentsv1.Repository(repository)
+	configMapName := agent.MemoryImportConfigMapName(repo, revision)
+	controller := true
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: s.cfg.Namespace,
+			Labels: map[string]string{
+				"agents.czi.team/agent":         agent.Name,
+				"agents.czi.team/memory-import": "true",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: agentsv1.GroupVersion.String(),
+				Kind:       "Agent",
+				Name:       agent.Name,
+				UID:        agent.UID,
+				Controller: &controller,
+			}},
+		},
+		Data: data,
+	}
+	_, err = s.cfg.MemoryConfigMaps.Create(r.Context(), configMap, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		s.fail(w, "staging memory import", err)
+		return
+	}
+
+	if agent.Spec.Claude == nil {
+		agent.Spec.Claude = &agentsv1.ClaudeConfig{}
+	}
+	imports := make([]agentsv1.ProjectMemoryImport, 0, len(agent.Spec.Claude.MemoryImports)+1)
+	for _, memoryImport := range agent.Spec.Claude.MemoryImports {
+		if !strings.EqualFold(string(memoryImport.Repository), repository) {
+			imports = append(imports, memoryImport)
+		}
+	}
+	imports = append(imports, agentsv1.ProjectMemoryImport{Repository: repo, Revision: revision})
+	agent.Spec.Claude.MemoryImports = imports
+	err = s.cfg.Store.Upsert(r.Context(), agent)
+	if err != nil {
+		deleteErr := s.cfg.MemoryConfigMaps.Delete(r.Context(), configMapName, metav1.DeleteOptions{})
+		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+			slog.Error("cleaning failed memory import", "configmap", configMapName, "error", deleteErr)
+		}
+		s.fail(w, "saving memory import", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/repositories")
 }
 
 // handleRepositorySearch answers the type-ahead with a JSON array of "owner/repo" strings the

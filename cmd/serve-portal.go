@@ -128,6 +128,7 @@ func servePortalRun(cmd *cobra.Command, args []string) error {
 		Limits:           limits,
 		Namespace:        namespace,
 		DefaultsLoader:   agentdefaults.NewLoader(defaultsConfigPath),
+		MemoryConfigMaps: kubeClient.CoreV1().ConfigMaps(namespace),
 	}
 	// Assign only when configured: a nil *GitHubApp stored in the interface field would read
 	// as non-nil and turn the Repositories page on without a working backend.
