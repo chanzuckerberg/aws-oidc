@@ -1,0 +1,22 @@
+{{define "agent_claude"}}{{template "head" .}}
+<div class="page">
+  <div class="edit-layout">
+    {{template "agentnav" .}}
+    <div class="card">
+      <h1>Claude</h1>
+      {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
+      <form method="post" action="{{.BasePath}}/agents/{{.Agent.Name}}/claude">
+        <p><label><strong>CLAUDE.md</strong><br>
+          <textarea class="code" name="claude-md" spellcheck="false">{{.ClaudeMD}}</textarea>
+        </label></p>
+        <p class="hint">User instructions for this agent. Managed instructions still apply.</p>
+        <p><label><strong>settings.json</strong><br>
+          <textarea class="code" name="settings-json" spellcheck="false">{{.SettingsJSON}}</textarea>
+        </label></p>
+        <p class="hint">User settings merge with the managed settings. Managed values always take precedence.</p>
+        <p><button class="btn primary" type="submit">Save</button></p>
+      </form>
+    </div>
+  </div>
+</div>
+{{template "foot" .}}{{end}}

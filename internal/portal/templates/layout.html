@@ -62,8 +62,9 @@
     h1 { margin: 0 0 1rem; font-size: 1.4rem; }
     h2 { margin-top: 1.5rem; font-size: 1.1rem; }
     .hint { color: #666; font-size: .85em; margin: .2rem 0 0; }
-    input[type=text], input[type=email], input[type=password] { font-size: inherit; }
+    input[type=text], input[type=email], input[type=password], textarea { font-size: inherit; }
     input:disabled { background: #f4f4f4; color: #666; cursor: not-allowed; }
+    textarea.code { width: 100%; min-height: 18rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.4; }
 
     /* Setup walkthrough */
     .steps { list-style: none; margin: 0; padding: .2rem 0 .4rem; counter-reset: step; }
@@ -123,6 +124,7 @@
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}" {{if eq .Nav "general"}}class="active"{{end}}>General</a>
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/aws" {{if eq .Nav "aws"}}class="active"{{end}}>AWS access</a>
   {{if .RepositoriesOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/repositories" {{if eq .Nav "repositories"}}class="active"{{end}}>Repositories</a>{{end}}
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/claude" {{if eq .Nav "claude"}}class="active"{{end}}>Claude</a>
   {{if .TailscaleOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/tailscale" {{if eq .Nav "tailscale"}}class="active"{{end}}>Tailscale</a>{{end}}
   {{if .RuntimeOffered}}
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/runtime" {{if eq .Nav "runtime"}}class="active"{{end}}>Runtime</a>

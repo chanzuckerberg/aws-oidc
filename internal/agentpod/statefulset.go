@@ -179,6 +179,7 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent) []corev1.VolumeMount {
 		},
 		{Name: awsConfigVolume, MountPath: awsConfigMountPath, ReadOnly: true},
 		{Name: tokenVolume, MountPath: tokenMountPath, ReadOnly: true},
+		{Name: userClaudeConfigVolume, MountPath: userClaudeConfigMountPath, ReadOnly: true},
 	}
 	if r.anthropicWIFConfigured() {
 		mounts = append(mounts, corev1.VolumeMount{
@@ -242,6 +243,14 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 							Path:              "token",
 						},
 					}},
+				},
+			},
+		},
+		{
+			Name: userClaudeConfigVolume,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: agent.ClaudeConfigMapName()},
 				},
 			},
 		},

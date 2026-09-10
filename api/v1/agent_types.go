@@ -85,6 +85,16 @@ type AgentEnvVar struct {
 	Value string `json:"value,omitempty"`
 }
 
+type ClaudeConfig struct {
+	// +optional
+	// +kubebuilder:validation:MaxLength=262144
+	ClaudeMD string `json:"claudeMd,omitempty"`
+
+	// +optional
+	// +kubebuilder:validation:MaxLength=262144
+	SettingsJSON string `json:"settingsJson,omitempty"`
+}
+
 // AgentRuntime describes how the agent pod runs. It is a curated subset of a
 // pod spec rather than an embedded PodSpec: the operator owns the service account, the
 // projected token volume, and the AWS config mount, so an owner cannot point their pod at
@@ -165,6 +175,9 @@ type AgentSpec struct {
 	// +optional
 	// +listType=set
 	Repositories []Repository `json:"repositories,omitempty"`
+
+	// +optional
+	Claude *ClaudeConfig `json:"claude,omitempty"`
 
 	// Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
 	// owner's email local part. When nil the agent has no tailnet identity.

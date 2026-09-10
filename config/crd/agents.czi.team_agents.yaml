@@ -61,6 +61,15 @@ spec:
           spec:
             description: AgentSpec is the desired state a human sets through the portal.
             properties:
+              claude:
+                properties:
+                  claudeMd:
+                    maxLength: 262144
+                    type: string
+                  settingsJson:
+                    maxLength: 262144
+                    type: string
+                type: object
               displayName:
                 description: |-
                   DisplayName is the human-friendly name shown in the portal. Defaults to the

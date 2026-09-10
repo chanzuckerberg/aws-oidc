@@ -112,6 +112,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /agents/{name}/repositories", s.handleRepositories)
 	mux.HandleFunc("POST /agents/{name}/repositories", s.handleUpdateRepositories)
 	mux.HandleFunc("GET /agents/{name}/repositories/search", s.handleRepositorySearch)
+	mux.HandleFunc("GET /agents/{name}/claude", s.handleClaude)
+	mux.HandleFunc("POST /agents/{name}/claude", s.handleUpdateClaude)
 	mux.HandleFunc("POST /agents/{name}/suspend", s.handleToggleSuspend)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
 	mux.HandleFunc("GET /agents/{name}/connection", s.handleConnection)
@@ -195,6 +197,8 @@ type pageData struct {
 	// Repositories is the agent's current (or just-submitted) "owner/repo" list, shown as
 	// chips on the Repositories page.
 	Repositories []string
+	ClaudeMD     string
+	SettingsJSON string
 	// Onboarding drives the post-create walkthrough. Its zero value renders the page as a
 	// standalone edit screen.
 	Onboarding onboarding
@@ -358,6 +362,78 @@ func (s *Server) handleUpdateGeneral(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.redirect(w, r, "/agents/"+agent.Name)
+}
+
+func (s *Server) handleClaude(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	claudeMD := ""
+	settingsJSON := "{}"
+	if agent.Spec.Claude != nil {
+		claudeMD = agent.Spec.Claude.ClaudeMD
+		if agent.Spec.Claude.SettingsJSON != "" {
+			settingsJSON = agent.Spec.Claude.SettingsJSON
+		}
+	}
+	s.render(w, "agent_claude", pageData{
+		Title:        "Claude — " + agent.Name,
+		User:         user,
+		Agent:        agent,
+		Nav:          "claude",
+		ClaudeMD:     claudeMD,
+		SettingsJSON: settingsJSON,
+	})
+}
+
+func (s *Server) handleUpdateClaude(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	claudeMD := r.FormValue("claude-md")
+	settingsJSON := strings.TrimSpace(r.FormValue("settings-json"))
+	if settingsJSON == "" {
+		settingsJSON = "{}"
+	}
+	var settings map[string]json.RawMessage
+	err = json.Unmarshal([]byte(settingsJSON), &settings)
+	if err != nil || settings == nil {
+		s.render(w, "agent_claude", pageData{
+			Title:        "Claude — " + agent.Name,
+			User:         user,
+			Agent:        agent,
+			Nav:          "claude",
+			ClaudeMD:     claudeMD,
+			SettingsJSON: settingsJSON,
+			Error:        "settings.json must contain a JSON object",
+		})
+		return
+	}
+	agent.Spec.Claude = &agentsv1.ClaudeConfig{
+		ClaudeMD:     claudeMD,
+		SettingsJSON: settingsJSON + "\n",
+	}
+	err = s.cfg.Store.Upsert(r.Context(), agent)
+	if err != nil {
+		s.fail(w, "updating Claude configuration", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/claude")
 }
 
 func (s *Server) handleAWS(w http.ResponseWriter, r *http.Request) {

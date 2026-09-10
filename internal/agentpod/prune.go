@@ -59,6 +59,7 @@ func (r *Reconciler) pruneRuntime(ctx context.Context, agent *agentsv1.Agent) er
 		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: agent.ServiceAccountName(), Namespace: r.Namespace}},
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: agent.ServiceName(), Namespace: r.Namespace}},
 		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: agent.AWSConfigMapName(), Namespace: r.Namespace}},
+		&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: agent.ClaudeConfigMapName(), Namespace: r.Namespace}},
 	}
 
 	var errs []error

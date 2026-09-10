@@ -99,6 +99,9 @@ const (
 	managedSettingsMountPath = "/etc/claude-code"
 	// managedSettingsMode 0755 makes shell scripts in the ConfigMap executable.
 	managedSettingsMode int32 = 0o755
+
+	userClaudeConfigVolume    = "user-claude-config"
+	userClaudeConfigMountPath = "/etc/agent-user-config"
 )
 
 // Config is the operator-level policy for running agent pods.
@@ -201,6 +204,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) (*age
 	if err != nil {
 		return nil, err
 	}
+	err = r.ensureClaudeConfig(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
 	err = r.ensureStorage(ctx, agent)
 	if err != nil {
 		return nil, err
@@ -271,6 +278,34 @@ func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent)
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, configMap, func() error {
 		configMap.Labels = agentLabels(agent)
 		configMap.Data = map[string]string{"config": rendered}
+		return controllerutil.SetControllerReference(agent, configMap, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("ensuring config map %s: %w", configMap.Name, err)
+	}
+	return nil
+}
+
+func (r *Reconciler) ensureClaudeConfig(ctx context.Context, agent *agentsv1.Agent) error {
+	claudeMD := ""
+	settingsJSON := "{}\n"
+	if agent.Spec.Claude != nil {
+		claudeMD = agent.Spec.Claude.ClaudeMD
+		if agent.Spec.Claude.SettingsJSON != "" {
+			settingsJSON = agent.Spec.Claude.SettingsJSON
+		}
+	}
+
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+		Name:      agent.ClaudeConfigMapName(),
+		Namespace: r.Namespace,
+	}}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, configMap, func() error {
+		configMap.Labels = agentLabels(agent)
+		configMap.Data = map[string]string{
+			"CLAUDE.md":     claudeMD,
+			"settings.json": settingsJSON,
+		}
 		return controllerutil.SetControllerReference(agent, configMap, r.Scheme)
 	})
 	if err != nil {

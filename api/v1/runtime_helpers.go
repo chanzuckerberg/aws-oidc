@@ -21,6 +21,10 @@ func (a *Agent) AWSConfigMapName() string {
 	return truncateName("agent-"+sanitizeName(a.Name)+"-aws-config", objectNameMaxLength)
 }
 
+func (a *Agent) ClaudeConfigMapName() string {
+	return truncateName("agent-"+sanitizeName(a.Name)+"-claude-config", objectNameMaxLength)
+}
+
 func (a *Agent) StatefulSetName() string {
 	return truncateName("agent-"+sanitizeName(a.Name), statefulSetNameMaxLength)
 }

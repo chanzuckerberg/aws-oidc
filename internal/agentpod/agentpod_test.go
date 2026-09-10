@@ -575,6 +575,43 @@ func TestReconcileMountsPersistentData(t *testing.T) {
 	require.Equal(t, int64(1000), *pod.Containers[0].SecurityContext.RunAsUser)
 }
 
+func TestReconcileMountsUserClaudeConfig(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	agent.Spec.Claude = &agentsv1.ClaudeConfig{
+		ClaudeMD:     "# Agent instructions\n",
+		SettingsJSON: "{\"theme\":\"dark\"}\n",
+	}
+	r, c := testReconciler(t, agent)
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	configMap := &corev1.ConfigMap{}
+	err = c.Get(ctx, types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      agent.ClaudeConfigMapName(),
+	}, configMap)
+	require.NoError(t, err)
+	require.Equal(t, "# Agent instructions\n", configMap.Data["CLAUDE.md"])
+	require.Equal(t, "{\"theme\":\"dark\"}\n", configMap.Data["settings.json"])
+
+	set := &appsv1.StatefulSet{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: agent.StatefulSetName()}, set)
+	require.NoError(t, err)
+	require.Contains(t, set.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: userClaudeConfigVolume,
+		VolumeSource: corev1.VolumeSource{ConfigMap: &corev1.ConfigMapVolumeSource{
+			LocalObjectReference: corev1.LocalObjectReference{Name: agent.ClaudeConfigMapName()},
+		}},
+	})
+	require.Contains(t, set.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		Name:      userClaudeConfigVolume,
+		MountPath: userClaudeConfigMountPath,
+		ReadOnly:  true,
+	})
+}
+
 func TestReconcileReportsRunningAgent(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()

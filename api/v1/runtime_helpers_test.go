@@ -28,6 +28,7 @@ func TestRuntimeObjectNamesFitKubernetesLimits(t *testing.T) {
 	require.LessOrEqual(t, len(long.ServiceAccountName()), 63)
 	require.LessOrEqual(t, len(long.PersistentVolumeClaimName()), 63)
 	require.LessOrEqual(t, len(long.AWSConfigMapName()), 63)
+	require.LessOrEqual(t, len(long.ClaudeConfigMapName()), 63)
 	require.LessOrEqual(t, len(long.ServiceName()), 63)
 	require.Equal(t, long.StatefulSetName(), agentNamed(long.Name, "").StatefulSetName())
 }

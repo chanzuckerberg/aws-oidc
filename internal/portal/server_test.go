@@ -1,7 +1,10 @@
 package portal
 
 import (
+	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -107,4 +110,43 @@ func TestTemplatesRender(t *testing.T) {
 func TestNormalizeReposDeduplicatesAndTrims(t *testing.T) {
 	got := normalizeRepos([]string{" chanzuckerberg/aws-oidc ", "", "chanzuckerberg/AWS-OIDC", "evolutionaryscale/foo"})
 	require.Equal(t, []string{"chanzuckerberg/aws-oidc", "evolutionaryscale/foo"}, got)
+}
+
+func TestUpdateClaudeConfig(t *testing.T) {
+	store := newMemStore()
+	server := fullServer(t, store)
+	postCreate(t, server, "bot", "a@example.com")
+
+	values := url.Values{
+		"claude-md":     {"# Personal instructions\n"},
+		"settings-json": {`{"theme":"dark"}`},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/agents/bot/claude", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusSeeOther, response.Code)
+
+	agent, err := store.Get(request.Context(), "bot")
+	require.NoError(t, err)
+	require.Equal(t, "# Personal instructions\n", agent.Spec.Claude.ClaudeMD)
+	require.Equal(t, "{\"theme\":\"dark\"}\n", agent.Spec.Claude.SettingsJSON)
+}
+
+func TestUpdateClaudeConfigRejectsNonObjectSettings(t *testing.T) {
+	store := newMemStore()
+	server := fullServer(t, store)
+	postCreate(t, server, "bot", "a@example.com")
+
+	values := url.Values{"settings-json": {`["invalid"]`}}
+	request := httptest.NewRequest(http.MethodPost, "/agents/bot/claude", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), "settings.json must contain a JSON object")
+
+	agent, err := store.Get(request.Context(), "bot")
+	require.NoError(t, err)
+	require.Nil(t, agent.Spec.Claude)
 }
