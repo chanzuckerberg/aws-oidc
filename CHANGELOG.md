@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.38.6](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.5...v0.38.6) (2026-09-10)
+
+
+### Bug Fixes
+
+* **rolemap:** read Terraform state from S3 ([#1265](https://github.com/chanzuckerberg/aws-oidc/issues/1265)) ([7d3eb43](https://github.com/chanzuckerberg/aws-oidc/commit/7d3eb43d24d0411fb3d2c77065ef02ef73a532c9))
+
+
+### Misc
+
+* bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.88.4 to 1.97.3 ([#1268](https://github.com/chanzuckerberg/aws-oidc/issues/1268)) ([ab99d29](https://github.com/chanzuckerberg/aws-oidc/commit/ab99d290ced55e174f094f99f8a4aaff30be9f8d))
+
 ## [0.38.5](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.4...v0.38.5) (2026-08-31)
 
 
