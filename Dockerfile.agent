@@ -12,6 +12,8 @@ ARG GO_VERSION=1.27.1
 ARG NODE_VERSION=24.20.0
 ARG TARGETARCH
 
+ENV PATH="/usr/local/go/bin:${PATH}"
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         bash \
