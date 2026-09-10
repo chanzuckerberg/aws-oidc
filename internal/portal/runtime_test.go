@@ -22,14 +22,8 @@ func form(t *testing.T, values url.Values) *http.Request {
 	return r
 }
 
-func TestParseRuntimeDisabled(t *testing.T) {
-	runtime, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{}, true)
-	require.NoError(t, err)
-	require.Nil(t, runtime)
-}
-
 func TestParseRuntimeUsesDefaults(t *testing.T) {
-	runtime, err := parseRuntime(form(t, url.Values{"runtime": {"on"}}), nil, AgentLimits{}, true)
+	runtime, err := parseRuntime(form(t, url.Values{}), nil, AgentLimits{}, true)
 	require.NoError(t, err)
 	require.NotNil(t, runtime)
 	require.Equal(t, defaultCPU, runtime.Resources.Requests.Cpu().String())
@@ -37,14 +31,15 @@ func TestParseRuntimeUsesDefaults(t *testing.T) {
 	require.Equal(t, defaultStorageSize, runtime.StorageSize.String())
 }
 
-func TestParseRuntimeReadsSizingAndSuspension(t *testing.T) {
+func TestParseRuntimeReadsSizingAndPreservesSuspension(t *testing.T) {
+	current := &agentsv1.Agent{Spec: agentsv1.AgentSpec{
+		Runtime: &agentsv1.AgentRuntime{Suspended: true},
+	}}
 	runtime, err := parseRuntime(form(t, url.Values{
-		"runtime":      {"on"},
 		"cpu":          {"2"},
 		"memory":       {"4Gi"},
 		"storage-size": {"100Gi"},
-		"suspended":    {"on"},
-	}), nil, AgentLimits{}, true)
+	}), current, AgentLimits{}, true)
 	require.NoError(t, err)
 
 	require.Equal(t, "2", runtime.Resources.Requests.Cpu().String())
@@ -54,13 +49,13 @@ func TestParseRuntimeReadsSizingAndSuspension(t *testing.T) {
 }
 
 func TestParseRuntimeRejectsOversizedRequests(t *testing.T) {
-	_, err := parseRuntime(form(t, url.Values{"runtime": {"on"}, "cpu": {"64"}}), nil, AgentLimits{}, true)
+	_, err := parseRuntime(form(t, url.Values{"cpu": {"64"}}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "CPU is limited to 4")
 
-	_, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "memory": {"512Gi"}}), nil, AgentLimits{}, true)
+	_, err = parseRuntime(form(t, url.Values{"memory": {"512Gi"}}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "Memory is limited to 16Gi")
 
-	_, err = parseRuntime(form(t, url.Values{"runtime": {"on"}, "storage-size": {"1Ti"}}), nil, AgentLimits{}, true)
+	_, err = parseRuntime(form(t, url.Values{"storage-size": {"1Ti"}}), nil, AgentLimits{}, true)
 	require.ErrorContains(t, err, "Storage size is limited to 500Gi")
 }
 
@@ -70,8 +65,6 @@ func TestRuntimeFromAgentShowsStoredState(t *testing.T) {
 	agent.Status.Runtime = &agentsv1.RuntimeStatus{State: agentsv1.RuntimeStateSuspended}
 
 	runtime := runtimeFromAgent(agent, AgentLimits{}.defaults())
-	require.True(t, runtime.Enabled)
-	require.True(t, runtime.Suspended)
 	require.Equal(t, "Suspended", runtime.State)
 	require.Equal(t, defaultCPU, runtime.CPU)
 }
@@ -93,11 +86,13 @@ func TestFormHidesRuntimeWhenNotOffered(t *testing.T) {
 
 	shown := httptest.NewRecorder()
 	withRuntime.render(shown, "agent_runtime", data)
-	require.Contains(t, shown.Body.String(), "Run this agent in the cluster")
+	require.Contains(t, shown.Body.String(), `name="cpu"`)
+	require.NotContains(t, shown.Body.String(), "Run this agent in the cluster")
+	require.NotContains(t, shown.Body.String(), "Suspend the agent while preserving its data")
 
 	hidden := httptest.NewRecorder()
 	withoutRuntime.render(hidden, "agent_runtime", data)
-	require.NotContains(t, hidden.Body.String(), "Run this agent in the cluster")
+	require.NotContains(t, hidden.Body.String(), `name="cpu"`)
 }
 
 func TestParseAgentRuntimeLeavesStoredRuntimeAloneWhenNotOffered(t *testing.T) {

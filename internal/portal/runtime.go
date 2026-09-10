@@ -89,13 +89,11 @@ func defaultRuntime(limits AgentLimits) *agentsv1.AgentRuntime {
 }
 
 type runtimeForm struct {
-	Enabled      bool
 	CPU          string
 	Memory       string
 	Image        string
 	StorageClass string
 	StorageSize  string
-	Suspended    bool
 	State        string
 	Message      string
 	Limits       AgentLimits
@@ -115,8 +113,6 @@ func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 	}
 
 	runtime := agent.Spec.Runtime
-	form.Enabled = true
-	form.Suspended = runtime.Suspended
 	if cpu := runtime.Resources.Requests.Cpu(); !cpu.IsZero() {
 		form.CPU = cpu.String()
 	}
@@ -141,21 +137,16 @@ func runtimeFromAgent(agent *agentsv1.Agent, limits AgentLimits) runtimeForm {
 
 func runtimeFromForm(r *http.Request, limits AgentLimits) runtimeForm {
 	return runtimeForm{
-		Enabled:      r.FormValue("runtime") != "",
 		CPU:          r.FormValue("cpu"),
 		Memory:       r.FormValue("memory"),
 		Image:        r.FormValue("image"),
 		StorageClass: r.FormValue("storage-class"),
 		StorageSize:  r.FormValue("storage-size"),
-		Suspended:    r.FormValue("suspended") != "",
 		Limits:       limits,
 	}
 }
 
 func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits, isAdmin bool) (*agentsv1.AgentRuntime, error) {
-	if r.FormValue("runtime") == "" {
-		return nil, nil
-	}
 	limits = limits.defaults()
 
 	cpu, err := parseQuantity(r, "cpu", "CPU", defaultCPU, limits.MaxCPU)
@@ -172,12 +163,17 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits, 
 	}
 
 	var image, storageClass string
+	suspended := false
 	if isAdmin {
 		image = strings.TrimSpace(r.FormValue("image"))
 		storageClass = strings.TrimSpace(r.FormValue("storage-class"))
-	} else if current != nil && current.Spec.Runtime != nil {
-		image = current.Spec.Runtime.Image
-		storageClass = current.Spec.Runtime.StorageClass
+	}
+	if current != nil && current.Spec.Runtime != nil {
+		suspended = current.Spec.Runtime.Suspended
+		if !isAdmin {
+			image = current.Spec.Runtime.Image
+			storageClass = current.Spec.Runtime.StorageClass
+		}
 	}
 
 	sizing := corev1.ResourceList{corev1.ResourceCPU: cpu, corev1.ResourceMemory: memory}
@@ -185,7 +181,7 @@ func parseRuntime(r *http.Request, current *agentsv1.Agent, limits AgentLimits, 
 		Image:        image,
 		StorageClass: storageClass,
 		StorageSize:  &storageSize,
-		Suspended:    r.FormValue("suspended") != "",
+		Suspended:    suspended,
 		Resources:    corev1.ResourceRequirements{Requests: sizing, Limits: sizing.DeepCopy()},
 	}, nil
 }

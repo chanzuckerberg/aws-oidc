@@ -14,19 +14,11 @@
       {{if .RuntimeOffered}}{{with .Runtime}}
       <form method="post" action="{{$.BasePath}}/agents/{{$.Agent.Name}}/runtime">
         <fieldset>
-          <legend>Run in the cluster</legend>
-          <label class="grant">
-            <input type="checkbox" name="runtime" value="on" {{if .Enabled}}checked{{end}}>
-            Run this agent in the cluster
-          </label>
+          <legend>Resources</legend>
           <p class="muted" style="margin:.5rem 0;">
             The agent gets one pod and one persistent working directory. Multiple SSH sessions can
             use the pod at the same time.
           </p>
-          <label class="grant">
-            <input type="checkbox" name="suspended" value="on" {{if .Suspended}}checked{{end}}>
-            Suspend the agent while preserving its data
-          </label>
 
           <p class="sizing">
             <label>CPU <input name="cpu" value="{{.CPU}}" placeholder="500m" size="8"></label>
