@@ -247,7 +247,7 @@ func trustStatements(t *testing.T, doc string) map[string]map[string]any {
 	return byStatementID
 }
 
-func TestTrustPolicyTrustsWorkspaceServiceAccounts(t *testing.T) {
+func TestTrustPolicyTrustsAgentServiceAccount(t *testing.T) {
 	f := &fakeIAM{}
 	agent := runtimeAgent()
 
@@ -257,7 +257,7 @@ func TestTrustPolicyTrustsWorkspaceServiceAccounts(t *testing.T) {
 	statements := trustStatements(t, f.createdTrust)
 	require.Len(t, statements, 2)
 
-	cluster := statements["AgentWorkspaceServiceAccounts"]
+	cluster := statements["AgentServiceAccount"]
 	require.Equal(t,
 		"arn:aws:iam::111111111111:oidc-provider/"+clusterProvider,
 		cluster["Principal"].(map[string]any)["Federated"],
@@ -268,11 +268,9 @@ func TestTrustPolicyTrustsWorkspaceServiceAccounts(t *testing.T) {
 		"sts.amazonaws.com",
 		condition["StringEquals"].(map[string]any)[clusterProvider+":aud"],
 	)
-	// One wildcard covers every workspace, so adding a workspace needs no IAM write. The prefix is
-	// the agent's uid, not its name, so it cannot match another agent's workspaces.
 	require.Equal(t,
-		"system:serviceaccount:argus-aws-oidc-rdev:remote-agent-0f8fad5bd9cb-*",
-		condition["StringLike"].(map[string]any)[clusterProvider+":sub"],
+		"system:serviceaccount:argus-aws-oidc-rdev:remote-agent-0f8fad5bd9cb",
+		condition["StringEquals"].(map[string]any)[clusterProvider+":sub"],
 	)
 }
 
@@ -303,7 +301,7 @@ func TestEnsureCorrectsTrustDriftOnExistingRole(t *testing.T) {
 	_, err = p.Ensure(ctx, agent, awsGrant())
 	require.NoError(t, err)
 	require.Empty(t, f.createdRoleName, "an existing role must not be recreated")
-	require.Contains(t, f.updatedTrust, "AgentWorkspaceServiceAccounts")
+	require.Contains(t, f.updatedTrust, "AgentServiceAccount")
 
 	// Already correct: no write, so a steady-state resync does not churn IAM.
 	settled := &fakeIAM{existingTrust: f.updatedTrust}

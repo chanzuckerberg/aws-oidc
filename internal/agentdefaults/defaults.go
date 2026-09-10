@@ -18,26 +18,25 @@ const defaultTTL = 30 * time.Second
 // a zero value means "no default from the ConfigMap; fall back to the process flag or
 // built-in constant."
 type Defaults struct {
-	// Image is the container image for agent workspace pods.
+	// Image is the container image for agent pods.
 	Image string `yaml:"image"`
 	// Command overrides the image entrypoint when set.
 	Command []string `yaml:"command"`
-	// StorageClass is the ReadWriteMany storage class for agent workspace PVCs.
+	// StorageClass is the ReadWriteMany storage class for agent PVCs.
 	StorageClass string `yaml:"storageClass"`
-	// WorkspaceSize is the PVC storage request (an EFS placeholder; the filesystem is elastic).
-	WorkspaceSize string `yaml:"workspaceSize"`
-	// CPU is the default CPU request/limit placed on each workspace container.
+	// StorageSize is the PVC storage request (an EFS placeholder; the filesystem is elastic).
+	StorageSize string `yaml:"storageSize"`
+	// CPU is the default CPU request/limit placed on each agent container.
 	CPU string `yaml:"cpu"`
-	// Memory is the default memory request/limit placed on each workspace container.
+	// Memory is the default memory request/limit placed on each agent container.
 	Memory string `yaml:"memory"`
 	// MaxCPU is the ceiling the portal enforces on CPU requests.
 	MaxCPU string `yaml:"maxCPU"`
 	// MaxMemory is the ceiling the portal enforces on memory requests.
 	MaxMemory string `yaml:"maxMemory"`
-	// MaxWorkspace is the ceiling the portal enforces on workspace size requests.
-	MaxWorkspace string `yaml:"maxWorkspace"`
-	// MaxWorkspaces is the maximum number of workspaces any agent may run.
-	MaxWorkspaces int `yaml:"maxWorkspaces"`
+	// MaxStorage is the ceiling the portal enforces on storage size requests.
+	MaxStorage string `yaml:"maxStorage"`
+	ClaudeMD   string `yaml:"claudeMD"`
 }
 
 // Loader reads Defaults from a YAML file and caches the result. Re-reads happen in the

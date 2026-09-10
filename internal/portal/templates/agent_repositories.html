@@ -10,6 +10,9 @@
   .chips:empty::before { content: "No repositories yet. Start typing above to add one."; color: #999; font-size: .9em; }
   .chip { display: inline-flex; align-items: center; gap: .35rem; background: #f0faf4; border: 1px solid #1a5; border-radius: 999px; padding: .2rem .3rem .2rem .7rem; font-size: .85em; }
   .chip-remove { border: none; background: none; cursor: pointer; color: #1a5; font-size: 1.1em; line-height: 1; padding: 0 .2rem; }
+  .memory-card { margin-top: .75rem; padding: .75rem; border: 1px solid #ddd; border-radius: 6px; }
+  .memory-card strong { overflow-wrap: anywhere; }
+  .memory-preview { margin: .5rem 0; padding-left: 1.25rem; font-size: .85em; }
 </style>
 <div class="page">
   <div class="edit-layout">
@@ -18,7 +21,7 @@
       <h1>Repositories</h1>
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
       <p class="muted">
-        These repositories are cloned into <code>/workspace</code> when a workspace pod boots, so
+        These repositories are cloned into <code>/workspace</code> when the agent pod boots, so
         sessions find the source already checked out and authenticated. Start typing to search
         the repositories this agent's GitHub App can reach, and pick from the suggestions.
       </p>
@@ -32,20 +35,43 @@
           <ul class="repo-suggestions" id="repo-suggestions"></ul>
         </div>
 
-        <div class="chips" id="repo-chips">
-          {{range .Repositories}}
+        <div class="chips" id="repo-chips">{{range .Repositories}}
           <span class="chip" data-repo="{{.}}">
             <span class="chip-label">{{.}}</span>
             <button type="button" class="chip-remove" aria-label="Remove {{.}}">&times;</button>
             <input type="hidden" name="repository" value="{{.}}">
           </span>
-          {{end}}
-        </div>
+          {{end}}</div>
 
-        <p style="margin-top:1rem;">
-          <button class="btn primary" type="submit">Save</button>
-        </p>
+        {{template "formactions" .}}
       </form>
+
+      {{if .Repositories}}
+      <h2>Project memories</h2>
+      <p class="muted">Import the auto-memory folder for each repository after saving it above. From that repository on your computer, run <code>/memory</code> in Claude and open the auto-memory folder.</p>
+      {{range .Repositories}}
+      {{$memory := index $.MemoryImports .}}
+      <div class="memory-card">
+        <strong>{{.}}</strong>
+        {{if $memory.Revision}}
+        <span class="muted"> · {{$memory.State}}</span>
+        {{if $memory.Message}}<p class="err">{{$memory.Message}}</p>{{end}}
+        {{else}}
+        <span class="muted"> · No imported memory</span>
+        {{end}}
+        <form class="memory-import-form" method="post" enctype="multipart/form-data"
+              action="{{$.BasePath}}/agents/{{$.Agent.Name}}/repositories/memory">
+          <input type="hidden" name="repository" value="{{.}}">
+          <p><input class="memory-folder-input" type="file" name="memory-files" multiple webkitdirectory directory accept=".md,text/markdown"></p>
+          <p class="hint">Choose the folder containing MEMORY.md and its Markdown topic files. Up to 64 files and 512 KiB total.</p>
+          <p class="memory-import-error err" hidden></p>
+          <ul class="memory-preview"></ul>
+          {{if $memory.Revision}}<p class="notice">Replacing this import overwrites memories Claude learned for this repository on the agent.</p>{{end}}
+          <button class="btn small memory-import-submit" type="submit" disabled>{{if $memory.Revision}}Replace memory{{else}}Import memory{{end}}</button>
+        </form>
+      </div>
+      {{end}}
+      {{end}}
     </div>
   </div>
 </div>
@@ -155,6 +181,69 @@
     button.addEventListener("click", function () {
       var chip = button.closest(".chip");
       if (chip) { chip.remove(); }
+    });
+  });
+
+  document.querySelectorAll(".memory-import-form").forEach(function (memoryForm) {
+    var picker = memoryForm.querySelector(".memory-folder-input");
+    var preview = memoryForm.querySelector(".memory-preview");
+    var error = memoryForm.querySelector(".memory-import-error");
+    var submit = memoryForm.querySelector(".memory-import-submit");
+
+    picker.addEventListener("change", function () {
+      var files = Array.from(picker.files || []);
+      var names = {};
+      var total = 0;
+      var problem = "";
+      var hasIndex = false;
+      preview.innerHTML = "";
+
+      if (!files.length || files.length > 64) {
+        problem = "Choose a folder containing between 1 and 64 files.";
+      }
+      files.forEach(function (file) {
+        var relative = file.webkitRelativePath || "memory/" + file.name;
+        var parts = relative.split("/").filter(Boolean);
+        var name = file.name;
+        if (parts.length !== 2 || !/^[A-Za-z0-9][A-Za-z0-9_.-]*\.md$/.test(name)) {
+          problem = "Memory folders may contain only flat Markdown files.";
+        } else if (names[name.toLowerCase()]) {
+          problem = "Memory file names must be unique.";
+        } else if (file.size > 65536) {
+          problem = name + " exceeds the 64 KiB file limit.";
+        }
+        names[name.toLowerCase()] = true;
+        total += file.size;
+        hasIndex = hasIndex || name === "MEMORY.md";
+      });
+      if (total > 524288) { problem = "Memory import exceeds the 512 KiB total limit."; }
+      if (!hasIndex) { problem = "Memory import requires MEMORY.md."; }
+
+      error.hidden = !problem;
+      error.textContent = problem;
+      submit.disabled = !!problem;
+      if (problem) { return; }
+
+      memoryForm.querySelectorAll("input[name=memory-path]").forEach(function (input) { input.remove(); });
+      files.forEach(function (file) {
+        var path = document.createElement("input");
+        path.type = "hidden";
+        path.name = "memory-path";
+        path.value = file.webkitRelativePath || "memory/" + file.name;
+        memoryForm.appendChild(path);
+      });
+      files.slice().sort(function (a, b) { return a.name.localeCompare(b.name); }).forEach(function (file) {
+        var item = document.createElement("li");
+        item.textContent = file.name + " (" + file.size + " bytes)";
+        preview.appendChild(item);
+      });
+    });
+
+    memoryForm.addEventListener("submit", function (event) {
+      if (submit.textContent.trim() !== "Replace memory") { return; }
+      if (!confirm("Replace this repository's agent memory with the selected files?")) {
+        event.preventDefault();
+      }
     });
   });
 })();

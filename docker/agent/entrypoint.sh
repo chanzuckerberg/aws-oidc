@@ -58,6 +58,13 @@ ensure_agent_repositories() {
     done
 }
 
+ensure_agent_claude_config() {
+    [[ -d /etc/agent-user-config ]] || return 0
+    run_as_agent mkdir -p /workspace/.claude
+    run_as_agent ln -sfn /etc/agent-user-config/CLAUDE.md /workspace/.claude/CLAUDE.md
+    run_as_agent ln -sfn /etc/agent-user-config/settings.json /workspace/.claude/settings.json
+}
+
 # ensure_agent_plugins installs the shared CZI Claude Code plugins so every agent has them by
 # default. The czi-ai-toolchain marketplace splits its content into czi-general and czi-infra;
 # the earlier single ai-toolchain plugin no longer exists. Claude Code's CLI does not
@@ -172,7 +179,7 @@ if [[ -n "${TAILSCALE_TOKEN_FILE:-}" && -f "${TAILSCALE_TOKEN_FILE}" ]]; then
         log "ERROR: could not extract client_id from token aud — continuing without tailscale"
     else
         local_part="${AGENT_OWNER_EMAIL%%@*}"
-        hostname="agent-$(echo "${local_part:-unknown}-${AGENT_NAME:-unknown}-${AGENT_WORKSPACE:-0}" \
+        hostname="agent-$(echo "${local_part:-unknown}-${AGENT_NAME:-unknown}" \
             | tr '[:upper:]' '[:lower:]' \
             | tr -cs 'a-z0-9-' '-' \
             | sed 's/-\+/-/g; s/^-//; s/-$//')"
@@ -196,6 +203,7 @@ elif [[ -n "${TAILSCALE_TOKEN_FILE:-}" ]]; then
 fi
 
 ensure_agent_repositories
+ensure_agent_claude_config
 ensure_agent_plugins
 
 exec "$@"

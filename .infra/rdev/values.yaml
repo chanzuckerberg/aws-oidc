@@ -5,7 +5,7 @@
 # The Helm template for agent-defaults.yaml composes repository + tag into the full image ref.
 agentImage:
   repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/agent
-  tag: &agent-image sha-c9b1100
+  tag: &agent-image sha-c8b751b
 
 stack:
   global:
@@ -20,7 +20,7 @@ stack:
   services:
     aws-oidc:
       image:
-        tag: sha-c9b1100
+        tag: sha-c8b751b
       # Overrides the common args to enable agent config generation in rdev. Arrays replace
       # rather than merge, so serve-config and -v are repeated here.
       args:
@@ -37,7 +37,7 @@ stack:
     portal:
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-c9b1100
+        tag: sha-c8b751b
       serviceAccount:
         create: true
         name: portal
@@ -60,16 +60,11 @@ stack:
         - --defaults-config=/etc/aws-oidc/defaults.yaml
         - -v
       gateway:
-        oidcProtected: true
+        securityPolicy: oidc-protected-default
         enabled: true
         paths:
           - path: /portal
             pathType: Prefix
-      oidcProxyGateway:
-        # The gateway encrypts its session cookies, so the portal cannot read the token from
-        # them. Forward the access token in the Authorization header instead; the portal
-        # verifies it against Okta and reads the user id from its uid claim.
-        forwardAccessToken: true
       livenessProbe:
         httpGet:
           path: /health
@@ -93,7 +88,7 @@ stack:
         # Groups are not in the access token, so the portal reads them from Okta userinfo to
         # decide who gets the admin view. Set this to the Okta admin group(s), comma-separated.
         - name: PORTAL_ADMIN_GROUPS
-          value: ""
+          value: "team-central-infra-eng"
         # To impersonate a specific user for testing, set PORTAL_DEV_SUB (and PORTAL_DEV_EMAIL)
         # to their Okta user id; that bypasses the gateway token and grants admin.
         # The shared GitHub App powers the Repositories page: the portal searches and validates
@@ -115,7 +110,7 @@ stack:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
         # Pin to an immutable sha tag (not the mutable branch tag) so a new image is actually
         # pulled on change; with the branch tag and IfNotPresent, nodes cache a stale image.
-        tag: sha-c9b1100
+        tag: sha-c8b751b
       serviceAccount:
         create: true
         name: agent-operator

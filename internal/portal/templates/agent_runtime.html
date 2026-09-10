@@ -4,18 +4,20 @@
     {{template "agentnav" .}}
     <div class="card">
       <h1>Runtime</h1>
+      {{if .Onboarding.Active}}
+      <p class="setup-banner">
+        This agent already runs in the cluster, so you can take the defaults and continue.
+        Change the sizing here if it needs more room.
+      </p>
+      {{end}}
       {{if .Error}}<p class="err">{{.Error}}</p>{{end}}
       {{if .RuntimeOffered}}{{with .Runtime}}
       <form method="post" action="{{$.BasePath}}/agents/{{$.Agent.Name}}/runtime">
         <fieldset>
-          <legend>Run in the cluster</legend>
-          <label class="grant">
-            <input type="checkbox" name="runtime" value="on" {{if .Enabled}}checked{{end}}>
-            Run this agent as pods in the cluster
-          </label>
+          <legend>Resources</legend>
           <p class="muted" style="margin:.5rem 0;">
-            Each workspace gets its own pod and its own persistent workspace, and assumes the
-            access granted above. Manage workspaces on the Workspaces page.
+            The agent gets one pod and one persistent working directory. Multiple SSH sessions can
+            use the pod at the same time.
           </p>
 
           <p class="sizing">
@@ -25,8 +27,8 @@
           </p>
 
           <p class="sizing">
-            <label>Workspace <input name="workspace-size" value="{{.WorkspaceSize}}" placeholder="50Gi" size="8"></label>
-            <span class="muted">up to {{.Limits.MaxWorkspace}}</span>
+            <label>Storage <input name="storage-size" value="{{.StorageSize}}" placeholder="50Gi" size="8"></label>
+            <span class="muted">up to {{.Limits.MaxStorage}}</span>
           </p>
 
           <p>
@@ -45,9 +47,7 @@
             {{if $.User.Admin}}<p class="hint">Admins only.</p>{{end}}
           </p>
         </fieldset>
-        <p>
-          <button class="btn primary" type="submit">Save</button>
-        </p>
+        {{template "formactions" $}}
       </form>
       {{end}}{{end}}
     </div>

@@ -55,7 +55,7 @@ type Grant struct {
 	// MinProperties/MaxProperties markers above.
 }
 
-// TailscaleAccess enrolls the agent's workspace pods in the tailnet and pins the SSH login
+// TailscaleAccess enrolls the agent pod in the tailnet and pins the SSH login
 // name they may use. Presence of this field means tailnet access is enabled for the agent.
 // The portal derives SSHUser from the owner's email local part and never allows root.
 type TailscaleAccess struct {
@@ -66,8 +66,8 @@ type TailscaleAccess struct {
 	SSHUser string `json:"sshUser"`
 }
 
-// Repository is a GitHub repository in "owner/repo" form that the agent clones into its
-// workspace at boot. The portal validates each entry is reachable by the agent's GitHub App
+// Repository is a GitHub repository in "owner/repo" form that the agent clones at boot.
+// The portal validates each entry is reachable by the agent's GitHub App
 // installations before saving; the pattern here is a second line of defense for writes that
 // bypass the portal, and keeps the value safe to hand to a shell as a single argument.
 // +kubebuilder:validation:Pattern=`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`
@@ -85,7 +85,29 @@ type AgentEnvVar struct {
 	Value string `json:"value,omitempty"`
 }
 
-// AgentRuntime is the shape every workspace of an agent runs as. It is a curated subset of a
+type ProjectMemoryImport struct {
+	Repository Repository `json:"repository"`
+
+	// +kubebuilder:validation:Pattern=`^[a-f0-9]{64}$`
+	Revision string `json:"revision"`
+}
+
+type ClaudeConfig struct {
+	// +optional
+	// +kubebuilder:validation:MaxLength=262144
+	ClaudeMD string `json:"claudeMd,omitempty"`
+
+	// +optional
+	// +kubebuilder:validation:MaxLength=262144
+	SettingsJSON string `json:"settingsJson,omitempty"`
+
+	// +optional
+	// +listType=map
+	// +listMapKey=repository
+	MemoryImports []ProjectMemoryImport `json:"memoryImports,omitempty"`
+}
+
+// AgentRuntime describes how the agent pod runs. It is a curated subset of a
 // pod spec rather than an embedded PodSpec: the operator owns the service account, the
 // projected token volume, and the AWS config mount, so an owner cannot point their pod at
 // another identity or mount a host path.
@@ -119,33 +141,19 @@ type AgentRuntime struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
-	// StorageClass overrides the operator's default storage class for the agent's workspace
+	// StorageClass overrides the operator's default storage class for the agent's
 	// PVC. Must be a ReadWriteMany class; on EFS the value is a billing-only placeholder and
 	// the filesystem grows without bound.
 	// +optional
 	StorageClass string `json:"storageClass,omitempty"`
 
-	// WorkspaceSize is the storage requested for the agent's shared workspace PVC. On EFS
+	// StorageSize is the storage requested for the agent's PVC. On EFS
 	// this is a placeholder only; the filesystem is not actually bounded by this value.
 	// Defaults to 50Gi when unset.
 	// +optional
-	WorkspaceSize *resource.Quantity `json:"workspaceSize,omitempty"`
-}
+	StorageSize *resource.Quantity `json:"storageSize,omitempty"`
 
-// AgentWorkspace is one running workspace of an agent: its own pod with its own working tree on
-// the shared volume, sharing the agent's access. A person runs several workspaces of the same
-// agent at once.
-type AgentWorkspace struct {
-	// Name identifies the workspace within the agent and names its Kubernetes objects.
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
-	// +kubebuilder:validation:MaxLength=24
-	Name string `json:"name"`
-
-	// DisplayName is the human-friendly label shown in the portal.
-	// +optional
-	DisplayName string `json:"displayName,omitempty"`
-
-	// Suspended scales the workspace to zero replicas while keeping its working tree intact.
+	// Suspended scales the agent to zero replicas while keeping its persistent data intact.
 	// +optional
 	Suspended bool `json:"suspended,omitempty"`
 }
@@ -173,30 +181,25 @@ type AgentSpec struct {
 	Grants []Grant `json:"grants,omitempty"`
 
 	// Repositories is the set of GitHub repositories, each "owner/repo", to clone into
-	// /workspace when a workspace pod boots, so sessions find the source already checked out.
+	// /workspace when the agent pod boots, so sessions find the source already checked out.
 	// Clones are idempotent: a repository already present is left as is. Only meaningful when
-	// Runtime is set, since it is the workspace pods that clone.
+	// Runtime is set.
 	// +optional
 	// +listType=set
 	Repositories []Repository `json:"repositories,omitempty"`
+
+	// +optional
+	Claude *ClaudeConfig `json:"claude,omitempty"`
 
 	// Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
 	// owner's email local part. When nil the agent has no tailnet identity.
 	// +optional
 	Tailscale *TailscaleAccess `json:"tailscale,omitempty"`
 
-	// Runtime describes how the agent runs in the cluster. When unset the agent has no pods
+	// Runtime describes how the agent runs in the cluster. When unset the agent has no pod
 	// and exists only as the access granted to it.
 	// +optional
 	Runtime *AgentRuntime `json:"runtime,omitempty"`
-
-	// Workspaces is the set of workspaces to run. Each gets its own pod and working tree. It is a
-	// map list so the API server rejects duplicate names and two writers editing different
-	// workspaces do not clobber each other. Ignored when Runtime is unset.
-	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Workspaces []AgentWorkspace `json:"workspaces,omitempty"`
 }
 
 // GrantState is the provisioning state of a single grant.
@@ -241,44 +244,66 @@ type GrantStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
-// WorkspaceState is the running state of one workspace.
+// RuntimeState is the running state of the agent pod.
 // +kubebuilder:validation:Enum=Pending;Running;Suspended;Failed
-type WorkspaceState string
+type RuntimeState string
 
 const (
-	// WorkspaceStatePending means the workspace's objects exist but no pod is ready yet.
-	WorkspaceStatePending WorkspaceState = "Pending"
-	// WorkspaceStateRunning means the workspace has a ready pod.
-	WorkspaceStateRunning WorkspaceState = "Running"
-	// WorkspaceStateSuspended means the workspace is intentionally scaled to zero.
-	WorkspaceStateSuspended WorkspaceState = "Suspended"
-	// WorkspaceStateFailed means the workspace could not be provisioned; see Message.
-	WorkspaceStateFailed WorkspaceState = "Failed"
+	// RuntimeStatePending means the agent's objects exist but its pod is not ready yet.
+	RuntimeStatePending RuntimeState = "Pending"
+	// RuntimeStateRunning means the agent has a ready pod.
+	RuntimeStateRunning RuntimeState = "Running"
+	// RuntimeStateSuspended means the agent is intentionally scaled to zero.
+	RuntimeStateSuspended RuntimeState = "Suspended"
+	// RuntimeStateFailed means the agent pod could not be provisioned; see Message.
+	RuntimeStateFailed RuntimeState = "Failed"
 )
 
-// WorkspaceStatus is what the operator provisioned for one workspace.
-type WorkspaceStatus struct {
-	// Name matches the workspace's name in spec.workspaces.
-	Name string `json:"name"`
-
-	// ServiceAccountName is the workspace's Kubernetes service account, whose projected token
+// RuntimeStatus is what the operator provisioned for the agent runtime.
+type RuntimeStatus struct {
+	// ServiceAccountName is the agent's Kubernetes service account, whose projected token
 	// the pod exchanges for the agent's AWS roles.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 
-	// StatefulSetName is the workload running the workspace.
+	// StatefulSetName is the workload running the agent.
 	// +optional
 	StatefulSetName string `json:"statefulSetName,omitempty"`
 
-	// ReadyReplicas is how many of the workspace's pods are ready (zero or one).
+	// ReadyReplicas is whether the agent pod is ready.
 	// +optional
 	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
 
-	// State is the workspace's running state.
+	// State is the agent runtime's state.
 	// +optional
-	State WorkspaceState `json:"state,omitempty"`
+	State RuntimeState `json:"state,omitempty"`
 
 	// Message carries the reason when State is Failed.
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// +optional
+	// +listType=map
+	// +listMapKey=repository
+	MemoryImports []ProjectMemoryImportStatus `json:"memoryImports,omitempty"`
+}
+
+// +kubebuilder:validation:Enum=Pending;Applied;Failed
+type ProjectMemoryImportState string
+
+const (
+	ProjectMemoryImportPending ProjectMemoryImportState = "Pending"
+	ProjectMemoryImportApplied ProjectMemoryImportState = "Applied"
+	ProjectMemoryImportFailed  ProjectMemoryImportState = "Failed"
+)
+
+type ProjectMemoryImportStatus struct {
+	Repository Repository `json:"repository"`
+
+	Revision string `json:"revision"`
+
+	State ProjectMemoryImportState `json:"state"`
+
 	// +optional
 	Message string `json:"message,omitempty"`
 }
@@ -287,7 +312,7 @@ type WorkspaceStatus struct {
 const (
 	// ConditionReady is true when every grant is Provisioned.
 	ConditionReady = "Ready"
-	// ConditionRuntimeReady is true when every non-suspended workspace has a ready pod.
+	// ConditionRuntimeReady is true when the agent pod is ready or intentionally suspended.
 	ConditionRuntimeReady = "RuntimeReady"
 )
 
@@ -309,17 +334,13 @@ type AgentStatus struct {
 	// +listType=atomic
 	Grants []GrantStatus `json:"grants,omitempty"`
 
-	// WorkspaceClaimName is the PVC shared by all of the agent's workspaces. Each workspace
-	// mounts it at its own subPath, so workspaces can share files through the shared directory
-	// while keeping their own working trees separate.
+	// PersistentVolumeClaimName is the PVC that stores the agent's working directory.
 	// +optional
-	WorkspaceClaimName string `json:"workspaceClaimName,omitempty"`
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
 
-	// Workspaces is the per-workspace provisioning result, one entry per spec.workspaces entry.
+	// Runtime is the agent pod's provisioning result.
 	// +optional
-	// +listType=map
-	// +listMapKey=name
-	Workspaces []WorkspaceStatus `json:"workspaces,omitempty"`
+	Runtime *RuntimeStatus `json:"runtime,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -328,7 +349,7 @@ type AgentStatus struct {
 // +kubebuilder:printcolumn:name="Display Name",type=string,JSONPath=`.spec.displayName`
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=`.spec.ownerEmail`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
-// +kubebuilder:printcolumn:name="Workspaces",type=string,JSONPath=`.status.workspaces[*].name`
+// +kubebuilder:printcolumn:name="Runtime",type=string,JSONPath=`.status.runtime.state`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // Agent is a registered agent and the scoped access granted to it. The CR is the source of

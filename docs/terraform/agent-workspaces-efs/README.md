@@ -1,6 +1,6 @@
-# Agent workspaces EFS
+# Agent data EFS
 
-Scratch Terraform for the EFS filesystem that agent workspaces mount at `/workspace` and `/shared`. It lives here so it can be applied by hand against `dev-central` and proved to work before it is adopted by a repository that applies Terraform through CI. It is not applied by any pipeline and it is not the long-term home for this code.
+Scratch Terraform for the EFS filesystem that agent pods mount at `/workspace`. It lives here so it can be applied by hand against `dev-central` and proved to work before it is adopted by a repository that applies Terraform through CI. It is not applied by any pipeline and it is not the long-term home for this code.
 
 State is local. Nothing here is shared, so `terraform.tfstate` is gitignored and the filesystem this creates is disposable. Destroy and recreate it rather than trying to preserve it.
 
@@ -8,7 +8,7 @@ State is local. Nothing here is shared, so `terraform.tfstate` is gitignored and
 
 One `aws_efs_file_system` with elastic throughput, encrypted at rest. A security group allowing NFS on port 2049 from the cluster's nodes. One mount target per availability zone. The `efs-agent-workspaces` StorageClass. A CloudWatch alarm on `StorageBytes`.
 
-The StorageClass uses `provisioningMode: efs-ap`, so the EFS CSI driver creates a fresh access point for every PVC. The operator creates one ReadWriteMany PVC per agent, so each agent gets its own access point and cannot reach another agent's files. Access point roots are owned by uid and gid 1000 with mode 750, matching the `runAsUser`, `runAsGroup` and `fsGroup` in the workspace pod spec.
+The StorageClass uses `provisioningMode: efs-ap`, so the EFS CSI driver creates a fresh access point for every PVC. The operator creates one ReadWriteMany PVC per agent, so each agent gets its own access point and cannot reach another agent's files. Access point roots are owned by uid and gid 1000 with mode 750, matching the `runAsUser`, `runAsGroup` and `fsGroup` in the agent pod spec.
 
 ## Facts about dev-central this relies on
 
@@ -18,7 +18,7 @@ That role can call `CreateAccessPoint` on any filesystem in the account, on the 
 
 The cluster's four subnets are all private and each sits in a different availability zone. EFS allows only one mount target per zone, so the configuration picks one subnet per zone rather than iterating the subnet list directly. That keeps the apply working if a zone ever gains a second subnet.
 
-EC2 nodes carry two security groups, `dev-central-node-sg` and the EKS-managed `eks-cluster-sg-dev-central-*`. Fargate pod network interfaces carry only the cluster security group. The ingress rule is created for both so a workspace pod can mount regardless of where it is scheduled.
+EC2 nodes carry two security groups, `dev-central-node-sg` and the EKS-managed `eks-cluster-sg-dev-central-*`. Fargate pod network interfaces carry only the cluster security group. The ingress rule is created for both so an agent pod can mount regardless of where it is scheduled.
 
 ## Applying
 
@@ -33,7 +33,7 @@ The AWS profile, account, region and cluster all default to `dev-central` in `co
 
 ## Verifying a pod can mount it
 
-Confirm the StorageClass and the driver agree, then let the operator create a real claim by giving an agent a runtime and a workspace:
+Confirm the StorageClass and the driver agree, then let the operator create a real claim by giving an agent a runtime:
 
 ```bash
 kubectl get storageclass efs-agent-workspaces
@@ -44,14 +44,14 @@ kubectl get pv
 A claim stuck in `Pending` is the interesting case. Read the events on it and the controller log:
 
 ```bash
-kubectl describe pvc -n <namespace> <agent>-workspace
+kubectl describe pvc -n <namespace> agent-<agent>-workspace
 kubectl -n kube-system logs deploy/efs-csi-controller -c csi-provisioner
 ```
 
 Once a pod is running, check that both mounts landed and that uid 1000 can write to them:
 
 ```bash
-kubectl -n <namespace> exec <pod> -- sh -c 'id; mount | grep efs; touch /workspace/ok /shared/ok && ls -la /workspace /shared'
+kubectl -n <namespace> exec <pod> -- sh -c 'id; mount | grep efs; touch /workspace/ok && ls -la /workspace'
 ```
 
 A write that fails with permission denied means the access point POSIX user and the pod's security context disagree. Compare `workspace_uid` here with the `RunAsUser` in `internal/agentpod/statefulset.go`.

@@ -8,31 +8,47 @@
       <th>Name</th>
       {{if .User.Admin}}<th>Owner</th>{{end}}
       <th>AWS access</th>
-      {{if .RuntimeOffered}}<th>Workspaces</th>{{end}}
+      {{if .RuntimeOffered}}<th>Runtime</th>{{end}}
       <th></th>
     </tr>
     {{range .Agents}}
     <tr>
       <td>{{.Name}}</td>
       {{if $.User.Admin}}<td class="muted">{{if .Spec.OwnerEmail}}{{.Spec.OwnerEmail}}{{else}}{{.Spec.Owner}}{{end}}</td>{{end}}
-      <td>
-        {{range .Spec.Grants}}{{with .AWS}}{{.AccountAlias}} / {{.RoleName}}<br>{{end}}{{else}}<span class="muted">none</span>{{end}}
+      <td class="access-cell">
+        {{if .Spec.Grants}}
+        <details class="access-details">
+          <summary>{{len .Spec.Grants}} AWS role{{if ne (len .Spec.Grants) 1}}s{{end}}</summary>
+          <div class="access-panel">
+            <div class="access-panel-title">AWS access</div>
+            <ul class="access-list">
+              {{range .Spec.Grants}}{{with .AWS}}
+              <li>
+                <span class="muted">{{.AccountAlias}}</span>
+                <strong>{{.RoleName}}</strong>
+              </li>
+              {{end}}{{end}}
+            </ul>
+            <a href="{{$.BasePath}}/agents/{{.Name}}/aws">Manage access</a>
+          </div>
+        </details>
+        {{else}}<span class="muted">none</span>{{end}}
       </td>
       {{if $.RuntimeOffered}}
-      {{$ag := .}}
+      {{$agent := .}}
       <td>
-        {{range .Status.Workspaces}}
-        <div class="workspace-row">
-          <span>{{.Name}} <span class="muted">{{.State}}</span></span>
+        <div class="runtime-row">
+          {{with .Status.Runtime}}
+          <span class="muted">{{if .State}}{{.State}}{{else}}Pending{{end}}</span>
           {{if eq (print .State) "Running"}}
           <details class="connect-details">
             <summary class="btn small">connect</summary>
             <div class="connect-panel">
-              {{if $ag.Spec.Tailscale}}
+              {{if $agent.Spec.Tailscale}}
               <p class="hint">Claude session</p>
-              <code>ssh -t agent@agent-{{localPart $ag.Spec.OwnerEmail}}-{{$ag.Name}}-{{.Name}} claude</code>
+              <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}} claude</code>
               <p class="hint" style="margin-top:.5rem;">Cursor — add to <code>~/.ssh/config</code></p>
-              <pre>Host agent-{{localPart $ag.Spec.OwnerEmail}}-{{$ag.Name}}-{{.Name}}
+              <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}
   User agent
   StrictHostKeyChecking no</pre>
               {{else}}
@@ -41,15 +57,16 @@
             </div>
           </details>
           {{end}}
+          <form class="inline" method="post" action="{{$.BasePath}}/agents/{{$agent.Name}}/suspend">
+            <button class="btn small" type="submit">{{if eq (print .State) "Suspended"}}resume{{else}}suspend{{end}}</button>
+          </form>
+          {{else}}<span class="muted">not running</span>{{end}}
         </div>
-        {{else}}<span class="muted">not running</span>{{end}}
       </td>
       {{end}}
       <td class="actions">
         <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}">edit</a>
-        {{if $.RuntimeOffered}}
-        <a class="btn" href="{{$.BasePath}}/agents/{{.Name}}/workspaces">workspaces</a>
-        {{end}}
+        
         <form class="inline" method="post" action="{{$.BasePath}}/agents/{{.Name}}/delete"
           onsubmit="return confirm('Delete {{.Name}}?');">
           <button class="btn danger" type="submit">delete</button>
