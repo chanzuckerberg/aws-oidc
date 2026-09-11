@@ -4,7 +4,7 @@ stack:
     aws-oidc:
       replicaCount: 3
       image:
-        tag: sha-2b35f73
+        tag: sha-9ac403b
       ingress:
         rules:
           - host: aws-oidc.prod-central.prod.czi.team
@@ -22,7 +22,7 @@ stack:
           eks.amazonaws.com/role-arn: arn:aws:iam::533267185808:role/in-cluster/aws-oidc-state-reader-iam-prod-core-platform-infra
       image:
         repository: 533267185808.dkr.ecr.us-west-2.amazonaws.com/core-platform/aws-oidc/aws-oidc
-        tag: sha-2b35f73
+        tag: sha-9ac403b
       # This is a batch job with no HTTP server. Override the inherited HTTP probes with a
       # trivially-succeeding exec probe (the chart drops httpGet when exec is set) so a slow
       # state refresh isn't killed by a failing liveness check.
