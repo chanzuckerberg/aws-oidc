@@ -139,13 +139,17 @@ func (r *Reconciler) containerArgs(agent *agentsv1.Agent, runtime *agentsv1.Agen
 
 func (r *Reconciler) resources(agent *agentsv1.Agent, runtime *agentsv1.AgentRuntime) corev1.ResourceRequirements {
 	resources := *runtime.Resources.DeepCopy()
-	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
+	if r.kernelTUNRequested(agent) {
 		if resources.Limits == nil {
 			resources.Limits = make(corev1.ResourceList, 1)
 		}
 		resources.Limits[tailscaleTunResource] = resource.MustParse("1")
 	}
 	return resources
+}
+
+func (r *Reconciler) kernelTUNRequested(agent *agentsv1.Agent) bool {
+	return r.tailscaleConfigured() && agent.Spec.Tailscale != nil && agent.Spec.Tailscale.KernelTUN
 }
 
 func (r *Reconciler) capabilities(agent *agentsv1.Agent) *corev1.Capabilities {

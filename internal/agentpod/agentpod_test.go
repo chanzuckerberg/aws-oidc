@@ -285,7 +285,7 @@ func TestReconcileAnthropicWIF(t *testing.T) {
 func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 	ctx := context.Background()
 	agent := testAgent()
-	agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: "jheath"}
+	agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: "jheath", KernelTUN: true}
 	agent.Spec.Runtime.Resources = corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU: resource.MustParse("2"),
@@ -317,6 +317,54 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 		set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Add,
 	)
 	require.Equal(t, int64(0), *set.Spec.Template.Spec.Containers[0].SecurityContext.RunAsUser)
+}
+
+func TestReconcileTailscaleOmitsTunDeviceByDefault(t *testing.T) {
+	ctx := context.Background()
+	agent := testAgent()
+	agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: "jheath"}
+	agent.Spec.Runtime.Resources = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("4"),
+			corev1.ResourceMemory: resource.MustParse("16Gi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("4"),
+			corev1.ResourceMemory: resource.MustParse("16Gi"),
+		},
+	}
+
+	scheme := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(agent).Build()
+	r := New(c, scheme, Config{
+		Namespace:              testNamespace,
+		DefaultImage:           "ubuntu:24.04",
+		TailscaleTokenAudience: "api.tailscale.com/client-id",
+	})
+
+	_, err := r.Reconcile(ctx, agent)
+	require.NoError(t, err)
+
+	set := &appsv1.StatefulSet{}
+	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set)
+	require.NoError(t, err)
+
+	container := set.Spec.Template.Spec.Containers[0]
+	require.NotContains(
+		t,
+		container.Resources.Limits,
+		tailscaleTunResource,
+		"a tailscale agent must not request the TUN device unless it asked for kernel networking: "+
+			"the extended resource confines it to device-plugin nodes and stops Karpenter provisioning for it",
+	)
+	require.NotContains(t, container.Resources.Requests, tailscaleTunResource)
+	require.Equal(t, resource.MustParse("16Gi"), container.Resources.Limits[corev1.ResourceMemory])
+	require.Equal(
+		t,
+		[]corev1.Capability{"NET_ADMIN", "NET_RAW"},
+		container.SecurityContext.Capabilities.Add,
+		"userspace networking still needs the tailscale capabilities",
+	)
 }
 
 func TestReconcileGitHubApp(t *testing.T) {

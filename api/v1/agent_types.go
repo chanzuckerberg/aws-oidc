@@ -64,6 +64,9 @@ type TailscaleAccess struct {
 	// +kubebuilder:validation:Pattern=`^[a-z_][a-z0-9_-]*$`
 	// +kubebuilder:validation:MinLength=1
 	SSHUser string `json:"sshUser"`
+
+	// +optional
+	KernelTUN bool `json:"kernelTUN,omitempty"`
 }
 
 // Repository is a GitHub repository in "owner/repo" form that the agent clones at boot.

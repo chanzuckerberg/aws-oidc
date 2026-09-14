@@ -302,6 +302,8 @@ spec:
                   Tailscale enrolls the agent's pods in the tailnet and fixes the SSH login name to the
                   owner's email local part. When nil the agent has no tailnet identity.
                 properties:
+                  kernelTUN:
+                    type: boolean
                   sshUser:
                     description: |-
                       SSHUser is the only Linux username the agent may use when connecting to tailnet devices
