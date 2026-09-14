@@ -183,6 +183,10 @@ func TestReconcileMountsTokenAndAWSConfig(t *testing.T) {
 	require.NotNil(t, projected, "the token volume is explicit because IRSA's webhook does not inject one")
 	require.Equal(t, "sts.amazonaws.com", projected.Audience)
 
+	for _, volume := range pod.Volumes {
+		require.NotEqual(t, tailscaleTunVolume, volume.Name, "an agent without tailnet access must not mount a host device")
+	}
+
 	// The projected token is the pod's only credential, so agent code cannot reach the
 	// Kubernetes API.
 	require.False(t, *pod.AutomountServiceAccountToken)
@@ -307,9 +311,37 @@ func TestReconcileTailscaleRequestsTunDevice(t *testing.T) {
 	err = c.Get(ctx, types.NamespacedName{Namespace: testNamespace, Name: "agent-bot"}, set)
 	require.NoError(t, err)
 
-	limits := set.Spec.Template.Spec.Containers[0].Resources.Limits
-	require.Equal(t, resource.MustParse("1"), limits[tailscaleTunResource])
+	pod := set.Spec.Template.Spec
+	limits := pod.Containers[0].Resources.Limits
 	require.Equal(t, resource.MustParse("2"), limits[corev1.ResourceCPU])
+	require.NotContains(
+		t,
+		limits,
+		corev1.ResourceName("agents.czi.team/tun"),
+		"the TUN device must not be an extended resource: no instance type advertises it, so Karpenter cannot provision a node for the pod",
+	)
+
+	var tunVolume *corev1.Volume
+	for i := range pod.Volumes {
+		if pod.Volumes[i].Name == tailscaleTunVolume {
+			tunVolume = &pod.Volumes[i]
+		}
+	}
+	require.NotNil(t, tunVolume, "tailscale agents need a kernel TUN device present at pod start")
+	require.NotNil(t, tunVolume.HostPath)
+	require.Equal(t, tailscaleTunDevicePath, tunVolume.HostPath.Path)
+	require.Equal(t, corev1.HostPathCharDev, *tunVolume.HostPath.Type)
+
+	var tunMount *corev1.VolumeMount
+	for i := range pod.Containers[0].VolumeMounts {
+		if pod.Containers[0].VolumeMounts[i].Name == tailscaleTunVolume {
+			tunMount = &pod.Containers[0].VolumeMounts[i]
+		}
+	}
+	require.NotNil(t, tunMount)
+	require.Equal(t, tailscaleTunDevicePath, tunMount.MountPath)
+	require.False(t, tunMount.ReadOnly, "tailscaled opens the device for writing")
+
 	require.Empty(t, set.Spec.Template.Spec.Containers[0].SecurityContext.Capabilities.Drop)
 	require.Equal(
 		t,

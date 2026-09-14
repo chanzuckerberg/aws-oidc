@@ -86,7 +86,8 @@ const (
 	tailscaleTokenVolume    = "tailscale-token"
 	tailscaleTokenMountPath = "/var/run/secrets/tailscale.com"
 	tailscaleTokenFilePath  = tailscaleTokenMountPath + "/token"
-	tailscaleTunResource    = corev1.ResourceName("agents.czi.team/tun")
+	tailscaleTunVolume      = "dev-net-tun"
+	tailscaleTunDevicePath  = "/dev/net/tun"
 
 	// tailscaleTokenExpirationSecs is the tailscale token's lifetime. Shorter than the AWS
 	// token so the kubelet rotates it frequently. The entrypoint re-reads the file each time

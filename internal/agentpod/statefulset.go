@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -137,15 +136,8 @@ func (r *Reconciler) containerArgs(agent *agentsv1.Agent, runtime *agentsv1.Agen
 	return append(r.command(agent), runtime.Args...)
 }
 
-func (r *Reconciler) resources(agent *agentsv1.Agent, runtime *agentsv1.AgentRuntime) corev1.ResourceRequirements {
-	resources := *runtime.Resources.DeepCopy()
-	if r.tailscaleConfigured() && agent.Spec.Tailscale != nil {
-		if resources.Limits == nil {
-			resources.Limits = make(corev1.ResourceList, 1)
-		}
-		resources.Limits[tailscaleTunResource] = resource.MustParse("1")
-	}
-	return resources
+func (r *Reconciler) resources(_ *agentsv1.Agent, runtime *agentsv1.AgentRuntime) corev1.ResourceRequirements {
+	return *runtime.Resources.DeepCopy()
 }
 
 func (r *Reconciler) capabilities(agent *agentsv1.Agent) *corev1.Capabilities {
@@ -200,6 +192,9 @@ func (r *Reconciler) volumeMounts(agent *agentsv1.Agent) []corev1.VolumeMount {
 			Name:      tailscaleTokenVolume,
 			MountPath: tailscaleTokenMountPath,
 			ReadOnly:  true,
+		}, corev1.VolumeMount{
+			Name:      tailscaleTunVolume,
+			MountPath: tailscaleTunDevicePath,
 		})
 	}
 	if r.ManagedSettingsConfigMap != "" {
@@ -298,6 +293,14 @@ func (r *Reconciler) volumes(agent *agentsv1.Agent) []corev1.Volume {
 							Path:              "token",
 						},
 					}},
+				},
+			},
+		}, corev1.Volume{
+			Name: tailscaleTunVolume,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: tailscaleTunDevicePath,
+					Type: ptr(corev1.HostPathCharDev),
 				},
 			},
 		})
