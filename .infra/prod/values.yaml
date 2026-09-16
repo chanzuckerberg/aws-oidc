@@ -6,6 +6,15 @@ stack:
       image:
         tag: sha-2b35f73
       ingress:
+        enabled: true
+        rules:
+          - host: aws-oidc.prod-central.prod.czi.team
+      gateway:
+        enabled: true
+        dnsOwner: ingress
+        paths:
+          - path: /
+            pathType: Prefix
         rules:
           - host: aws-oidc.prod-central.prod.czi.team
   cronJobs:
