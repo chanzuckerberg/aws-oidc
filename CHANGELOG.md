@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.39.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.6...v0.39.0) (2026-09-16)
+
+
+### Features
+
+* **infra:** migrate aws-oidc to the Envoy Gateway ([#1275](https://github.com/chanzuckerberg/aws-oidc/issues/1275)) ([1e1b398](https://github.com/chanzuckerberg/aws-oidc/commit/1e1b398d36f05739938bb1e2eae79af0135224ca))
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions from 6.39.2 to 6.40.0 ([#1269](https://github.com/chanzuckerberg/aws-oidc/issues/1269)) ([3ae1aaf](https://github.com/chanzuckerberg/aws-oidc/commit/3ae1aaf773d713245686e9a20ea7ee580df77950))
+* bump chanzuckerberg/github-actions from 6.40.0 to 6.40.1 ([#1272](https://github.com/chanzuckerberg/aws-oidc/issues/1272)) ([8e8dd17](https://github.com/chanzuckerberg/aws-oidc/commit/8e8dd17445b7b8867bdedbee246d8081bf16805a))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.39.2 to 6.40.0 ([#1270](https://github.com/chanzuckerberg/aws-oidc/issues/1270)) ([93e9d4c](https://github.com/chanzuckerberg/aws-oidc/commit/93e9d4c275f3812073140ac1b8fc4b476d022341))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.40.0 to 6.40.1 ([#1273](https://github.com/chanzuckerberg/aws-oidc/issues/1273)) ([78c8cf4](https://github.com/chanzuckerberg/aws-oidc/commit/78c8cf4d172291eaf32b86ca4cd2d1ed65a70fc0))
+
 ## [0.38.6](https://github.com/chanzuckerberg/aws-oidc/compare/v0.38.5...v0.38.6) (2026-09-10)
 
 
