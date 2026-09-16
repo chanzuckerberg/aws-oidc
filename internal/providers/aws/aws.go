@@ -137,6 +137,11 @@ func (p *Provider) Ensure(ctx context.Context, agent *agentsv1.Agent, grant agen
 
 	existing, err := client.GetRole(ctx, &iam.GetRoleInput{RoleName: awssdk.String(roleName)})
 	roleARN := ""
+	if err != nil && unreachableAccount(err) {
+		status.State = agentsv1.GrantStateFailed
+		status.Message = fmt.Sprintf("cannot assume agent-provisioner role in account %s", g.AccountID)
+		return status, nil
+	}
 	if err == nil {
 		roleARN = awssdk.ToString(existing.Role.Arn)
 

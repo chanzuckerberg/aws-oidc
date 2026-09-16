@@ -21,7 +21,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 )
@@ -131,7 +130,6 @@ func (r *AgentReconciler) reconcileRuntime(ctx context.Context, agent *agentsv1.
 // needed. A failure of one grant does not cancel the others; they all get attempted each
 // pass, and failures requeue with backoff.
 func (r *AgentReconciler) reconcileGrants(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.GrantStatus, error) {
-	log := logf.FromContext(ctx)
 	grants := agent.Spec.Grants
 
 	statuses := make([]agentsv1.GrantStatus, len(grants))
@@ -161,7 +159,6 @@ func (r *AgentReconciler) reconcileGrants(ctx context.Context, agent *agentsv1.A
 		group.Go(func() error {
 			status, err := provider.Ensure(ctx, agent, grant)
 			if err != nil {
-				log.Error(err, "provisioning grant", "provider", provider.Name())
 				status.State = agentsv1.GrantStateFailed
 				status.Message = err.Error()
 				errs[i] = err

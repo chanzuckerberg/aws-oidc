@@ -17,7 +17,8 @@ import (
 )
 
 type fakeIAM struct {
-	deleteErr error
+	deleteErr  error
+	getRoleErr error
 	// sourceAttached are the managed policy ARNs the source role has.
 	sourceAttached []string
 	// existingTrust, when set, makes GetRole report an existing role carrying this trust
@@ -32,6 +33,9 @@ type fakeIAM struct {
 }
 
 func (f *fakeIAM) GetRole(_ context.Context, in *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+	if f.getRoleErr != nil {
+		return nil, f.getRoleErr
+	}
 	if f.existingTrust == "" {
 		return nil, &iamtypes.NoSuchEntityException{}
 	}
@@ -167,6 +171,16 @@ func TestEnsureNamingAndMirror(t *testing.T) {
 	require.Equal(t, "jheath-agent-playground-readonly-readonly", f.createdRoleName)
 	// The source role's managed policy is mirrored onto the agent role.
 	require.Equal(t, []string{"arn:aws:iam::aws:policy/ReadOnlyAccess"}, f.attachedToAgent)
+}
+
+func TestEnsureSettlesUnreachableAccount(t *testing.T) {
+	p := providerWithFake(&fakeIAM{getRoleErr: assumeRoleFailure()})
+
+	status, err := p.Ensure(context.Background(), &agentsv1.Agent{}, awsGrant())
+
+	require.NoError(t, err)
+	require.Equal(t, agentsv1.GrantStateFailed, status.State)
+	require.Equal(t, "cannot assume agent-provisioner role in account 111111111111", status.Message)
 }
 
 func TestTagsMergeStandardAndAgent(t *testing.T) {
