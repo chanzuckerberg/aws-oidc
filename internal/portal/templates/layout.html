@@ -9,6 +9,7 @@
     body { font-family: system-ui, -apple-system, sans-serif; margin: 0; color: #1a1a1a; background: #fafafa; }
     .topbar { display: flex; align-items: baseline; gap: .5rem; padding: .75rem 1.5rem; background: #fff; border-bottom: 1px solid #e0e0e0; }
     .topbar a { font-weight: 600; text-decoration: none; color: inherit; }
+    .admin-badge { display: inline-block; margin-left: .2rem; padding: .08rem .4rem; color: #075f35; background: #e9f7ef; border: 1px solid #a9d8bd; border-radius: 999px; font-size: .75em; font-weight: 650; line-height: 1.3; vertical-align: .1em; cursor: help; }
     .muted { color: #666; }
     .page { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; }
     .page-full { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem; }
@@ -38,24 +39,56 @@
     label.grant { display: block; padding: .2rem 0; }
     p.sizing { display: flex; align-items: center; flex-wrap: wrap; gap: .9rem; }
     .err { color: #b00020; font-weight: 600; }
+    .notice { padding: .65rem .8rem; border: 1px solid #d6a600; border-radius: 6px; background: #fff9df; font-size: .9em; }
+    .import-panel { margin: 1rem 0; padding: .85rem; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; }
+    .import-status { margin-left: .5rem; font-size: .9em; color: #075f35; }
     form.inline { display: inline; }
-    .workspace-row { display: flex; align-items: center; gap: .5rem; margin: .2rem 0; }
+    .runtime-row { display: flex; align-items: center; gap: .5rem; margin: .2rem 0; }
     .connect-details summary { cursor: pointer; }
     .connect-details summary::marker { display: none; }
     .connect-panel { margin-top: .4rem; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px; padding: .4rem .6rem; }
     .connect-panel code { font-size: .85em; word-break: break-all; }
     .actions { white-space: nowrap; }
+    .access-cell { min-width: 8rem; }
+    .access-details { position: relative; }
+    .access-details summary { display: inline-block; cursor: pointer; color: #075f35; font-weight: 600; white-space: nowrap; }
+    .access-details summary::marker { display: none; }
+    .access-details summary::-webkit-details-marker { display: none; }
+    .access-details summary::after { content: "›"; display: inline-block; margin-left: .35rem; }
+    .access-details[open] summary::after { transform: rotate(90deg); }
+    .access-panel { position: absolute; z-index: 10; top: calc(100% + .4rem); left: 0; width: 20rem; max-width: 70vw; max-height: 20rem; overflow: auto; padding: .75rem; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, .15); }
+    .access-panel-title { font-weight: 700; margin-bottom: .5rem; }
+    .access-list { list-style: none; margin: 0 0 .65rem; padding: 0; }
+    .access-list li { display: grid; grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 1.4fr); gap: .65rem; padding: .35rem 0; border-bottom: 1px solid #eee; }
+    .access-list li:last-child { border-bottom: 0; }
+    .access-list strong { overflow-wrap: anywhere; }
     h1 { margin: 0 0 1rem; font-size: 1.4rem; }
     h2 { margin-top: 1.5rem; font-size: 1.1rem; }
     .hint { color: #666; font-size: .85em; margin: .2rem 0 0; }
-    input[type=text], input[type=email], input[type=password] { font-size: inherit; }
+    input[type=text], input[type=email], input[type=password], textarea { font-size: inherit; }
     input:disabled { background: #f4f4f4; color: #666; cursor: not-allowed; }
+    textarea.code { width: 100%; min-height: 18rem; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.4; }
+
+    /* Setup walkthrough */
+    .steps { list-style: none; margin: 0; padding: .2rem 0 .4rem; counter-reset: step; }
+    .steps li { display: flex; align-items: baseline; gap: .5rem; padding: .4rem .9rem; font-size: .9em; color: #999; border-left: 3px solid transparent; }
+    .steps li .marker { flex: 0 0 1.15rem; height: 1.15rem; border-radius: 50%; border: 1px solid currentColor; font-size: .7em; line-height: 1.05rem; text-align: center; }
+    .steps li.done { color: #1a5; }
+    .steps li.done .marker { background: #1a5; border-color: #1a5; color: #fff; }
+    .steps li a { color: inherit; text-decoration: none; }
+    .steps li a:hover { text-decoration: underline; }
+    .steps li.done:hover { background: #f0faf4; }
+    .steps li.current { color: #1a5; font-weight: 600; border-left-color: #1a5; background: #f0faf4; }
+    .steps li.current .marker { border-color: #1a5; }
+    .setup-banner { background: #f0faf4; border: 1px solid #cbe8d8; border-radius: 6px; padding: .6rem .85rem; margin: 0 0 1rem; font-size: .9em; }
+    .setup-exit { display: block; padding: .5rem .9rem; border-top: 1px solid #e0e0e0; font-size: .85em; color: #666; text-decoration: none; }
+    .setup-exit:hover { background: #f4f4f4; }
   </style>
 </head>
 <body>
   <div class="topbar">
     <a href="{{.BasePath}}/">Agent Registry</a>
-    {{if .User}}<span class="muted">— {{if .User.Email}}{{.User.Email}}{{else}}{{.User.Sub}}{{end}}{{if .User.Admin}} · admin{{end}}</span>{{end}}
+    {{if .User}}<span class="muted">— {{if .User.Email}}{{.User.Email}}{{else}}{{.User.Sub}}{{end}}{{if .User.Admin}} <span class="admin-badge" title="{{if .User.AdminReason}}{{.User.AdminReason}}{{else}}Portal administrator{{end}}">admin</span>{{end}}</span>{{end}}
   </div>
 {{end}}
 
@@ -65,7 +98,28 @@
 </html>
 {{end}}
 
+{{define "steplist"}}
+{{$base := .BasePath}}
+{{$here := .Onboarding.Index}}
+<ol class="steps">
+  {{range $i, $step := .Onboarding.Steps}}
+  <li class="{{if eq $i $here}}current{{else if lt $i $here}}done{{end}}">
+    <span class="marker">{{if lt $i $here}}&#10003;{{else}}{{add $i 1}}{{end}}</span>
+    {{if lt $i $here}}<a href="{{$base}}{{$step.URL}}">{{$step.Label}}</a>{{else}}<span>{{$step.Label}}</span>{{end}}
+  </li>
+  {{end}}
+</ol>
+{{end}}
+
 {{define "agentnav"}}
+{{if .Onboarding.Active}}
+<nav class="sidenav">
+  <div class="sidenav-agent">{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}</div>
+  <div class="sidenav-section">Setup — step {{.Onboarding.Number}} of {{.Onboarding.Total}}</div>
+  {{template "steplist" .}}
+  <a class="setup-exit" href="{{.BasePath}}/agents/{{.Agent.Name}}">Exit setup</a>
+</nav>
+{{else}}
 <nav class="sidenav">
   <div class="sidenav-agent">{{if .Agent}}{{if .Agent.Spec.DisplayName}}{{.Agent.Spec.DisplayName}}{{else}}{{.Agent.Name}}{{end}}{{else}}New agent{{end}}</div>
   {{if .Agent}}
@@ -73,12 +127,26 @@
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}" {{if eq .Nav "general"}}class="active"{{end}}>General</a>
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/aws" {{if eq .Nav "aws"}}class="active"{{end}}>AWS access</a>
   {{if .RepositoriesOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/repositories" {{if eq .Nav "repositories"}}class="active"{{end}}>Repositories</a>{{end}}
+  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/claude" {{if eq .Nav "claude"}}class="active"{{end}}>Claude</a>
   {{if .TailscaleOffered}}<a href="{{.BasePath}}/agents/{{.Agent.Name}}/tailscale" {{if eq .Nav "tailscale"}}class="active"{{end}}>Tailscale</a>{{end}}
   {{if .RuntimeOffered}}
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/runtime" {{if eq .Nav "runtime"}}class="active"{{end}}>Runtime</a>
-  <a href="{{.BasePath}}/agents/{{.Agent.Name}}/workspaces" {{if eq .Nav "workspaces"}}class="active"{{end}}>Workspaces</a>
   <a href="{{.BasePath}}/agents/{{.Agent.Name}}/connection" {{if eq .Nav "connection"}}class="active"{{end}}>Connection</a>
   {{end}}
   {{end}}
 </nav>
+{{end}}
+{{end}}
+
+{{define "formactions"}}
+<p style="margin-top:1rem;">
+  {{if .Onboarding.Active}}
+  <input type="hidden" name="onboarding" value="1">
+  {{if .Onboarding.Prev}}<a class="btn" href="{{.BasePath}}{{.Onboarding.PrevURL}}">Back</a>{{end}}
+  <button class="btn primary" type="submit">{{if .Onboarding.Last}}Finish setup{{else}}Save and continue{{end}}</button>
+  {{if not .Onboarding.Last}}<a class="btn" href="{{.BasePath}}{{.Onboarding.NextURL}}">Skip for now</a>{{end}}
+  {{else}}
+  <button class="btn primary" type="submit">Save</button>
+  {{end}}
+</p>
 {{end}}

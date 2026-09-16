@@ -13,10 +13,11 @@ import (
 // User is the authenticated caller. Sub is the Okta user id (the "00u" value) that
 // entitlements, agent ownership, and the AWS trust policy all key on.
 type User struct {
-	Sub    string
-	Email  string
-	Groups []string
-	Admin  bool
+	Sub         string
+	Email       string
+	Groups      []string
+	Admin       bool
+	AdminReason string
 }
 
 type ctxKey struct{}

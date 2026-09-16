@@ -9,18 +9,27 @@ package portal
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/gorilla/handlers"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
 	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
@@ -38,6 +47,15 @@ var agentNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // repoRe matches an "owner/repo" reference. It mirrors the Repository pattern on the CRD so
 // the portal rejects the same shapes the API server would.
 var repoRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+var memoryFileRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]*\.md$`)
+
+const (
+	maxClaudeConfigBytes       = 256 * 1024
+	maxMemoryImportFiles       = 64
+	maxMemoryImportFileBytes   = 64 * 1024
+	maxMemoryImportTotalBytes  = 512 * 1024
+	maxMemoryImportRequestSize = 600 * 1024
+)
 
 // Config wires the portal's dependencies. BasePath is the URL prefix the portal is served
 // under (for example "/portal" when the gateway routes a sub-path to it); empty means root.
@@ -47,7 +65,7 @@ type Config struct {
 	Store            agentstore.AgentStore
 	Identity         *IdentityResolver
 	BasePath         string
-	// AgentRuntime offers the option of running an agent's workspaces as pods. It is off unless
+	// AgentRuntime offers the option of running agents as pods. It is off unless
 	// the operator can actually run them, so the form does not promise what it cannot deliver.
 	AgentRuntime bool
 	// AgentTailscale offers the Tailscale page. Off unless the operator is configured for
@@ -56,7 +74,8 @@ type Config struct {
 	// Repositories powers the Repositories page's type-ahead and validates saved entries
 	// against the repositories the fleet's GitHub App can reach. Nil where the portal has no
 	// GitHub credentials, which hides the page.
-	Repositories repoSuggester
+	Repositories     repoSuggester
+	MemoryConfigMaps typedcorev1.ConfigMapInterface
 	// Limits caps the sizing an owner may ask for. Unset fields fall back to defaults.
 	Limits AgentLimits
 	// Namespace is the Kubernetes namespace the operator and agent pods run in. It is shown
@@ -83,6 +102,7 @@ func NewServer(cfg Config) (*Server, error) {
 			local, _, _ := strings.Cut(email, "@")
 			return local
 		},
+		"add": func(a, b int) int { return a + b },
 	}).ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parsing templates: %w", err)
@@ -111,11 +131,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /agents/{name}/repositories", s.handleRepositories)
 	mux.HandleFunc("POST /agents/{name}/repositories", s.handleUpdateRepositories)
 	mux.HandleFunc("GET /agents/{name}/repositories/search", s.handleRepositorySearch)
+	mux.HandleFunc("POST /agents/{name}/repositories/memory", s.handleImportRepositoryMemory)
+	mux.HandleFunc("GET /agents/{name}/claude", s.handleClaude)
+	mux.HandleFunc("POST /agents/{name}/claude", s.handleUpdateClaude)
+	mux.HandleFunc("POST /agents/{name}/suspend", s.handleToggleSuspend)
 	mux.HandleFunc("POST /agents/{name}/delete", s.handleDelete)
-	mux.HandleFunc("GET /agents/{name}/workspaces", s.handleWorkspacesView)
-	mux.HandleFunc("POST /agents/{name}/workspaces", s.handleSpawnWorkspace)
-	mux.HandleFunc("POST /agents/{name}/workspaces/{workspace}/suspend", s.handleToggleSuspend)
-	mux.HandleFunc("POST /agents/{name}/workspaces/{workspace}/delete", s.handleDeleteWorkspace)
 	mux.HandleFunc("GET /agents/{name}/connection", s.handleConnection)
 
 	handler := http.Handler(mux)
@@ -183,7 +203,7 @@ type pageData struct {
 	Checked      map[string]bool
 	Action       string
 	Error        string
-	// Nav is the active sidebar item (general, aws, tailscale, runtime, workspaces).
+	// Nav is the active sidebar item (general, aws, tailscale, runtime).
 	Nav string
 	// RuntimeOffered mirrors Config.AgentRuntime.
 	RuntimeOffered bool
@@ -196,7 +216,13 @@ type pageData struct {
 	TailscaleForm       tailscaleForm
 	// Repositories is the agent's current (or just-submitted) "owner/repo" list, shown as
 	// chips on the Repositories page.
-	Repositories []string
+	Repositories  []string
+	MemoryImports map[string]memoryImportView
+	ClaudeMD      string
+	SettingsJSON  string
+	// Onboarding drives the post-create walkthrough. Its zero value renders the page as a
+	// standalone edit screen.
+	Onboarding onboarding
 }
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
@@ -228,7 +254,12 @@ func (s *Server) handleNew(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.render(w, "form", pageData{Title: "Register agent", User: user})
+	s.entCache.Warm(user.Sub)
+	s.render(w, "form", pageData{
+		Title:      "Register agent",
+		User:       user,
+		Onboarding: onboarding{Steps: s.onboardingSteps("")},
+	})
 }
 
 func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +276,12 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderErr := func(msg string) {
-		s.render(w, "form", pageData{Title: "Register agent", User: user, Error: msg})
+		s.render(w, "form", pageData{
+			Title:      "Register agent",
+			User:       user,
+			Error:      msg,
+			Onboarding: onboarding{Steps: s.onboardingSteps("")},
+		})
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -277,13 +313,32 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 			OwnerEmail:  user.Email,
 		},
 	}
+	if s.cfg.AgentRuntime {
+		agent.Spec.Runtime = defaultRuntime(s.limits())
+	}
+	if s.cfg.AgentTailscale {
+		// Nearly everyone reaches an agent over the tailnet, so enrollment is on unless the
+		// owner's email yields no usable SSH user. That is not worth refusing to create an
+		// agent over, so it just leaves the agent off the tailnet for its owner to sort out on
+		// the Tailscale step.
+		sshUser, err := deriveTailscaleUser(user.Email)
+		if err != nil {
+			slog.Warn("creating agent without tailscale", "agent", name, "sub", user.Sub, "error", err)
+		} else {
+			agent.Spec.Tailscale = &agentsv1.TailscaleAccess{SSHUser: sshUser}
+		}
+	}
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "saving agent", err)
 		return
 	}
 
-	s.redirect(w, r, "/agents/"+name+"/aws")
+	// The walkthrough ends on AWS access, whose Okta lookup is the slowest thing the portal
+	// does. Starting it here means it has the earlier steps to finish in.
+	s.entCache.Warm(user.Sub)
+
+	s.redirect(w, r, s.onboardingStart(name))
 }
 
 func (s *Server) handleGeneral(w http.ResponseWriter, r *http.Request) {
@@ -330,6 +385,99 @@ func (s *Server) handleUpdateGeneral(w http.ResponseWriter, r *http.Request) {
 	s.redirect(w, r, "/agents/"+agent.Name)
 }
 
+func (s *Server) handleClaude(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	claudeMD := ""
+	settingsJSON := "{}"
+	if s.cfg.DefaultsLoader != nil {
+		defaults, err := s.cfg.DefaultsLoader.Load()
+		if err != nil {
+			slog.Warn("loading Claude defaults in portal", "error", err)
+		} else {
+			claudeMD = defaults.ClaudeMD
+		}
+	}
+	if agent.Spec.Claude != nil {
+		claudeMD = agent.Spec.Claude.ClaudeMD
+		if agent.Spec.Claude.SettingsJSON != "" {
+			settingsJSON = agent.Spec.Claude.SettingsJSON
+		}
+	}
+	s.render(w, "agent_claude", pageData{
+		Title:        "Claude — " + agent.Name,
+		User:         user,
+		Agent:        agent,
+		Nav:          "claude",
+		ClaudeMD:     claudeMD,
+		SettingsJSON: settingsJSON,
+	})
+}
+
+func (s *Server) handleUpdateClaude(w http.ResponseWriter, r *http.Request) {
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	claudeMD := r.FormValue("claude-md")
+	settingsJSON := strings.TrimSpace(r.FormValue("settings-json"))
+	if settingsJSON == "" {
+		settingsJSON = "{}"
+	}
+	if len(claudeMD) > maxClaudeConfigBytes || len(settingsJSON) > maxClaudeConfigBytes {
+		s.render(w, "agent_claude", pageData{
+			Title: "Claude — " + agent.Name, User: user, Agent: agent, Nav: "claude",
+			ClaudeMD: claudeMD, SettingsJSON: settingsJSON,
+			Error: "CLAUDE.md and settings.json must each be no larger than 256 KiB",
+		})
+		return
+	}
+	var settings map[string]json.RawMessage
+	err = json.Unmarshal([]byte(settingsJSON), &settings)
+	if err != nil || settings == nil {
+		s.render(w, "agent_claude", pageData{
+			Title:        "Claude — " + agent.Name,
+			User:         user,
+			Agent:        agent,
+			Nav:          "claude",
+			ClaudeMD:     claudeMD,
+			SettingsJSON: settingsJSON,
+			Error:        "settings.json must contain a JSON object",
+		})
+		return
+	}
+	var memoryImports []agentsv1.ProjectMemoryImport
+	if agent.Spec.Claude != nil {
+		memoryImports = agent.Spec.Claude.MemoryImports
+	}
+	agent.Spec.Claude = &agentsv1.ClaudeConfig{
+		ClaudeMD:      claudeMD,
+		SettingsJSON:  settingsJSON + "\n",
+		MemoryImports: memoryImports,
+	}
+	err = s.cfg.Store.Upsert(r.Context(), agent)
+	if err != nil {
+		s.fail(w, "updating Claude configuration", err)
+		return
+	}
+	s.redirect(w, r, "/agents/"+agent.Name+"/claude")
+}
+
 func (s *Server) handleAWS(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
@@ -351,6 +499,7 @@ func (s *Server) handleAWS(w http.ResponseWriter, r *http.Request) {
 		Nav:          "aws",
 		Entitlements: ent,
 		Checked:      checkedFromAgent(agent),
+		Onboarding:   s.onboardingFor(r, agent.Name, "aws"),
 	})
 }
 
@@ -378,6 +527,7 @@ func (s *Server) handleUpdateAWS(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "agent_aws", pageData{
 			Title: "AWS access — " + agent.Name, User: user, Agent: agent, Nav: "aws",
 			Entitlements: ent, Checked: checkedFromForm(r), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "aws"),
 		})
 	}
 	grants, err := parseGrants(r, ent)
@@ -391,7 +541,7 @@ func (s *Server) handleUpdateAWS(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/aws")
+	s.redirectAfterSave(w, r, agent.Name, "aws")
 }
 
 func (s *Server) handleTailscale(w http.ResponseWriter, r *http.Request) {
@@ -413,12 +563,14 @@ func (s *Server) handleTailscale(w http.ResponseWriter, r *http.Request) {
 			tf.SSHUser = derived
 		}
 	}
+	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_tailscale", pageData{
 		Title:         "Tailscale — " + agent.Name,
 		User:          user,
 		Agent:         agent,
 		Nav:           "tailscale",
 		TailscaleForm: tf,
+		Onboarding:    s.onboardingFor(r, agent.Name, "tailscale"),
 	})
 }
 
@@ -445,6 +597,7 @@ func (s *Server) handleUpdateTailscale(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "agent_tailscale", pageData{
 			Title: "Tailscale — " + agent.Name, User: user, Agent: agent, Nav: "tailscale",
 			TailscaleForm: tailscaleFormFromAgent(agent), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "tailscale"),
 		})
 	}
 	if r.FormValue("tailscale") == "on" {
@@ -476,7 +629,7 @@ func (s *Server) handleUpdateTailscale(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/tailscale")
+	s.redirectAfterSave(w, r, agent.Name, "tailscale")
 }
 
 func (s *Server) handleRuntime(w http.ResponseWriter, r *http.Request) {
@@ -492,12 +645,14 @@ func (s *Server) handleRuntime(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_runtime", pageData{
-		Title:   "Runtime — " + agent.Name,
-		User:    user,
-		Agent:   agent,
-		Nav:     "runtime",
-		Runtime: runtimeFromAgent(agent, s.limits()),
+		Title:      "Runtime — " + agent.Name,
+		User:       user,
+		Agent:      agent,
+		Nav:        "runtime",
+		Runtime:    runtimeFromAgent(agent, s.limits()),
+		Onboarding: s.onboardingFor(r, agent.Name, "runtime"),
 	})
 }
 
@@ -524,21 +679,21 @@ func (s *Server) handleUpdateRuntime(w http.ResponseWriter, r *http.Request) {
 		s.render(w, "agent_runtime", pageData{
 			Title: "Runtime — " + agent.Name, User: user, Agent: agent, Nav: "runtime",
 			Runtime: runtimeFromForm(r, s.limits()), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "runtime"),
 		})
 	}
-	runtime, workspaces, err := s.parseAgentRuntime(r, agent, user.Admin)
+	runtime, err := s.parseAgentRuntime(r, agent, user.Admin)
 	if err != nil {
 		renderErr(err.Error())
 		return
 	}
 	agent.Spec.Runtime = runtime
-	agent.Spec.Workspaces = workspaces
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/runtime")
+	s.redirectAfterSave(w, r, agent.Name, "runtime")
 }
 
 func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
@@ -554,12 +709,15 @@ func (s *Server) handleRepositories(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.entCache.Warm(user.Sub)
 	s.render(w, "agent_repositories", pageData{
-		Title:        "Repositories — " + agent.Name,
-		User:         user,
-		Agent:        agent,
-		Nav:          "repositories",
-		Repositories: repositoriesFromAgent(agent),
+		Title:         "Repositories — " + agent.Name,
+		User:          user,
+		Agent:         agent,
+		Nav:           "repositories",
+		Repositories:  repositoriesFromAgent(agent),
+		MemoryImports: memoryImportsFromAgent(agent),
+		Onboarding:    s.onboardingFor(r, agent.Name, "repositories"),
 	})
 }
 
@@ -586,7 +744,8 @@ func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request
 	renderErr := func(msg string) {
 		s.render(w, "agent_repositories", pageData{
 			Title: "Repositories — " + agent.Name, User: user, Agent: agent, Nav: "repositories",
-			Repositories: repos, Error: msg,
+			Repositories: repos, MemoryImports: memoryImportsFromAgent(agent), Error: msg,
+			Onboarding: s.onboardingFor(r, agent.Name, "repositories"),
 		})
 	}
 	for _, repo := range repos {
@@ -605,9 +764,238 @@ func (s *Server) handleUpdateRepositories(w http.ResponseWriter, r *http.Request
 		}
 	}
 	agent.Spec.Repositories = toRepositories(repos)
+	if agent.Spec.Claude != nil {
+		configured := make(map[string]bool, len(repos))
+		for _, repo := range repos {
+			configured[strings.ToLower(repo)] = true
+		}
+		imports := make([]agentsv1.ProjectMemoryImport, 0, len(agent.Spec.Claude.MemoryImports))
+		for _, memoryImport := range agent.Spec.Claude.MemoryImports {
+			if configured[strings.ToLower(string(memoryImport.Repository))] {
+				imports = append(imports, memoryImport)
+			}
+		}
+		agent.Spec.Claude.MemoryImports = imports
+	}
 	err = s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
 		s.fail(w, "updating agent", err)
+		return
+	}
+	s.redirectAfterSave(w, r, agent.Name, "repositories")
+}
+
+type memoryImportView struct {
+	Revision string
+	State    agentsv1.ProjectMemoryImportState
+	Message  string
+}
+
+func memoryImportsFromAgent(agent *agentsv1.Agent) map[string]memoryImportView {
+	views := make(map[string]memoryImportView)
+	if agent.Spec.Claude != nil {
+		for _, memoryImport := range agent.Spec.Claude.MemoryImports {
+			views[string(memoryImport.Repository)] = memoryImportView{
+				Revision: memoryImport.Revision,
+				State:    agentsv1.ProjectMemoryImportPending,
+			}
+		}
+	}
+	if agent.Status.Runtime != nil {
+		for _, status := range agent.Status.Runtime.MemoryImports {
+			view, ok := views[string(status.Repository)]
+			if !ok || view.Revision != status.Revision {
+				continue
+			}
+			view.State = status.State
+			view.Message = status.Message
+			views[string(status.Repository)] = view
+		}
+	}
+	return views
+}
+
+func (s *Server) handleImportRepositoryMemory(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Repositories == nil || s.cfg.MemoryConfigMaps == nil {
+		http.NotFound(w, r)
+		return
+	}
+	user, ok := s.user(w, r)
+	if !ok {
+		return
+	}
+	agent, ok := s.ownedAgent(w, r, user)
+	if !ok {
+		return
+	}
+	if agent.Spec.Runtime == nil {
+		http.Error(w, "agent runtime is disabled", http.StatusConflict)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxMemoryImportRequestSize)
+	err := r.ParseMultipartForm(maxMemoryImportRequestSize)
+	if err != nil {
+		http.Error(w, "memory import exceeds the 600 KiB request limit", http.StatusBadRequest)
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	repository := strings.TrimSpace(r.FormValue("repository"))
+	configured := false
+	for _, candidate := range agent.Spec.Repositories {
+		if strings.EqualFold(string(candidate), repository) {
+			repository = string(candidate)
+			configured = true
+			break
+		}
+	}
+	if !configured {
+		http.Error(w, "memory repository is not configured on this agent", http.StatusBadRequest)
+		return
+	}
+	reachable, err := s.cfg.Repositories.Reachable(r.Context(), repository)
+	if err != nil {
+		s.fail(w, "checking repository access", err)
+		return
+	}
+	if !reachable {
+		http.Error(w, "the agent's GitHub App cannot reach this repository", http.StatusBadRequest)
+		return
+	}
+
+	headers := r.MultipartForm.File["memory-files"]
+	if len(headers) == 0 || len(headers) > maxMemoryImportFiles {
+		http.Error(w, "choose between 1 and 64 memory files", http.StatusBadRequest)
+		return
+	}
+	paths := r.MultipartForm.Value["memory-path"]
+	if len(paths) != len(headers) {
+		http.Error(w, "memory file paths are missing", http.StatusBadRequest)
+		return
+	}
+	data := make(map[string]string, len(headers))
+	totalBytes := 0
+	hasIndex := false
+	root := ""
+	for index, header := range headers {
+		name := header.Filename
+		_, disposition, dispositionErr := mime.ParseMediaType(header.Header.Get("Content-Disposition"))
+		rawName := disposition["filename"]
+		pathParts := strings.Split(paths[index], "/")
+		if len(pathParts) != 2 || pathParts[0] == "" || pathParts[0] == "." || pathParts[0] == ".." ||
+			pathParts[1] != name || dispositionErr != nil || filepath.Base(rawName) != rawName ||
+			strings.Contains(rawName, `\`) ||
+			!memoryFileRe.MatchString(name) {
+			http.Error(w, "memory folders may contain only flat Markdown files", http.StatusBadRequest)
+			return
+		}
+		if root == "" {
+			root = pathParts[0]
+		} else if root != pathParts[0] {
+			http.Error(w, "memory files must come from one folder", http.StatusBadRequest)
+			return
+		}
+		key := strings.ToLower(name)
+		for existing := range data {
+			if strings.ToLower(existing) == key {
+				http.Error(w, "memory file names must be unique", http.StatusBadRequest)
+				return
+			}
+		}
+		file, err := header.Open()
+		if err != nil {
+			http.Error(w, "reading memory files", http.StatusBadRequest)
+			return
+		}
+		content, readErr := io.ReadAll(io.LimitReader(file, maxMemoryImportFileBytes+1))
+		closeErr := file.Close()
+		if readErr != nil || closeErr != nil {
+			http.Error(w, "reading memory files", http.StatusBadRequest)
+			return
+		}
+		if len(content) > maxMemoryImportFileBytes {
+			http.Error(w, name+" exceeds the 64 KiB file limit", http.StatusBadRequest)
+			return
+		}
+		totalBytes += len(content)
+		if totalBytes > maxMemoryImportTotalBytes {
+			http.Error(w, "memory import exceeds the 512 KiB total limit", http.StatusBadRequest)
+			return
+		}
+		data[name] = string(content)
+		hasIndex = hasIndex || name == "MEMORY.md"
+	}
+	if !hasIndex {
+		http.Error(w, "memory import requires MEMORY.md", http.StatusBadRequest)
+		return
+	}
+
+	names := make([]string, 0, len(data))
+	for name := range data {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	hasher := sha256.New()
+	for _, name := range names {
+		_, _ = hasher.Write([]byte(name))
+		_, _ = hasher.Write([]byte{0})
+		_, _ = hasher.Write([]byte(data[name]))
+		_, _ = hasher.Write([]byte{0})
+	}
+	nonce := make([]byte, 32)
+	_, err = rand.Read(nonce)
+	if err != nil {
+		s.fail(w, "creating memory import revision", err)
+		return
+	}
+	_, _ = hasher.Write(nonce)
+	revision := fmt.Sprintf("%x", hasher.Sum(nil))
+	repo := agentsv1.Repository(repository)
+	configMapName := agent.MemoryImportConfigMapName(repo, revision)
+	controller := true
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: s.cfg.Namespace,
+			Labels: map[string]string{
+				"agents.czi.team/agent":         agent.Name,
+				"agents.czi.team/memory-import": "true",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: agentsv1.GroupVersion.String(),
+				Kind:       "Agent",
+				Name:       agent.Name,
+				UID:        agent.UID,
+				Controller: &controller,
+			}},
+		},
+		Data: data,
+	}
+	_, err = s.cfg.MemoryConfigMaps.Create(r.Context(), configMap, metav1.CreateOptions{})
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		s.fail(w, "staging memory import", err)
+		return
+	}
+
+	if agent.Spec.Claude == nil {
+		agent.Spec.Claude = &agentsv1.ClaudeConfig{}
+	}
+	imports := make([]agentsv1.ProjectMemoryImport, 0, len(agent.Spec.Claude.MemoryImports)+1)
+	for _, memoryImport := range agent.Spec.Claude.MemoryImports {
+		if !strings.EqualFold(string(memoryImport.Repository), repository) {
+			imports = append(imports, memoryImport)
+		}
+	}
+	imports = append(imports, agentsv1.ProjectMemoryImport{Repository: repo, Revision: revision})
+	agent.Spec.Claude.MemoryImports = imports
+	err = s.cfg.Store.Upsert(r.Context(), agent)
+	if err != nil {
+		deleteErr := s.cfg.MemoryConfigMaps.Delete(r.Context(), configMapName, metav1.DeleteOptions{})
+		if deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
+			slog.Error("cleaning failed memory import", "configmap", configMapName, "error", deleteErr)
+		}
+		s.fail(w, "saving memory import", err)
 		return
 	}
 	s.redirect(w, r, "/agents/"+agent.Name+"/repositories")
@@ -701,23 +1089,6 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	s.redirect(w, r, "/")
 }
 
-func (s *Server) handleWorkspacesView(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.user(w, r)
-	if !ok {
-		return
-	}
-	agent, ok := s.ownedAgent(w, r, user)
-	if !ok {
-		return
-	}
-	s.render(w, "workspaces", pageData{
-		Title: "Workspaces — " + agent.Name,
-		User:  user,
-		Agent: agent,
-		Nav:   "workspaces",
-	})
-}
-
 func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
@@ -735,63 +1106,6 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleSpawnWorkspace(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.user(w, r)
-	if !ok {
-		return
-	}
-	ctx := r.Context()
-	agent, ok := s.ownedAgent(w, r, user)
-	if !ok {
-		return
-	}
-	err := r.ParseForm()
-	if err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
-		return
-	}
-
-	renderErr := func(msg string) {
-		s.render(w, "workspaces", pageData{
-			Title: "Workspaces — " + agent.Name,
-			User:  user, Agent: agent, Nav: "workspaces", Error: msg,
-		})
-	}
-
-	name := strings.ToLower(strings.TrimSpace(r.FormValue("new-workspace")))
-	if name == "" {
-		renderErr("Workspace name is required.")
-		return
-	}
-	if len(name) > workspaceNameMaxLength {
-		renderErr(fmt.Sprintf("Workspace names are limited to %d characters.", workspaceNameMaxLength))
-		return
-	}
-	if !workspaceNameRe.MatchString(name) {
-		renderErr(fmt.Sprintf("Workspace name %q must use only lowercase letters, numbers, and dashes.", name))
-		return
-	}
-	for _, t := range agent.Spec.Workspaces {
-		if t.Name == name {
-			renderErr(fmt.Sprintf("A workspace named %q already exists.", name))
-			return
-		}
-	}
-	maxWorkspaces := s.limits().defaults().MaxWorkspaces
-	if len(agent.Spec.Workspaces)+1 > maxWorkspaces {
-		renderErr(fmt.Sprintf("An agent is limited to %d workspaces.", maxWorkspaces))
-		return
-	}
-
-	agent.Spec.Workspaces = append(agent.Spec.Workspaces, agentsv1.AgentWorkspace{Name: name})
-	err = s.cfg.Store.Upsert(ctx, agent)
-	if err != nil {
-		s.fail(w, "spawning workspace", err)
-		return
-	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
-}
-
 func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
 	user, ok := s.user(w, r)
 	if !ok {
@@ -802,46 +1116,17 @@ func (s *Server) handleToggleSuspend(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	workspaceName := r.PathValue("workspace")
-	for i, t := range agent.Spec.Workspaces {
-		if t.Name == workspaceName {
-			agent.Spec.Workspaces[i].Suspended = !agent.Spec.Workspaces[i].Suspended
-			err := s.cfg.Store.Upsert(ctx, agent)
-			if err != nil {
-				s.fail(w, "toggling workspace suspend", err)
-				return
-			}
-			s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
-			return
-		}
-	}
-	http.Error(w, "workspace not found", http.StatusNotFound)
-}
-
-func (s *Server) handleDeleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	user, ok := s.user(w, r)
-	if !ok {
+	if agent.Spec.Runtime == nil {
+		http.Error(w, "agent runtime is disabled", http.StatusConflict)
 		return
 	}
-	ctx := r.Context()
-	agent, ok := s.ownedAgent(w, r, user)
-	if !ok {
-		return
-	}
-	workspaceName := r.PathValue("workspace")
-	workspaces := agent.Spec.Workspaces[:0]
-	for _, t := range agent.Spec.Workspaces {
-		if t.Name != workspaceName {
-			workspaces = append(workspaces, t)
-		}
-	}
-	agent.Spec.Workspaces = workspaces
+	agent.Spec.Runtime.Suspended = !agent.Spec.Runtime.Suspended
 	err := s.cfg.Store.Upsert(ctx, agent)
 	if err != nil {
-		s.fail(w, "deleting workspace", err)
+		s.fail(w, "toggling agent suspend", err)
 		return
 	}
-	s.redirect(w, r, "/agents/"+agent.Name+"/workspaces")
+	s.redirect(w, r, "/")
 }
 
 // ownedAgent loads the agent named in the path and enforces that the current user may act
@@ -901,11 +1186,8 @@ func (s *Server) limits() AgentLimits {
 	if l.MaxMemory == "" {
 		l.MaxMemory = d.MaxMemory
 	}
-	if l.MaxWorkspace == "" {
-		l.MaxWorkspace = d.MaxWorkspace
-	}
-	if l.MaxWorkspaces == 0 {
-		l.MaxWorkspaces = d.MaxWorkspaces
+	if l.MaxStorage == "" {
+		l.MaxStorage = d.MaxStorage
 	}
 	if l.DefaultImage == "" {
 		l.DefaultImage = d.Image
@@ -934,12 +1216,12 @@ func (s *Server) user(w http.ResponseWriter, r *http.Request) (*identity.User, b
 // parseAgentRuntime reads the runtime section of a submission, or leaves the agent's runtime
 // alone in an environment where the portal does not offer it. Without that guard a form posted
 // against a portal with the runtime disabled would silently clear an existing runtime.
-func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, []agentsv1.AgentWorkspace, error) {
+func (s *Server) parseAgentRuntime(r *http.Request, current *agentsv1.Agent, isAdmin bool) (*agentsv1.AgentRuntime, error) {
 	if !s.cfg.AgentRuntime {
 		if current == nil {
-			return nil, nil, nil
+			return nil, nil
 		}
-		return current.Spec.Runtime, current.Spec.Workspaces, nil
+		return current.Spec.Runtime, nil
 	}
 	return parseRuntime(r, current, s.limits(), isAdmin)
 }

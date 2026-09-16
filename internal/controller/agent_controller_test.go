@@ -29,29 +29,24 @@ func TestSetManagedMetadataTracksAgentAsArgoRoot(t *testing.T) {
 	require.False(t, reconciler.setManagedMetadata(agent))
 }
 
-// A suspended workspace is deliberately idle, so it must not hold the condition false forever.
-func TestRuntimeConditionIgnoresSuspendedWorkspaces(t *testing.T) {
+func TestRuntimeConditionAcceptsSuspendedAgent(t *testing.T) {
 	agent := &agentsv1.Agent{}
-	agent.Spec.Runtime = &agentsv1.AgentRuntime{}
+	agent.Spec.Runtime = &agentsv1.AgentRuntime{Suspended: true}
 
-	condition := runtimeCondition(agent, []agentsv1.WorkspaceStatus{
-		{Name: "main", State: agentsv1.WorkspaceStateRunning},
-		{Name: "review", State: agentsv1.WorkspaceStateSuspended},
-	})
+	condition := runtimeCondition(agent, &agentsv1.RuntimeStatus{State: agentsv1.RuntimeStateSuspended})
 	require.Equal(t, metav1.ConditionTrue, condition.Status)
-	require.Equal(t, "AllWorkspacesRunning", condition.Reason)
+	require.Equal(t, "RuntimeSuspended", condition.Reason)
 }
 
-func TestRuntimeConditionReportsFailingWorkspace(t *testing.T) {
+func TestRuntimeConditionReportsFailingAgent(t *testing.T) {
 	agent := &agentsv1.Agent{}
 	agent.Spec.Runtime = &agentsv1.AgentRuntime{}
 
-	condition := runtimeCondition(agent, []agentsv1.WorkspaceStatus{
-		{Name: "main", State: agentsv1.WorkspaceStateRunning},
-		{Name: "review", State: agentsv1.WorkspaceStateFailed, Message: "agent is limited to 2 workspaces"},
+	condition := runtimeCondition(agent, &agentsv1.RuntimeStatus{
+		State:   agentsv1.RuntimeStateFailed,
+		Message: "statefulset unavailable",
 	})
 	require.Equal(t, metav1.ConditionFalse, condition.Status)
-	require.Equal(t, "WorkspacesPending", condition.Reason)
-	require.Contains(t, condition.Message, "workspace review is failed")
-	require.Contains(t, condition.Message, "limited to 2 workspaces")
+	require.Equal(t, "RuntimePending", condition.Reason)
+	require.Contains(t, condition.Message, "statefulset unavailable")
 }

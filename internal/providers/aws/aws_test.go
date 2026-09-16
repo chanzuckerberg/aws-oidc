@@ -17,7 +17,8 @@ import (
 )
 
 type fakeIAM struct {
-	deleteErr error
+	deleteErr  error
+	getRoleErr error
 	// sourceAttached are the managed policy ARNs the source role has.
 	sourceAttached []string
 	// existingTrust, when set, makes GetRole report an existing role carrying this trust
@@ -32,6 +33,9 @@ type fakeIAM struct {
 }
 
 func (f *fakeIAM) GetRole(_ context.Context, in *iam.GetRoleInput, _ ...func(*iam.Options)) (*iam.GetRoleOutput, error) {
+	if f.getRoleErr != nil {
+		return nil, f.getRoleErr
+	}
 	if f.existingTrust == "" {
 		return nil, &iamtypes.NoSuchEntityException{}
 	}
@@ -169,6 +173,16 @@ func TestEnsureNamingAndMirror(t *testing.T) {
 	require.Equal(t, []string{"arn:aws:iam::aws:policy/ReadOnlyAccess"}, f.attachedToAgent)
 }
 
+func TestEnsureSettlesUnreachableAccount(t *testing.T) {
+	p := providerWithFake(&fakeIAM{getRoleErr: assumeRoleFailure()})
+
+	status, err := p.Ensure(context.Background(), &agentsv1.Agent{}, awsGrant())
+
+	require.NoError(t, err)
+	require.Equal(t, agentsv1.GrantStateFailed, status.State)
+	require.Equal(t, "cannot assume agent-provisioner role in account 111111111111", status.Message)
+}
+
 func TestTagsMergeStandardAndAgent(t *testing.T) {
 	p := NewProvider(Config{
 		DefaultTags: map[string]string{"project": "agent-registry", "env": "rdev", "service": "aws-oidc"},
@@ -247,7 +261,7 @@ func trustStatements(t *testing.T, doc string) map[string]map[string]any {
 	return byStatementID
 }
 
-func TestTrustPolicyTrustsWorkspaceServiceAccounts(t *testing.T) {
+func TestTrustPolicyTrustsAgentServiceAccount(t *testing.T) {
 	f := &fakeIAM{}
 	agent := runtimeAgent()
 
@@ -257,7 +271,7 @@ func TestTrustPolicyTrustsWorkspaceServiceAccounts(t *testing.T) {
 	statements := trustStatements(t, f.createdTrust)
 	require.Len(t, statements, 2)
 
-	cluster := statements["AgentWorkspaceServiceAccounts"]
+	cluster := statements["AgentServiceAccount"]
 	require.Equal(t,
 		"arn:aws:iam::111111111111:oidc-provider/"+clusterProvider,
 		cluster["Principal"].(map[string]any)["Federated"],
@@ -268,11 +282,9 @@ func TestTrustPolicyTrustsWorkspaceServiceAccounts(t *testing.T) {
 		"sts.amazonaws.com",
 		condition["StringEquals"].(map[string]any)[clusterProvider+":aud"],
 	)
-	// One wildcard covers every workspace, so adding a workspace needs no IAM write. The prefix is
-	// the agent's uid, not its name, so it cannot match another agent's workspaces.
 	require.Equal(t,
-		"system:serviceaccount:argus-aws-oidc-rdev:remote-agent-0f8fad5bd9cb-*",
-		condition["StringLike"].(map[string]any)[clusterProvider+":sub"],
+		"system:serviceaccount:argus-aws-oidc-rdev:remote-agent-0f8fad5bd9cb",
+		condition["StringEquals"].(map[string]any)[clusterProvider+":sub"],
 	)
 }
 
@@ -303,7 +315,7 @@ func TestEnsureCorrectsTrustDriftOnExistingRole(t *testing.T) {
 	_, err = p.Ensure(ctx, agent, awsGrant())
 	require.NoError(t, err)
 	require.Empty(t, f.createdRoleName, "an existing role must not be recreated")
-	require.Contains(t, f.updatedTrust, "AgentWorkspaceServiceAccounts")
+	require.Contains(t, f.updatedTrust, "AgentServiceAccount")
 
 	// Already correct: no write, so a steady-state resync does not churn IAM.
 	settled := &fakeIAM{existingTrust: f.updatedTrust}

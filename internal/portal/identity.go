@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"golang.org/x/oauth2"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
 )
@@ -22,40 +21,31 @@ import (
 // errNoIdentity is returned when no authenticated user can be determined.
 var errNoIdentity = errors.New("no authenticated user")
 
-// IdentityResolver extracts the current user from a request. The Envoy gateway OIDC proxy
-// authenticates the browser and forwards the user's Okta access token in the Authorization
-// header (oidcProxyGateway.forwardAccessToken). That token carries the Okta user id in its
-// uid claim but not group membership, so groups are read from Okta's userinfo endpoint. A dev
-// override (PORTAL_DEV_SUB) short-circuits the whole flow for rdev testing.
+// IdentityResolver extracts the current user from the gateway's verified OIDC ID token.
 type IdentityResolver struct {
 	devSub      string
 	devEmail    string
 	adminGroups map[string]bool
 
-	// verifyToken checks the forwarded access token and returns the Okta user id (its uid
-	// claim). It is a struct field so tests can stub it without a live issuer.
-	verifyToken func(ctx context.Context, rawToken string) (userID string, err error)
-	// fetchUserInfo returns the email and group memberships for the token's user from Okta's
-	// userinfo endpoint. It is a struct field so tests can stub it without a live issuer.
-	fetchUserInfo func(ctx context.Context, rawToken string) (email string, groups []string, err error)
+	// verifyIDToken verifies the X-ID-Token JWT and returns the user's sub, email, and groups.
+	// It is a struct field so tests can stub it without a live issuer.
+	verifyIDToken func(ctx context.Context, rawToken string) (sub, email string, groups []string, err error)
 }
 
-// accessTokenClaims are the claims the portal reads from the forwarded Okta access token.
-// uid is the Okta user id (the "00u" value); cid is the OAuth client the token was issued to.
-type accessTokenClaims struct {
-	UID string `json:"uid"`
-	CID string `json:"cid"`
+// idTokenClaims are the claims the portal reads from the forwarded OIDC ID token.
+type idTokenClaims struct {
+	Email  string   `json:"email"`
+	Groups []string `json:"teamGroups"`
 }
 
 // NewIdentityResolver builds a resolver that trusts the Envoy gateway OIDC proxy. Following the
 // convention argus uses, it creates an OIDC provider from the issuer at boot (which discovers
-// the JWKS endpoint) and verifies every forwarded token's signature against those keys. Groups
-// come from Okta userinfo.
+// the JWKS endpoint) and verifies every forwarded token's signature against those keys.
 //
 // Config:
 //   - issuerURL: the Okta issuer (e.g. https://czi.okta.com). Its JWKS signs the tokens.
-//   - clientID: the OAuth client the gateway authenticates with. The forwarded access token's
-//     cid claim must match it, which binds the token to our gateway app.
+//   - clientID: the OAuth client the gateway authenticates with. The ID token audience must
+//     match it, which binds the token to our gateway app.
 //
 // Env:
 //   - PORTAL_DEV_SUB / PORTAL_DEV_EMAIL: act as a fixed user (treated as admin) without a real
@@ -74,11 +64,8 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 		return nil, fmt.Errorf("creating oidc provider: %w", err)
 	}
 
-	// The forwarded token is an access token whose audience is the Okta org, not our client
-	// id, so skip the audience check here and bind to the client via the cid claim below.
-	// Signature, issuer, and expiry are still verified, which stops a request that bypassed
-	// the gateway from spoofing a user.
-	verifier := provider.Verifier(&oidc.Config{SkipClientIDCheck: true})
+	// ID token verifier: the gateway's OIDC client ID is the audience.
+	idVerifier := provider.Verifier(&oidc.Config{ClientID: clientID})
 
 	devSub := os.Getenv("PORTAL_DEV_SUB")
 	adminGroups := parseAdminGroups(os.Getenv("PORTAL_ADMIN_GROUPS"))
@@ -93,32 +80,17 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 		devSub:      devSub,
 		devEmail:    os.Getenv("PORTAL_DEV_EMAIL"),
 		adminGroups: adminGroups,
-		verifyToken: func(ctx context.Context, raw string) (string, error) {
-			token, err := verifier.Verify(ctx, raw)
+		verifyIDToken: func(ctx context.Context, raw string) (string, string, []string, error) {
+			tok, err := idVerifier.Verify(ctx, raw)
 			if err != nil {
-				return "", fmt.Errorf("verifying access token: %w", err)
+				return "", "", nil, fmt.Errorf("verifying id token: %w", err)
 			}
-			claims := accessTokenClaims{}
-			err = token.Claims(&claims)
+			var claims idTokenClaims
+			err = tok.Claims(&claims)
 			if err != nil {
-				return "", fmt.Errorf("reading token claims: %w", err)
+				return "", "", nil, fmt.Errorf("reading id token claims: %w", err)
 			}
-			return userIDFromClaims(claims, clientID)
-		},
-		fetchUserInfo: func(ctx context.Context, raw string) (string, []string, error) {
-			info, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(&oauth2.Token{AccessToken: raw}))
-			if err != nil {
-				return "", nil, fmt.Errorf("calling userinfo: %w", err)
-			}
-			var claims struct {
-				Email  string   `json:"email"`
-				Groups []string `json:"groups"`
-			}
-			err = info.Claims(&claims)
-			if err != nil {
-				return "", nil, fmt.Errorf("reading userinfo claims: %w", err)
-			}
-			return claims.Email, claims.Groups, nil
+			return tok.Subject, claims.Email, claims.Groups, nil
 		},
 	}, nil
 }
@@ -127,70 +99,51 @@ func NewIdentityResolver(ctx context.Context, issuerURL, clientID string) (*Iden
 func (ir *IdentityResolver) Resolve(ctx context.Context, r *http.Request) (*identity.User, error) {
 	if ir.devSub != "" {
 		slog.Info("portal identity taken from PORTAL_DEV_SUB override", "sub", ir.devSub, "email", ir.devEmail)
-		return &identity.User{Sub: ir.devSub, Email: ir.devEmail, Admin: true}, nil
+		return &identity.User{
+			Sub:         ir.devSub,
+			Email:       ir.devEmail,
+			Admin:       true,
+			AdminReason: "Admin access granted by PORTAL_DEV_SUB",
+		}, nil
 	}
 
-	header := r.Header.Get("Authorization")
-	raw := identity.StripBearer(header)
-	if raw == "" {
-		reason := "the gateway did not forward one"
-		if header != "" {
-			reason = "the header held no token after the Bearer prefix"
-		}
-		return nil, fmt.Errorf("%w: no access token in the Authorization header, %s (headers on the request: %s)",
-			errNoIdentity, reason, strings.Join(headerNames(r), ", "))
+	rawIDToken := r.Header.Get("X-Id-Token")
+	if rawIDToken == "" {
+		slog.Warn("portal request has no ID token header", "header_names", headerNames(r))
+		return nil, fmt.Errorf("%w: no X-ID-Token header on request (headers: %s)",
+			errNoIdentity,
+			strings.Join(headerNames(r), ", "),
+		)
 	}
 
-	userID, err := ir.verifyToken(ctx, raw)
+	if ir.verifyIDToken == nil {
+		slog.Warn("portal cannot verify ID token header")
+		return nil, fmt.Errorf("%w: ID token verifier is not configured", errNoIdentity)
+	}
+
+	sub, email, groups, err := ir.verifyIDToken(ctx, rawIDToken)
 	if err != nil {
-		slog.Warn("portal rejected an access token", "error", err, describeToken(raw))
-		return nil, fmt.Errorf("verifying forwarded access token: %w", err)
+		slog.Warn("portal rejected ID token header", "error", err, describeToken(rawIDToken))
+		return nil, fmt.Errorf("%w: invalid X-ID-Token header: %w", errNoIdentity, err)
 	}
-	if userID == "" {
-		return nil, fmt.Errorf("%w: token verified but carried no user id", errNoIdentity)
-	}
-	user := &identity.User{Sub: userID}
 
-	// The verified token establishes who the user is. Email and groups come from userinfo; if
-	// that call fails we still know the user, so degrade to a non-admin view rather than
-	// locking them out.
-	email, groups, err := ir.fetchUserInfo(ctx, raw)
-	if err != nil {
-		slog.Warn("fetching userinfo for portal user, continuing without groups", "sub", userID, "error", err)
-		return user, nil
+	user := &identity.User{Sub: sub, Email: email, Groups: groups}
+	if group := matchingAdminGroup(groups, ir.adminGroups); group != "" {
+		user.Admin = true
+		user.AdminReason = "Admin through Okta group " + group
 	}
-	user.Email = email
-	user.Groups = groups
-	user.Admin = isAdmin(groups, ir.adminGroups)
-	slog.Info("portal resolved a user",
-		"sub", userID,
-		"email", email,
-		"groups", groups,
-		"admin", user.Admin,
-	)
+	slog.Info("portal resolved user from ID token", "source", "header", "sub", sub, "email", email, "groups", groups, "admin", user.Admin)
 	return user, nil
 }
 
-// userIDFromClaims binds the access token to our client via the cid claim and returns the
-// Okta user id. Rejecting a mismatched cid stops a valid token minted for a different Okta app
-// from being replayed to the portal.
-func userIDFromClaims(claims accessTokenClaims, clientID string) (string, error) {
-	if claims.CID != clientID {
-		return "", fmt.Errorf("token client id %q does not match expected %q", claims.CID, clientID)
-	}
-	if claims.UID == "" {
-		return "", errors.New("token has no uid claim")
-	}
-	return claims.UID, nil
-}
-
-func isAdmin(groups []string, adminGroups map[string]bool) bool {
+func matchingAdminGroup(groups []string, adminGroups map[string]bool) string {
 	for _, g := range groups {
-		if adminGroups[strings.TrimSpace(g)] {
-			return true
+		group := strings.TrimSpace(g)
+		if adminGroups[group] {
+			return group
 		}
 	}
-	return false
+	return ""
 }
 
 func describeToken(raw string) slog.Attr {

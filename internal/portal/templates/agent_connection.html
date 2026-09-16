@@ -5,23 +5,20 @@
     <div>
       <div class="card">
         <h1>Connection</h1>
-        <p class="hint">Each workspace is one pod. Open as many Claude or Cursor sessions inside it as you like.</p>
+        <p class="hint">Open as many Claude, Cursor or shell sessions in this agent as you need.</p>
 
         {{$ns := .Namespace}}
         {{$agent := .Agent}}
-
-        {{if .Agent.Status.Workspaces}}
-          {{range .Agent.Status.Workspaces}}
+        {{with .Agent.Status.Runtime}}
           {{if eq (print .State) "Running"}}
-          <h2>{{.Name}}</h2>
           <div class="connect-panel">
             {{if $agent.Spec.Tailscale}}
             <p class="hint">Claude session over Tailscale SSH</p>
-            <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{.Name}} claude</code>
+            <code>ssh -t agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}} claude</code>
             <p class="hint" style="margin-top:.75rem;">Interactive shell</p>
-            <code>ssh agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{.Name}}</code>
+            <code>ssh agent@agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}</code>
             <p class="hint" style="margin-top:.75rem;">Cursor — add to <code>~/.ssh/config</code>, then Remote-SSH into the host</p>
-            <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}-{{.Name}}
+            <pre>Host agent-{{localPart $agent.Spec.OwnerEmail}}-{{$agent.Name}}
   User agent
   StrictHostKeyChecking no</pre>
             {{else}}
@@ -32,12 +29,10 @@
             {{end}}
           </div>
           {{else}}
-          <h2>{{.Name}} <span class="muted">— {{if .State}}{{.State}}{{else}}pending{{end}}</span></h2>
-          <p class="muted">Not running. Connection details appear once the workspace is Running.</p>
-          {{end}}
+          <p class="muted">The agent is {{if .State}}{{.State}}{{else}}pending{{end}}. Connection details appear once it is running.</p>
           {{end}}
         {{else}}
-        <p class="muted">No workspaces yet. Create one on the <a href="{{.BasePath}}/agents/{{.Agent.Name}}/workspaces">Workspaces</a> page.</p>
+        <p class="muted">The agent runtime is disabled. Enable it on the <a href="{{.BasePath}}/agents/{{.Agent.Name}}/runtime">Runtime</a> page.</p>
         {{end}}
       </div>
     </div>

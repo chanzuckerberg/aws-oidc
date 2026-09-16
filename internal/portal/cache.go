@@ -77,6 +77,38 @@ func (c *EntitlementsCache) Get(ctx context.Context, sub string) (*Entitlements,
 	return v.(*Entitlements), nil
 }
 
+// Warm starts the fetch for sub in the background and returns at once, so a later Get finds
+// the entry already populated. It is a no-op when the entry is still fresh, and concurrent
+// callers collapse onto the one in-flight fetch.
+func (c *EntitlementsCache) Warm(sub string) {
+	c.mu.Lock()
+	entry := c.entries[sub]
+	c.mu.Unlock()
+
+	if entry != nil {
+		if entry.stale(c.ttl) {
+			c.tryRefresh(sub)
+		}
+		return
+	}
+
+	go func() {
+		_, err, _ := c.group.Do(sub, func() (interface{}, error) {
+			ent, err := c.fetch(context.Background(), sub)
+			if err != nil {
+				return nil, err
+			}
+			c.mu.Lock()
+			c.entries[sub] = &cachedEntry{value: ent, fetchedAt: time.Now()}
+			c.mu.Unlock()
+			return ent, nil
+		})
+		if err != nil {
+			slog.Warn("entitlements warm failed", "sub", sub, "error", err)
+		}
+	}()
+}
+
 // tryRefresh starts a background goroutine to refresh the entry for sub. It is a no-op if a
 // refresh is already in flight for this user.
 func (c *EntitlementsCache) tryRefresh(sub string) {

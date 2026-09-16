@@ -13,15 +13,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// GitHubAppSecretName is the Secret workspace pods mount the GitHub App's private key from.
+// GitHubAppSecretName is the Secret agent pods mount the GitHub App's private key from.
 //
 // Argus delivers the key to the operator as an environment variable, which every service in
-// the stack shares. Handing a workspace pod that whole environment would give an agent the
+// the stack shares. Handing an agent pod that whole environment would give it the
 // stack's other secrets, so the operator republishes this one key on its own and projects
 // nothing else.
 const GitHubAppSecretName = "agent-github-app"
 
-// EnsureGitHubAppSecret writes the GitHub App's private key where workspace pods can mount it,
+// EnsureGitHubAppSecret writes the GitHub App's private key where agent pods can mount it,
 // and returns the Secret's name.
 //
 // It runs once at operator startup rather than on every reconcile. The operator's own copy of

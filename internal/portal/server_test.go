@@ -1,19 +1,25 @@
 package portal
 
 import (
+	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentsv1 "github.com/chanzuckerberg/aws-oidc/api/v1"
+	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 	"github.com/chanzuckerberg/aws-oidc/pkg/awsaccess"
 	"github.com/chanzuckerberg/aws-oidc/pkg/identity"
 )
 
 func TestTemplatesRender(t *testing.T) {
-	s, err := NewServer(Config{})
+	s, err := NewServer(Config{AgentRuntime: true})
 	require.NoError(t, err)
 
 	ent := &Entitlements{
@@ -45,7 +51,11 @@ func TestTemplatesRender(t *testing.T) {
 	rec = httptest.NewRecorder()
 	s.render(rec, "list", pageData{
 		Title: "Your agents",
-		User:  &identity.User{Sub: "s"},
+		User: &identity.User{
+			Sub:         "s",
+			Admin:       true,
+			AdminReason: "Admin through Okta group infra-eng",
+		},
 		Agents: []agentsv1.Agent{{
 			ObjectMeta: metav1.ObjectMeta{Name: "bot"},
 			Spec: agentsv1.AgentSpec{
@@ -54,7 +64,14 @@ func TestTemplatesRender(t *testing.T) {
 		}},
 	})
 	require.Equal(t, 200, rec.Code)
-	require.Contains(t, rec.Body.String(), "bot")
+	body = rec.Body.String()
+	require.Contains(t, body, "bot")
+	require.Contains(t, body, "1 AWS role")
+	require.Contains(t, body, "prod")
+	require.Contains(t, body, "x")
+	require.Contains(t, body, `href="/agents/bot/aws"`)
+	require.Contains(t, body, `class="admin-badge"`)
+	require.Contains(t, body, `title="Admin through Okta group infra-eng"`)
 
 	// Repositories page renders existing entries as chips with hidden inputs to resubmit.
 	rec = httptest.NewRecorder()
@@ -71,7 +88,7 @@ func TestTemplatesRender(t *testing.T) {
 	require.Contains(t, body, `name="repository"`)
 	require.Contains(t, body, "chanzuckerberg/aws-oidc")
 
-	// Connection page shows the Tailscale SSH command for a running workspace, keyed on the
+	// Connection page shows the Tailscale SSH command for a running agent, keyed on the
 	// owner's email local part so the connect string works outside the home page.
 	rec = httptest.NewRecorder()
 	s.render(rec, "connection", pageData{
@@ -84,16 +101,72 @@ func TestTemplatesRender(t *testing.T) {
 				Tailscale:  &agentsv1.TailscaleAccess{},
 			},
 			Status: agentsv1.AgentStatus{
-				Workspaces: []agentsv1.WorkspaceStatus{{Name: "main", State: agentsv1.WorkspaceStateRunning}},
+				Runtime: &agentsv1.RuntimeStatus{State: agentsv1.RuntimeStateRunning},
 			},
 		},
 		Nav: "connection",
 	})
 	require.Equal(t, 200, rec.Code)
-	require.Contains(t, rec.Body.String(), "ssh -t agent@agent-jheath-bot-main claude")
+	require.Contains(t, rec.Body.String(), "ssh -t agent@agent-jheath-bot claude")
 }
 
 func TestNormalizeReposDeduplicatesAndTrims(t *testing.T) {
 	got := normalizeRepos([]string{" chanzuckerberg/aws-oidc ", "", "chanzuckerberg/AWS-OIDC", "evolutionaryscale/foo"})
 	require.Equal(t, []string{"chanzuckerberg/aws-oidc", "evolutionaryscale/foo"}, got)
+}
+
+func TestUpdateClaudeConfig(t *testing.T) {
+	store := newMemStore()
+	server := fullServer(t, store)
+	postCreate(t, server, "bot", "a@example.com")
+
+	values := url.Values{
+		"claude-md":     {"# Personal instructions\n"},
+		"settings-json": {`{"theme":"dark"}`},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/agents/bot/claude", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusSeeOther, response.Code)
+
+	agent, err := store.Get(request.Context(), "bot")
+	require.NoError(t, err)
+	require.Equal(t, "# Personal instructions\n", agent.Spec.Claude.ClaudeMD)
+	require.Equal(t, "{\"theme\":\"dark\"}\n", agent.Spec.Claude.SettingsJSON)
+}
+
+func TestClaudePageShowsEditableDefault(t *testing.T) {
+	defaultsPath := filepath.Join(t.TempDir(), "defaults.yaml")
+	err := os.WriteFile(defaultsPath, []byte("claudeMD: |\n  # Default instructions\n"), 0o600)
+	require.NoError(t, err)
+
+	store := newMemStore()
+	server := fullServer(t, store)
+	server.cfg.DefaultsLoader = agentdefaults.NewLoader(defaultsPath)
+	postCreate(t, server, "bot", "a@example.com")
+
+	request := httptest.NewRequest(http.MethodGet, "/agents/bot/claude", nil)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), "# Default instructions")
+}
+
+func TestUpdateClaudeConfigRejectsNonObjectSettings(t *testing.T) {
+	store := newMemStore()
+	server := fullServer(t, store)
+	postCreate(t, server, "bot", "a@example.com")
+
+	values := url.Values{"settings-json": {`["invalid"]`}}
+	request := httptest.NewRequest(http.MethodPost, "/agents/bot/claude", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), "settings.json must contain a JSON object")
+
+	agent, err := store.Get(request.Context(), "bot")
+	require.NoError(t, err)
+	require.Nil(t, agent.Spec.Claude)
 }

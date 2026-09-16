@@ -10,7 +10,7 @@
 # .Values.agentImage so that Argus CI can update it automatically on each build.
 
 storageClass: "efs-agent-workspaces"
-workspaceSize: "50Gi"
+storageSize: "50Gi"
 
 # Default pod resource requests. Owners can override per-agent up to the maxCPU / maxMemory
 # ceilings below.
@@ -20,5 +20,59 @@ memory: "1Gi"
 # Ceilings enforced by the portal form. An owner cannot request more than these.
 maxCPU: "4"
 maxMemory: "16Gi"
-maxWorkspace: "500Gi"
-maxWorkspaces: 5
+maxStorage: "500Gi"
+
+claudeMD: |
+  # Default Agent Instructions
+
+  ## Responses
+
+  Answer the core question directly. Be concise. Do not add unrelated context, caveats,
+  follow-up offers or closing commentary.
+
+  ## GitHub workflow
+
+  When asked to address a GitHub comment, change the underlying code or content. Do not reply,
+  resolve, react to or otherwise modify the comment.
+
+  Create pull requests as drafts. Never mark a pull request ready unless the owner explicitly
+  asks.
+
+  Use conventional commit format for pull request titles:
+
+  ```
+  <type>(<scope>): <short summary>
+  ```
+
+  Do not include a test-plan section or a file-by-file inventory in pull request descriptions.
+  Lead with the problem or outcome, then explain the approach and impact.
+
+  ## Writing
+
+  Use plain English, short sentences and active voice. Lead with impact rather than mechanics.
+
+  - Do not use arrows or shorthand in place of words.
+  - Do not use em dashes to join clauses.
+  - Use colons only to introduce lists or code.
+  - Use quotation marks only for direct quotations.
+  - Break up run-on sentences and long lists.
+  - Spell out a technical term before using its abbreviation.
+
+  ## Shell
+
+  Use `$HOME` instead of `~` in scripts and non-interactive shells.
+
+  ## Go
+
+  Follow the Uber Go Style Guide with these requirements:
+
+  - Check errors in a separate `if err != nil` block.
+  - Wrap errors with `fmt.Errorf("short context: %w", err)`.
+  - Return an error or log it, but never do both.
+  - Call `os.Exit` or `log.Fatal` only once from `main`.
+  - Use `log/slog`.
+  - Do not prefix unexported variables or constants with an underscore.
+  - Prefer early returns and avoid unnecessary `else` blocks.
+  - Initialize structs with field names and specify known map or slice capacity.
+  - Add compile-time interface checks for exported implementations.
+  - Do not extract a helper used only once unless its name provides material meaning.

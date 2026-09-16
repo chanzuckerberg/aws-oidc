@@ -1,19 +1,8 @@
-// Package agentpod runs an agent's workspaces in the cluster. An agent is not a single session:
-// a person runs several workspaces of the same agent at once, so each workspace gets its own pod
-// while sharing the agent's access and its workspace.
-//
-// Per agent it maintains a headless Service (so each workspace pod has a stable DNS name), a
-// ConfigMap holding the rendered AWS config, and a single ReadWriteMany PVC backed by an EFS
-// access point. Per workspace it maintains a ServiceAccount and a StatefulSet. Each workspace pod
-// mounts the shared PVC at a workspace-specific subPath for its working tree and at a common
-// subPath for files shared between workspaces. The workspace's pod exchanges its projected service
-// account token for the agent's IAM roles, which trust the cluster's OIDC issuer for exactly
-// these service accounts.
+// Package agentpod runs one pod for each registered agent.
 package agentpod
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -29,16 +18,13 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/internal/agentdefaults"
 )
 
-// defaultWorkspaceSize is the storage request placed on the EFS workspace PVC when the agent
+// defaultStorageSize is the storage request placed on the EFS PVC when the agent
 // does not specify one. The EFS CSI driver ignores the value — EFS is elastic — but the
 // Kubernetes API requires a positive storage request.
-const defaultWorkspaceSize = "50Gi"
+const defaultStorageSize = "50Gi"
 
 const (
-	// LabelAgent and LabelWorkspace identify which agent and workspace an object belongs to. The
-	// reconciler selects on them to find objects whose workspace is gone from the spec.
-	LabelAgent     = "agents.czi.team/agent"
-	LabelWorkspace = "agents.czi.team/workspace"
+	LabelAgent = "agents.czi.team/agent"
 
 	// labelManagedBy marks the objects this package owns.
 	labelManagedBy = "app.kubernetes.io/managed-by"
@@ -56,8 +42,7 @@ const (
 	awsConfigMountPath = "/etc/aws"
 	awsConfigFilePath  = awsConfigMountPath + "/config"
 
-	// workspaceMountPath is the workspace's persistent working directory.
-	workspaceMountPath = "/workspace"
+	agentDataMountPath = "/workspace"
 
 	// tokenAudience is the audience STS requires on a projected token used for web identity.
 	tokenAudience = "sts.amazonaws.com"
@@ -114,11 +99,14 @@ const (
 	managedSettingsMountPath = "/etc/claude-code"
 	// managedSettingsMode 0755 makes shell scripts in the ConfigMap executable.
 	managedSettingsMode int32 = 0o755
+
+	userClaudeConfigVolume    = "user-claude-config"
+	userClaudeConfigMountPath = "/etc/agent-user-config"
 )
 
-// Config is the operator-level policy for running agent workspaces, the same for every agent.
+// Config is the operator-level policy for running agent pods.
 type Config struct {
-	// Namespace is where the workspaces run. It is the operator's own namespace, so owner
+	// Namespace is where agents run. It is the operator's own namespace, so owner
 	// references garbage-collect an agent's objects when the agent is deleted.
 	Namespace string
 	// DefaultsLoader reads live defaults from the agent-defaults ConfigMap. When set its
@@ -127,23 +115,19 @@ type Config struct {
 	// DefaultImage is the agent image used when spec.runtime.image is unset and the
 	// ConfigMap loader does not provide one.
 	DefaultImage string
-	// DefaultCommand is the command an agent workspace runs when neither the agent nor the image
+	// DefaultCommand is the command an agent runs when neither the agent nor the image
 	// provides a long-running entrypoint. Without it a base image whose entrypoint exits
 	// leaves the pod crash-looping.
 	DefaultCommand []string
-	// StorageClass is the storage class the per-agent workspace PVC is provisioned from.
+	// StorageClass is the storage class the per-agent PVC is provisioned from.
 	// It must be a ReadWriteMany class backed by the EFS CSI driver.
 	StorageClass string
 	// Region is the AWS region written into the rendered AWS config.
 	Region string
-	// MaxWorkspaces bounds how many workspaces one agent may run, so a single Agent write cannot
-	// ask for an unbounded number of pods.
-	MaxWorkspaces int
-
 	// AnthropicFederationRuleID, AnthropicOrganizationID, AnthropicServiceAccountID, and
 	// AnthropicTokenAudience configure Workload Identity Federation with Anthropic. When all
 	// four are non-empty the operator adds a second projected token (audience
-	// AnthropicTokenAudience) to every workspace pod and sets the four ANTHROPIC_* env vars the
+	// AnthropicTokenAudience) to every agent pod and sets the four ANTHROPIC_* env vars the
 	// Claude SDK and CLI need to exchange it for a Claude access token. When any field is
 	// empty the Anthropic token and env vars are omitted, so the operator degrades gracefully
 	// in clusters that have not yet configured Claude WIF.
@@ -153,7 +137,7 @@ type Config struct {
 	AnthropicTokenAudience    string
 
 	// GitHubAppID, GitHubAppInstallationID and GitHubAppPrivateKeySecret configure the shared
-	// GitHub App every workspace clones and opens pull requests as. When all three are non-empty
+	// GitHub App every agent clones and opens pull requests as. When all three are non-empty
 	// the operator mounts the app's private key from the named Secret and sets the GITHUB_APP_*
 	// env vars the image's git credential helper and gh wrapper read. When any is empty the
 	// mount and env vars are omitted, so a cluster without a GitHub App still runs agents.
@@ -183,7 +167,7 @@ type Config struct {
 	ManagedSettingsConfigMap string
 }
 
-// Reconciler drives an agent's workspaces toward the spec.
+// Reconciler drives an agent pod toward the spec.
 type Reconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -198,30 +182,21 @@ func New(c client.Client, scheme *runtime.Scheme, cfg Config) *Reconciler {
 	if cfg.Region == "" {
 		cfg.Region = "us-west-2"
 	}
-	if cfg.MaxWorkspaces <= 0 {
-		cfg.MaxWorkspaces = defaultMaxWorkspaces
-	}
 	return &Reconciler{Client: c, Scheme: scheme, Config: cfg}
 }
 
-// defaultMaxWorkspaces is the per-agent workspace ceiling when none is configured.
-const defaultMaxWorkspaces = 5
-
-// Reconcile brings the agent's workspaces in line with its spec and returns their statuses,
-// aligned with spec.workspaces. The grant statuses come from the AWS provider and carry the role
-// ARNs the pods' AWS config needs, so this runs after the grants are reconciled.
-//
-// An agent with no runtime has no workspaces, so everything the agent owns is pruned.
-func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]agentsv1.WorkspaceStatus, error) {
+// Reconcile brings the agent pod in line with its spec.
+func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) (*agentsv1.RuntimeStatus, error) {
 	if agent.Spec.Runtime == nil {
-		err := r.pruneWorkspaces(ctx, agent, nil)
-		if err != nil {
-			return nil, err
-		}
-		return nil, r.pruneShared(ctx, agent)
+		return nil, r.pruneRuntime(ctx, agent)
 	}
 
-	err := r.ensureService(ctx, agent)
+	err := r.pruneObsoleteRuntimeObjects(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.ensureService(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -229,73 +204,47 @@ func (r *Reconciler) Reconcile(ctx context.Context, agent *agentsv1.Agent) ([]ag
 	if err != nil {
 		return nil, err
 	}
-	err = r.ensureWorkspace(ctx, agent)
+	err = r.ensureClaudeConfig(ctx, agent)
+	if err != nil {
+		return nil, err
+	}
+	err = r.ensureStorage(ctx, agent)
 	if err != nil {
 		return nil, err
 	}
 
-	workspaces := agent.Spec.Workspaces
-	statuses := make([]agentsv1.WorkspaceStatus, 0, len(workspaces))
-	keep := make(map[string]bool, len(workspaces))
-	var errs []error
-
-	for i := range workspaces {
-		workspace := workspaces[i]
-
-		if i >= r.MaxWorkspaces {
-			statuses = append(statuses, agentsv1.WorkspaceStatus{
-				Name:    workspace.Name,
-				State:   agentsv1.WorkspaceStateFailed,
-				Message: fmt.Sprintf("agent is limited to %d workspaces", r.MaxWorkspaces),
-			})
-			continue
-		}
-		keep[workspace.Name] = true
-
-		status, err := r.reconcileWorkspace(ctx, agent, workspace)
-		if err != nil {
-			status.State = agentsv1.WorkspaceStateFailed
-			status.Message = err.Error()
-			errs = append(errs, err)
-		}
-		statuses = append(statuses, status)
+	status := &agentsv1.RuntimeStatus{
+		ServiceAccountName: agent.ServiceAccountName(),
+		StatefulSetName:    agent.StatefulSetName(),
+		State:              agentsv1.RuntimeStatePending,
 	}
-
-	// Prune after reconciling, so a workspace that failed to come up is not also torn down.
-	err = r.pruneWorkspaces(ctx, agent, keep)
+	err = r.ensureServiceAccount(ctx, agent)
 	if err != nil {
-		errs = append(errs, err)
-	}
-
-	return statuses, errors.Join(errs...)
-}
-
-// reconcileWorkspace ensures one workspace's service account and workload, then reports what it
-// found. The shared workspace is created once per agent before any workspace is reconciled.
-func (r *Reconciler) reconcileWorkspace(ctx context.Context, agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) (agentsv1.WorkspaceStatus, error) {
-	status := agentsv1.WorkspaceStatus{
-		Name:               workspace.Name,
-		ServiceAccountName: agent.WorkspaceServiceAccountName(workspace.Name),
-		StatefulSetName:    agent.WorkspaceStatefulSetName(workspace.Name),
-		State:              agentsv1.WorkspaceStatePending,
-	}
-
-	err := r.ensureServiceAccount(ctx, agent, workspace)
-	if err != nil {
+		status.State = agentsv1.RuntimeStateFailed
+		status.Message = err.Error()
 		return status, err
 	}
 
-	set, err := r.ensureStatefulSet(ctx, agent, workspace)
+	status.MemoryImports, err = r.reconcileMemoryImports(ctx, agent)
 	if err != nil {
+		status.State = agentsv1.RuntimeStateFailed
+		status.Message = err.Error()
+		return status, err
+	}
+
+	set, err := r.ensureStatefulSet(ctx, agent)
+	if err != nil {
+		status.State = agentsv1.RuntimeStateFailed
+		status.Message = err.Error()
 		return status, err
 	}
 
 	status.ReadyReplicas = set.Status.ReadyReplicas
 	switch {
-	case workspace.Suspended:
-		status.State = agentsv1.WorkspaceStateSuspended
+	case agent.Spec.Runtime.Suspended:
+		status.State = agentsv1.RuntimeStateSuspended
 	case set.Status.ReadyReplicas > 0:
-		status.State = agentsv1.WorkspaceStateRunning
+		status.State = agentsv1.RuntimeStateRunning
 	}
 	return status, nil
 }
@@ -310,7 +259,7 @@ func (r *Reconciler) ensureService(ctx context.Context, agent *agentsv1.Agent) e
 		service.Labels = agentLabels(agent)
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 		service.Spec.Selector = agentLabels(agent)
-		// The workspaces serve no traffic yet. A port is declared anyway because a headless
+		// The agent serves no traffic yet. A port is declared anyway because a headless
 		// service with no ports publishes no DNS records for its pods.
 		service.Spec.Ports = []corev1.ServicePort{{Name: "agent", Port: 8080}}
 		return controllerutil.SetControllerReference(agent, service, r.Scheme)
@@ -321,8 +270,7 @@ func (r *Reconciler) ensureService(ctx context.Context, agent *agentsv1.Agent) e
 	return nil
 }
 
-// ensureAWSConfig writes the agent's rendered AWS config. Every workspace mounts the same one,
-// since workspaces differ in workspace, not in access.
+// ensureAWSConfig writes the AWS config mounted by the agent pod.
 func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent) error {
 	rendered, err := r.renderAWSConfig(agent)
 	if err != nil {
@@ -345,16 +293,44 @@ func (r *Reconciler) ensureAWSConfig(ctx context.Context, agent *agentsv1.Agent)
 	return nil
 }
 
-// ensureServiceAccount creates the identity the workspace's pod runs as. Its name is what the
+func (r *Reconciler) ensureClaudeConfig(ctx context.Context, agent *agentsv1.Agent) error {
+	claudeMD := r.loadDefaults().ClaudeMD
+	settingsJSON := "{}\n"
+	if agent.Spec.Claude != nil {
+		claudeMD = agent.Spec.Claude.ClaudeMD
+		if agent.Spec.Claude.SettingsJSON != "" {
+			settingsJSON = agent.Spec.Claude.SettingsJSON
+		}
+	}
+
+	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+		Name:      agent.ClaudeConfigMapName(),
+		Namespace: r.Namespace,
+	}}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, configMap, func() error {
+		configMap.Labels = agentLabels(agent)
+		configMap.Data = map[string]string{
+			"CLAUDE.md":     claudeMD,
+			"settings.json": settingsJSON,
+		}
+		return controllerutil.SetControllerReference(agent, configMap, r.Scheme)
+	})
+	if err != nil {
+		return fmt.Errorf("ensuring config map %s: %w", configMap.Name, err)
+	}
+	return nil
+}
+
+// ensureServiceAccount creates the identity the agent pod runs as. Its name is what the
 // agent's IAM roles trust, so the pod can assume them with its projected token.
-func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.Agent, workspace agentsv1.AgentWorkspace) error {
+func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.Agent) error {
 	account := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
-		Name:      agent.WorkspaceServiceAccountName(workspace.Name),
+		Name:      agent.ServiceAccountName(),
 		Namespace: r.Namespace,
 	}}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, account, func() error {
-		account.Labels = workspaceLabels(agent, workspace.Name)
+		account.Labels = agentLabels(agent)
 		return controllerutil.SetControllerReference(agent, account, r.Scheme)
 	})
 	if err != nil {
@@ -363,15 +339,12 @@ func (r *Reconciler) ensureServiceAccount(ctx context.Context, agent *agentsv1.A
 	return nil
 }
 
-// ensureWorkspace creates the shared ReadWriteMany PVC for the agent. All workspaces mount it:
-// each workspace at its own subPath for an isolated working tree, and every workspace at the shared
-// subPath for files passed between workspaces. The EFS CSI driver provisions a fresh access
-// point for this PVC, so no other agent's data is reachable inside it.
+// ensureStorage creates the ReadWriteMany PVC that stores the agent's working directory.
 //
 // The PVC is owned by the Agent, so it is garbage-collected when the agent is deleted.
-func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent) error {
+func (r *Reconciler) ensureStorage(ctx context.Context, agent *agentsv1.Agent) error {
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{
-		Name:      agent.WorkspaceClaimName(),
+		Name:      agent.PersistentVolumeClaimName(),
 		Namespace: r.Namespace,
 	}}
 
@@ -379,15 +352,15 @@ func (r *Reconciler) ensureWorkspace(ctx context.Context, agent *agentsv1.Agent)
 		pvc.Labels = agentLabels(agent)
 		if pvc.Spec.AccessModes == nil {
 			pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}
-			pvc.Spec.StorageClassName = ptr(r.workspaceStorageClass(agent))
+			pvc.Spec.StorageClassName = ptr(r.storageClass(agent))
 			pvc.Spec.Resources = corev1.VolumeResourceRequirements{
-				Requests: corev1.ResourceList{corev1.ResourceStorage: r.workspaceSize(agent)},
+				Requests: corev1.ResourceList{corev1.ResourceStorage: r.storageSize(agent)},
 			}
 		}
 		return controllerutil.SetControllerReference(agent, pvc, r.Scheme)
 	})
 	if err != nil {
-		return fmt.Errorf("ensuring workspace %s: %w", pvc.Name, err)
+		return fmt.Errorf("ensuring storage %s: %w", pvc.Name, err)
 	}
 	return nil
 }
@@ -398,13 +371,6 @@ func agentLabels(agent *agentsv1.Agent) map[string]string {
 		LabelAgent:     agent.Name,
 		labelManagedBy: managedByValue,
 	}
-}
-
-// workspaceLabels identifies the objects belonging to one workspace of one agent.
-func workspaceLabels(agent *agentsv1.Agent, workspace string) map[string]string {
-	labels := agentLabels(agent)
-	labels[LabelWorkspace] = workspace
-	return labels
 }
 
 func (r *Reconciler) loadDefaults() *agentdefaults.Defaults {
@@ -441,7 +407,7 @@ func (r *Reconciler) command(agent *agentsv1.Agent) []string {
 	return r.DefaultCommand
 }
 
-func (r *Reconciler) workspaceStorageClass(agent *agentsv1.Agent) string {
+func (r *Reconciler) storageClass(agent *agentsv1.Agent) string {
 	if agent.Spec.Runtime != nil && agent.Spec.Runtime.StorageClass != "" {
 		return agent.Spec.Runtime.StorageClass
 	}
@@ -451,16 +417,16 @@ func (r *Reconciler) workspaceStorageClass(agent *agentsv1.Agent) string {
 	return r.StorageClass
 }
 
-func (r *Reconciler) workspaceSize(agent *agentsv1.Agent) resource.Quantity {
-	if agent.Spec.Runtime != nil && agent.Spec.Runtime.WorkspaceSize != nil {
-		return *agent.Spec.Runtime.WorkspaceSize
+func (r *Reconciler) storageSize(agent *agentsv1.Agent) resource.Quantity {
+	if agent.Spec.Runtime != nil && agent.Spec.Runtime.StorageSize != nil {
+		return *agent.Spec.Runtime.StorageSize
 	}
-	if d := r.loadDefaults(); d.WorkspaceSize != "" {
-		if q, err := resource.ParseQuantity(d.WorkspaceSize); err == nil {
+	if d := r.loadDefaults(); d.StorageSize != "" {
+		if q, err := resource.ParseQuantity(d.StorageSize); err == nil {
 			return q
 		}
 	}
-	return resource.MustParse(defaultWorkspaceSize)
+	return resource.MustParse(defaultStorageSize)
 }
 
 // ignoreNotFound treats an already-deleted object as success, so pruning is idempotent.
