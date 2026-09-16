@@ -2,5 +2,10 @@
 stack:
   services:
     aws-oidc:
+      gateway:
+        enabled: true
+        paths:
+          - path: /
+            pathType: Prefix
       image:
         tag: sha-d7f00ae
