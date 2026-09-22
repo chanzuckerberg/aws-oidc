@@ -11,7 +11,7 @@ stack:
           - host: aws-oidc.prod-central.prod.czi.team
       gateway:
         enabled: true
-        dnsOwner: ingress
+        dnsOwner: gateway
         paths:
           - path: /
             pathType: Prefix
