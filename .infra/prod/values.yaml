@@ -5,13 +5,8 @@ stack:
       replicaCount: 3
       image:
         tag: sha-2b35f73
-      ingress:
-        enabled: true
-        rules:
-          - host: aws-oidc.prod-central.prod.czi.team
       gateway:
         enabled: true
-        dnsOwner: gateway
         paths:
           - path: /
             pathType: Prefix
