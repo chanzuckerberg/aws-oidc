@@ -195,7 +195,7 @@ required scope and an allowed owner policy.
 `Agent` is one concrete runtime instance. It contains:
 
 - an immutable `profileRef`
-- desired lifecycle state, including suspension
+- desired lifecycle state, including suspension and a timeout
 - bounded resource overrides
 - optional instance-specific command or purpose metadata
 - runtime, connection, and readiness status
@@ -217,6 +217,7 @@ spec:
   profileRef:
     name: infra-worker
   suspended: false
+  timeout: indefinite
   runtime:
     resources:
       requests:
@@ -226,6 +227,8 @@ spec:
         cpu: "2"
         memory: 4Gi
 status:
+  phase: Running
+  startedAt: "2026-09-25T19:00:00Z"
   serviceName: agent-infra-worker-primary
   statefulSetName: agent-infra-worker-primary
   readyReplicas: 1
@@ -236,9 +239,27 @@ status:
   observedGeneration: 2
 ```
 
+`spec.timeout` accepts either `indefinite` or a positive Go-style duration
+such as `30m`, `8h`, or `168h`. The API defaults interactive Agents to
+`indefinite`, but stores the value explicitly so lifetime is never inferred
+from the caller type.
+
+For a finite timeout, the operator records `status.startedAt` when the Agent
+first becomes `Running` and computes `status.expiresAt`. The timeout is elapsed
+wall-clock time and does not pause while an Agent is suspended. At
+`expiresAt`, the operator terminates the runtime, sets the Agent phase and
+condition to `Expired`, and rejects resume. The `Agent` CR remains as the
+termination record until its owner deletes it. Its `AgentProfile`, grants, and
+workspace remain intact; starting again requires a new Agent instance.
+Before expiry, an authorized patch may change the timeout; the operator
+recalculates `expiresAt` from the original `startedAt`. Once the Agent is
+`Expired`, timeout and lifecycle changes cannot make it runnable again.
+
 Admission and application validation enforce that:
 
 - `profileRef` cannot change after creation
+- `timeout` is `indefinite` or a positive duration within the configured
+  maximum
 - a human can instantiate only a profile they own
 - a service principal can instantiate only profiles allowed by its policy
 - regular owners cannot select service accounts, mount arbitrary secrets,
@@ -269,7 +290,8 @@ The portal guides an owner through:
    through approved installations, Anthropic access, and optional Tailscale
    access.
 3. Configure runtime defaults.
-4. Create the default `Agent` instance.
+4. Create the default `Agent` instance with a finite timeout or
+   `indefinite`.
 5. Wait for grant and runtime readiness.
 6. Copy the Tailscale SSH, VS Code, or Cursor connection information when the
    profile has a Tailscale grant.
@@ -280,7 +302,7 @@ Owners can later:
 - edit owner-managed Claude instructions and settings
 - import selected project memories into profile storage
 - create another Agent instance from the profile
-- suspend, resume, resize, or delete an Agent instance
+- suspend, resume, resize, update the timeout of, or delete an Agent instance
 - delete the profile and all resources it owns
 
 Administrators can inspect, suspend, revoke, or delete any profile and its
@@ -333,6 +355,11 @@ Reconciliation is asynchronous. Create and patch return the accepted
 representation. Clients poll status with exponential backoff or request a
 bounded wait such as `?wait=Ready&timeout=60s`. A timeout never cancels
 reconciliation.
+
+The wait query parameter is an API request deadline and is separate from
+`Agent.spec.timeout`, which controls the runtime lifetime. Agent responses
+include `startedAt`, `expiresAt` for finite lifetimes, and the terminal phase
+so clients do not need to reproduce deadline calculations.
 
 Every error is JSON with a stable code, message, request ID, and optional
 field-level details. The service enforces request-size, file-size, rate, and
@@ -436,13 +463,18 @@ sibling grants from reporting status.
 For each Agent:
 
 1. Resolve and authorize its `profileRef`.
-2. Read profile readiness and runtime defaults.
-3. Merge bounded instance overrides.
-4. Reconcile one StatefulSet replica and its supporting runtime objects.
-5. Write runtime, connection, and readiness status.
+2. Record the first transition to `Running`, calculate a finite deadline, and
+   schedule a reconcile for `expiresAt`.
+3. If the deadline has passed, remove runtime objects and record `Expired`
+   without recreating them.
+4. Read profile readiness and runtime defaults.
+5. Merge bounded instance overrides.
+6. Reconcile one StatefulSet replica and its supporting runtime objects.
+7. Write runtime, connection, and readiness status.
 
 Suspension scales the StatefulSet to zero while retaining the profile PVC.
-Deleting an Agent garbage-collects only instance-owned objects.
+Suspension does not pause or extend a finite timeout. Deleting an Agent
+garbage-collects only instance-owned objects.
 
 The controller watches owned StatefulSets and Jobs so readiness and memory
 imports enqueue reconciliation immediately. A periodic resync repairs missed
@@ -547,7 +579,7 @@ ReadWriteMany preserves the future ability to run multiple instances, but V1
 defaults to one active interactive Agent per profile. Concurrent instances
 can race on repositories and session files, so the portal must make the
 shared-state behavior explicit. Later automation must add concurrency quotas
-and default TTLs before creating instances at scale.
+and bounded timeout defaults before creating instances at scale.
 
 Profile storage contains repositories, sessions, provider settings, imported
 memories, and owner configuration. Deleting or suspending an Agent does not
@@ -821,7 +853,8 @@ Implement the production system in independently reviewable layers:
 5. **Profile reconciliation.** Add stable profile identities, provider status,
    AWS role reconciliation, finalizers, and complete drift removal.
 6. **Runtime reconciliation.** Add one StatefulSet per Agent, shared
-   profile-scoped EFS, suspend/resume, managed defaults, and connection status.
+   profile-scoped EFS, finite or indefinite timeout enforcement,
+   suspend/resume, managed defaults, and connection status.
 7. **Provider integrations.** Add Anthropic WIF, the GitHub credential broker,
    Tailscale identity and policy, and the provider-specific audit labels.
 8. **Production infrastructure.** Land the IRSA, permissions-boundary, EFS,
@@ -859,8 +892,13 @@ The integration router is not a delivery item in this plan.
 12. Give the profile a Tailscale grant, connect as the owner, and confirm root
     and unauthorized users are denied; remove the grant and confirm the
     profile can no longer enroll instances.
-13. Delete one Agent and confirm the profile workspace and grants remain.
-14. Delete a test profile and confirm its test Agents and provider grants are
+13. Create an Agent with a short finite timeout and confirm its runtime is
+    terminated at `expiresAt`, its phase becomes `Expired`, and it cannot be
+    resumed.
+14. Create an Agent with `timeout: indefinite` and confirm no `expiresAt` is
+    set and the operator does not terminate it.
+15. Delete one Agent and confirm the profile workspace and grants remain.
+16. Delete a test profile and confirm its test Agents and provider grants are
     cleaned up in order.
 
 POC resources are not used in acceptance testing and remain manually managed.
