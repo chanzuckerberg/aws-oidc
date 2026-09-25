@@ -21,7 +21,7 @@ Kubernetes custom resources are the durable source of truth:
   state, managed configuration, and runtime defaults.
 - `Agent` describes one concrete pod instantiation of an `AgentProfile`.
 
-The public API is the control-plane boundary. Humans, CLIs, and approved
+The public API is the control-plane boundary. The portal and approved
 automation use it instead of receiving Kubernetes credentials or writing
 custom resources directly.
 
@@ -29,7 +29,7 @@ custom resources directly.
 
 The first production iteration includes:
 
-- a versioned JSON API and generated clients
+- a versioned JSON API and generated server/client bindings
 - a small server-rendered portal over the same application service
 - `AgentProfile` and `Agent` custom resource definitions (CRDs)
 - an operator that reconciles profiles, grants, and runtime pods
@@ -47,8 +47,14 @@ The following are not part of this implementation:
   automated event sources
 - migration or cleanup of POC resources
 - laptop agent profiles or extensions to `aws-oidc configure`
+- a user-facing CLI application
 - blocking local agents
 - defining organization-wide security policy
+
+There is no intention to build a CLI in this pass. The API remains suitable
+for future programmatic clients, but CLI commands, device authorization,
+credential storage, packaging, and distribution are deferred until there is a
+concrete need.
 
 The integration router can be designed separately. It will eventually use the
 public API to instantiate bounded or time-limited `Agent` resources that refer
@@ -81,7 +87,6 @@ new implementation.
 flowchart TB
   owner["Owner"] -->|"browser OIDC login"| gateway["Envoy Gateway"]
   gateway -->|"verified ID token"| portal["Agent Registry Portal"]
-  cli["Agent Registry CLI"] -->|"bearer token"| api["Agent Registry API"]
   automation["Approved automation"] -->|"scoped service token"| api
   portal --> app["Shared application service"]
   api --> app
@@ -315,15 +320,17 @@ Check an OpenAPI 3 document into `agent-registry` and generate:
 
 - public request and response models
 - strict Go server interfaces and request validation
-- a Go client used by the portal and CLI
+- a Go client for tests, internal adapters, and approved automation
 
 Use `oapi-codegen` and require CI to fail when generated files are stale.
 Keep business logic in an application service behind generated handlers so
 the JSON API and server-rendered portal cannot diverge on authorization or
 validation.
 
-The new repository owns its CLI and generated clients. Do not add an
-`aws-oidc agents` command or agent API types to the `aws-oidc` module.
+Do not build or distribute a CLI in this iteration. Also do not add an
+`aws-oidc agents` command or agent API types to the `aws-oidc` module. A future
+CLI can consume the same OpenAPI contract without changing the service
+boundary.
 
 ### API resources
 
@@ -374,11 +381,6 @@ projected tokens, private keys, or imported memory contents.
 Envoy Gateway performs browser login and forwards a verified OpenID Connect
 (OIDC) ID token. The API independently verifies signature, issuer, audience,
 expiry, subject, email, and the `teamGroups` claim before trusting them.
-
-CLI users authenticate through a dedicated native OIDC client and send a
-bearer token. This client is separate from the retired POC application that
-gave laptop agents an AWS web identity. If a CLI is not required for the first
-release, its OIDC application can be deferred without changing the API.
 
 Noninteractive clients use distinct service applications and explicit API
 scopes. Principal policy limits which profiles and owners each service may
@@ -635,8 +637,7 @@ agent-registry/
 │   └── v1/
 ├── cmd/
 │   ├── agent-registry-api/
-│   ├── agent-registry-operator/
-│   └── agent-registry/
+│   └── agent-registry-operator/
 ├── internal/
 │   ├── app/
 │   ├── controller/
@@ -802,8 +803,8 @@ private-key rotation, and how the new Argus app receives the broker secret.
 - [core-platform-infra#539](https://github.com/chanzuckerberg/core-platform-infra/pull/539)
   added the old `/portal` callback and is POC-only.
 - [core-platform-infra#550](https://github.com/chanzuckerberg/core-platform-infra/pull/550)
-  enabled device flow on the gateway app; retain it only if the new CLI uses
-  that client.
+  enabled device flow on the gateway app and is POC-only for this plan because
+  no CLI is being built.
 - [core-platform-infra#580](https://github.com/chanzuckerberg/core-platform-infra/pull/580)
   attempted the team groups claim.
 - [core-platform-infra#585](https://github.com/chanzuckerberg/core-platform-infra/pull/585)
@@ -913,4 +914,3 @@ POC resources are not used in acceptance testing and remain manually managed.
 - Whether production Tailscale uses userspace networking, direct TUN, or the
   device-plugin resource
 - Initial API/portal process topology and API hostname
-- Whether the CLI ships in the first release or follows the portal
