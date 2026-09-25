@@ -113,12 +113,25 @@ does not serve public requests. API rollouts must not interrupt reconciliation.
 human-owned. It contains:
 
 - the verified owner subject and email
-- provider grants and repository allowlists
+- typed provider grants describing everything the profile may access
 - runtime defaults and bounded owner-configurable settings
-- Tailscale and Claude configuration
+- owner-managed Claude configuration
 - references to profile-scoped managed configuration
 - provider reconciliation status and conditions
 - the profile's stable service-account and persistent-volume references
+
+`spec.grants` is a provider union, and every entry sets exactly one provider.
+Provider-specific access configuration stays inside that provider's grant:
+
+- an AWS grant selects one entitled account and source role
+- a GitHub grant lists the repositories the profile may access
+- an Anthropic or OpenAI grant requests a workload identity in the configured
+  organization
+- a Tailscale grant requests tailnet membership and the platform derives the
+  permitted SSH user and managed tag policy
+
+The presence of a grant enables that access. Repositories and Tailscale are
+not separate top-level profile features.
 
 Provider identities are reconciled from the profile, not from an individual
 runtime. Every `Agent` referencing the profile uses the same profile-scoped
@@ -140,9 +153,12 @@ spec:
     - aws:
         accountId: "911167894392"
         roleArn: arn:aws:iam::911167894392:role/readonly
-  repositories:
-    - chanzuckerberg/shared-infra
-    - chanzuckerberg/core-platform-infra
+    - github:
+        repositories:
+          - chanzuckerberg/shared-infra
+          - chanzuckerberg/core-platform-infra
+    - anthropic: {}
+    - tailscale: {}
   runtimeDefaults:
     resources:
       requests:
@@ -151,8 +167,6 @@ spec:
       limits:
         cpu: "2"
         memory: 4Gi
-  tailscale:
-    enabled: true
 status:
   serviceAccountName: agent-profile-4d7f1d3a
   persistentVolumeClaimName: agent-profile-infra-worker
@@ -160,6 +174,12 @@ status:
     - provider: aws
       state: Ready
       roleArn: arn:aws:iam::911167894392:role/agents/jheath-infra-worker-readonly
+    - provider: github
+      state: Ready
+    - provider: anthropic
+      state: Ready
+    - provider: tailscale
+      state: Ready
   conditions:
     - type: Ready
       status: "True"
@@ -245,16 +265,18 @@ status writes.
 The portal guides an owner through:
 
 1. Create and name an `AgentProfile`.
-2. Select AWS roles from entitlements returned by `aws-oidc`.
-3. Select repositories reachable through approved GitHub App installations.
-4. Configure runtime defaults and optional Tailscale access.
-5. Create the default `Agent` instance.
-6. Wait for provider and runtime readiness.
-7. Copy the Tailscale SSH, VS Code, or Cursor connection information.
+2. Add typed grants: AWS roles from `aws-oidc`, GitHub repositories reachable
+   through approved installations, Anthropic access, and optional Tailscale
+   access.
+3. Configure runtime defaults.
+4. Create the default `Agent` instance.
+5. Wait for grant and runtime readiness.
+6. Copy the Tailscale SSH, VS Code, or Cursor connection information when the
+   profile has a Tailscale grant.
 
 Owners can later:
 
-- update profile grants, repositories, and bounded defaults
+- update profile grants and bounded defaults
 - edit owner-managed Claude instructions and settings
 - import selected project memories into profile storage
 - create another Agent instance from the profile
@@ -475,16 +497,19 @@ key into Agent pods. A credential broker:
 4. returns a short-lived installation token
 
 The portal searches only repositories reachable by configured installations
-and rejects inaccessible repositories on write. Git and `gh` use a credential
-helper that requests brokered tokens. Commits identify the profile owner and
-agent instance, and a mandatory hook blocks direct work on protected default
-branches.
+and rejects an inaccessible repository when writing the profile's GitHub
+grant. The credential broker authorizes each request against that grant. Git
+and `gh` use a credential helper that requests brokered tokens. Commits
+identify the profile owner and agent instance, and a mandatory hook blocks
+direct work on protected default branches.
 
 ### Tailscale
 
-Tailscale trusts a projected token for the profile service account. Each
-Agent instance registers a distinct node with an owner/profile/instance
-hostname and records connection state in `Agent.status`.
+When an `AgentProfile` has a Tailscale grant, Tailscale trusts a projected
+token for the profile service account. Each Agent instance registers a
+distinct node with an owner/profile/instance hostname and records connection
+state in `Agent.status`. A profile without this grant receives no Tailscale
+identity or tailnet access.
 
 Tailscale policy must:
 
@@ -790,7 +815,7 @@ Implement the production system in independently reviewable layers:
 3. **Public models.** Define `AgentProfile` and `Agent` CRDs, OpenAPI schemas,
    generated clients, authorization, idempotency, optimistic concurrency, and
    audit logging.
-4. **Portal and API.** Implement profile setup, grants, repositories, runtime
+4. **Portal and API.** Implement profile setup, typed provider grants, runtime
    creation, administration, status, and connection pages over one
    application service.
 5. **Profile reconciliation.** Add stable profile identities, provider status,
@@ -829,10 +854,11 @@ The integration router is not a delivery item in this plan.
 9. Run `aws sts get-caller-identity` and confirm the profile-scoped agent role
    is used without static keys.
 10. Run Claude through Anthropic WIF without an API key.
-11. Clone only an allowed repository through a brokered GitHub installation
-    token.
-12. Connect over Tailscale as the owner and confirm root and unauthorized
-    users are denied.
+11. Clone only a repository listed in the profile's GitHub grant through a
+    brokered GitHub installation token.
+12. Give the profile a Tailscale grant, connect as the owner, and confirm root
+    and unauthorized users are denied; remove the grant and confirm the
+    profile can no longer enroll instances.
 13. Delete one Agent and confirm the profile workspace and grants remain.
 14. Delete a test profile and confirm its test Agents and provider grants are
     cleaned up in order.
