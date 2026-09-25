@@ -81,6 +81,66 @@ registrations, and local Terraform state are outside this plan. They do not
 need migration, compatibility, adoption, deletion, or cleanup as part of the
 new implementation.
 
+### POC implementation patterns to retain
+
+Use the exact
+[PR #1264 head revision](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944)
+as the stable reference for working patterns. Reimplement or port useful
+pieces into `agent-registry`; do not create a source dependency on
+`aws-oidc`.
+
+- [CRD types and helpers](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/api/v1)
+  demonstrate generated deepcopy code, status subresources, conditions,
+  provider-union grants, and UID-derived names. Split the model into
+  `AgentProfile` and `Agent` rather than copying the current single resource.
+- [Kubernetes-backed storage](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/agentstore)
+  is the pattern for typed CRUD, owner-filtered lists, and optimistic
+  concurrency without adding a database.
+- [Controller reconciliation](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/controller)
+  and the
+  [AWS provider](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/providers/aws)
+  demonstrate controller-runtime queues, provider abstraction, conditions,
+  finalizers, cross-account clients, and trust-policy reconciliation. Retain
+  those patterns while moving grants and provider identities to
+  `AgentProfile`.
+- [Runtime reconciliation](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/agentpod)
+  demonstrates StatefulSet generation, projected service-account tokens,
+  AWS config, EFS claims, pruning, GitHub helpers, and revisioned memory
+  imports. Reuse the builders and tests conceptually, but make the workspace
+  and identity profile-scoped and the StatefulSet Agent-scoped.
+- [Live runtime defaults](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/agentdefaults)
+  and
+  [agent configuration rendering](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/agentconfig)
+  demonstrate precedence, reloadable defaults, and generated provider
+  configuration.
+- [The server-rendered portal](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/portal)
+  demonstrates verified gateway identity, `teamGroups` administration,
+  guided onboarding, stale-while-revalidate entitlement loading, repository
+  search, lifecycle actions, and memory-import forms. Keep the templates and
+  thin-handler approach while routing all reads and writes through the new
+  application service.
+- [The runtime image](https://github.com/chanzuckerberg/aws-oidc/blob/22e08d2ffabf1c3f5c0287184dd07f4776570944/Dockerfile.agent)
+  and
+  [entrypoint and credential helpers](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/docker/agent)
+  are the working reference for installed tools, Tailscale startup,
+  repository cloning, Claude configuration, and GitHub installation routing.
+- [The generic TUN device-plugin DaemonSet](https://github.com/chanzuckerberg/aws-oidc/blob/22e08d2ffabf1c3f5c0287184dd07f4776570944/.infra/rdev/templates/tun-device-plugin.yaml)
+  registers `/dev/net/tun` as `agents.czi.team/tun`, and the
+  [pod resource and capability logic](https://github.com/chanzuckerberg/aws-oidc/blob/22e08d2ffabf1c3f5c0287184dd07f4776570944/internal/agentpod/statefulset.go)
+  requests one device plus `NET_ADMIN` and `NET_RAW` only for Tailscale
+  runtimes. Retain this kernel-networking and extended-resource pattern.
+- [The rdev Argus values](https://github.com/chanzuckerberg/aws-oidc/blob/22e08d2ffabf1c3f5c0287184dd07f4776570944/.infra/rdev/values.yaml)
+  show the settings and provider identifiers required to reproduce the POC,
+  while the
+  [scratch EFS Terraform](https://github.com/chanzuckerberg/aws-oidc/tree/22e08d2ffabf1c3f5c0287184dd07f4776570944/docs/terraform/agent-workspaces-efs)
+  records the filesystem, networking, StorageClass, and alarm design.
+
+Do not retain the POC's deployment in the `aws-oidc` app, laptop-profile
+configuration, single overloaded `Agent` resource, old namespace/service
+account subjects, direct GitHub App private-key mount, or manually configured
+provider trust. Those are evidence and migration inputs, not production
+patterns.
+
 ## Architecture
 
 ```mermaid
@@ -553,9 +613,18 @@ Tailscale policy must:
 - reject root SSH
 - retain audit and SSH session logs
 
-Prefer userspace networking when it meets requirements. If kernel TUN is
-required, provide it deliberately and grant `NET_ADMIN` and `NET_RAW` only to
-Tailscale-enabled Agent pods.
+Use kernel TUN networking. Deploy the generic device-plugin DaemonSet to
+register `/dev/net/tun` as the extended resource
+`agents.czi.team/tun`. Every Agent whose profile has a Tailscale grant requests
+exactly one device. Karpenter NodeOverlay must advertise the same capacity on
+eligible nodes so a pending Agent can trigger scale-out before the device
+plugin starts on the new node.
+
+Run `tailscaled` in a dedicated networking sidecar that receives the TUN
+device plus `NET_ADMIN` and `NET_RAW`. Keep the agent workload container
+non-root with all capabilities dropped. Do not silently fall back to userspace
+networking: missing device capacity or kernel startup failure must make the
+Tailscale condition fail and remain visible in `Agent.status`.
 
 ## Runtime and persistent state
 
@@ -571,6 +640,8 @@ The Agent controller owns, per instance:
 
 - one headless service
 - one StatefulSet with one replica
+- one kernel-networked Tailscale sidecar and TUN-device request when the
+  profile has a Tailscale grant
 - instance connection metadata
 - bounded one-shot Jobs initiated for that profile
 
@@ -602,7 +673,9 @@ or security controls.
 Agent pods have no public ingress. Humans connect through Tailscale. The
 runtime baseline includes:
 
-- non-root execution with fixed uid and gid
+- non-root execution with fixed uid and gid for the agent workload
+- a narrowly scoped Tailscale sidecar as the documented root/capability
+  exception
 - runtime-default seccomp
 - no privilege escalation
 - a read-only root filesystem where tooling permits it
@@ -831,10 +904,15 @@ and whether production will extend this receiver or deploy a dedicated
 ### Cluster TUN support
 
 [argus-infra-stacks#3119](https://github.com/chanzuckerberg/argus-infra-stacks/pull/3119)
-advertised `agents.czi.team/tun` capacity for the POC. The final POC stopped
-requesting that extended resource and mounted `/dev/net/tun` directly. Treat
-this PR as historical unless the production runtime chooses the device-plugin
-contract again.
+enabled Karpenter NodeOverlay on dev-central and advertised
+`agents.czi.team/tun: 1k` on eligible ARM nodes. This is an active prerequisite
+for the kernel-networking design, not a historical POC artifact. Preserve the
+resource name and capacity contract with the generic device-plugin DaemonSet.
+
+Add reviewed equivalents for every production cluster that can run Agents.
+The NodeOverlay, device-plugin node selector, and Agent runtime architecture
+must agree; otherwise Karpenter will reject all instance types for a pending
+TUN-requesting pod.
 
 ## Delivery plan
 
@@ -859,8 +937,9 @@ Implement the production system in independently reviewable layers:
 7. **Provider integrations.** Add Anthropic WIF, the GitHub credential broker,
    Tailscale identity and policy, and the provider-specific audit labels.
 8. **Production infrastructure.** Land the IRSA, permissions-boundary, EFS,
-   provider-federation, GitHub secret, DNS, gateway, and observability
-   follow-ups referenced by the dependency document.
+   provider-federation, GitHub secret, DNS, gateway, kernel TUN device-plugin,
+   Karpenter NodeOverlay, and observability follow-ups referenced by the
+   dependency document.
 9. **Production hardening.** Verify non-root isolation, network policy, token
    audiences and lifetimes, provider revocation, backup expectations, image
    provenance, and fleet telemetry with security engineering.
@@ -893,13 +972,17 @@ The integration router is not a delivery item in this plan.
 12. Give the profile a Tailscale grant, connect as the owner, and confirm root
     and unauthorized users are denied; remove the grant and confirm the
     profile can no longer enroll instances.
-13. Create an Agent with a short finite timeout and confirm its runtime is
+13. Confirm a Tailscale-enabled Agent requests
+    `agents.czi.team/tun`, triggers Karpenter scale-out when needed, uses
+    kernel networking, and reports a failed condition instead of falling back
+    to userspace networking when the device is unavailable.
+14. Create an Agent with a short finite timeout and confirm its runtime is
     terminated at `expiresAt`, its phase becomes `Expired`, and it cannot be
     resumed.
-14. Create an Agent with `timeout: indefinite` and confirm no `expiresAt` is
+15. Create an Agent with `timeout: indefinite` and confirm no `expiresAt` is
     set and the operator does not terminate it.
-15. Delete one Agent and confirm the profile workspace and grants remain.
-16. Delete a test profile and confirm its test Agents and provider grants are
+16. Delete one Agent and confirm the profile workspace and grants remain.
+17. Delete a test profile and confirm its test Agents and provider grants are
     cleaned up in order.
 
 POC resources are not used in acceptance testing and remain manually managed.
@@ -911,6 +994,4 @@ POC resources are not used in acceptance testing and remain manually managed.
 - The production cluster and infrastructure repository that own EFS
 - Profile and Agent naming, deterministic truncation, and collision handling
 - GitHub credential-broker protocol and deployment
-- Whether production Tailscale uses userspace networking, direct TUN, or the
-  device-plugin resource
 - Initial API/portal process topology and API hostname
