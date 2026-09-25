@@ -1,472 +1,852 @@
-# Persistent Developer Agent Control Plane
+# Remote Agent Registry and Runtime Control Plane
 
 ## Goal
 
-Build a reusable, API-first control plane that gives each person a persistent developer agent with scoped cloud access, Claude identity, GitHub access, private network connectivity and durable storage. The implementation extends the existing `aws-oidc` Argus app with a versioned JSON API, a portal that consumes the same application service, an `Agent` custom resource, a Kubernetes operator and a dedicated agent image.
+Build a secure paved road for remote developer agents. A person registers an
+agent profile, grants it a subset of access they already hold, and starts one
+or more managed Kubernetes runtimes that use the profile's machine identity.
+The platform provides durable storage, centrally managed defaults, private
+connectivity, provider integrations, and an API that supports both the portal
+and automation.
 
-One registered agent maps to one long-running pod and one persistent working directory. A person can open multiple SSH, Claude or Cursor sessions in that pod. Concurrent work uses Git worktrees inside the shared environment instead of creating a pod for every conversation.
+The production system will live in a new
+`chanzuckerberg/agent-registry` repository and a new `agent-registry` Argus
+application at `agents.czi.team`. It will not be built or deployed from the
+`aws-oidc` repository. The only production dependency on `aws-oidc` is a
+versioned service API that returns the authenticated user's AWS entitlements.
 
-The API is not an access-request system. It lets an owner select only AWS roles they can already assume. The operator mirrors those roles into identities dedicated to that agent. This separates agent activity from the person's normal credentials and gives CloudTrail, GitHub and Tailscale an attributable machine identity.
+Kubernetes custom resources are the durable source of truth:
 
-The `Agent` custom resource is the source of truth. Kubernetes stores desired state and observed status in etcd. There is no application database.
+- `AgentProfile` describes ownership, grants, provider identities, durable
+  state, managed configuration, and runtime defaults.
+- `Agent` describes one concrete pod instantiation of an `AgentProfile`.
 
-The API is the public control-plane boundary. CLIs, CI jobs, scheduled workflows and the browser portal all use the same versioned resources, validation and authorization rules. Clients never receive Kubernetes credentials or write custom resources directly.
+The public API is the control-plane boundary. Humans, CLIs, and approved
+automation use it instead of receiving Kubernetes credentials or writing
+custom resources directly.
 
-## User experience
+## Scope
 
-An owner can use either the CLI or a small server-rendered portal to create an agent by name. The portal's guided setup:
+The first production iteration includes:
 
-1. Configure the runtime's CPU, memory and storage.
-2. Enroll the agent in Tailscale and derive its allowed SSH username from the owner's email.
-3. Select repositories the fleet GitHub App can reach.
-4. Select AWS account and role grants from the owner's existing Okta entitlements.
-5. Open the connection page and copy the Tailscale SSH command.
+- a versioned JSON API and generated clients
+- a small server-rendered portal over the same application service
+- `AgentProfile` and `Agent` custom resource definitions (CRDs)
+- an operator that reconciles profiles, grants, and runtime pods
+- AWS entitlements obtained from `aws-oidc`
+- AWS, Anthropic, GitHub, and Tailscale integrations
+- one default persistent interactive `Agent` per profile
+- support in the resource and API model for additional instances
+- EFS-backed profile state mounted at `/workspace`
+- suspend and resume without losing profile state
+- centrally managed runtime defaults, Claude settings, hooks, and telemetry
 
-The portal creates a runtime and enables Tailscale by default when those features are available. It starts loading AWS entitlements in the background while the owner completes the earlier setup steps. Owners can later:
+The following are not part of this implementation:
 
-- suspend or resume the runtime without deleting its data
-- change resource sizing within configured ceilings
-- add or remove repositories
-- change AWS grants
-- select every entitled read-only AWS role in one action
-- edit per-agent `CLAUDE.md` and Claude settings
-- import selected local Claude project memories
-- delete the agent and its provisioned resources
+- the integration router for Slack messages, GitHub webhooks, or other
+  automated event sources
+- migration or cleanup of POC resources
+- laptop agent profiles or extensions to `aws-oidc configure`
+- blocking local agents
+- defining organization-wide security policy
 
-The CLI exposes the same create, inspect, configure, suspend, resume and delete operations for interactive and scripted use. Every mutating command accepts JSON, and every command supports stable JSON output. YAML input may remain a CLI convenience. Regular users see only their own agents. Configured administrators can see and manage every agent, and the portal explains why they have that access.
+The integration router can be designed separately. It will eventually use the
+public API to instantiate bounded or time-limited `Agent` resources that refer
+to existing profiles. It must not write CRs directly.
+
+## POC findings
+
+[aws-oidc#1264](https://github.com/chanzuckerberg/aws-oidc/pull/1264)
+is an implementation reference, not production code to merge into
+`aws-oidc`. The POC demonstrated that the platform can:
+
+- isolate remote agents with Kubernetes primitives
+- assign human ownership to a machine identity
+- use projected Kubernetes service-account tokens with AWS, Anthropic, and
+  Tailscale
+- use a GitHub App when a provider does not support workload identity
+  federation
+- persist repositories, sessions, memories, and configuration on EFS
+- connect humans through Tailscale SSH
+- apply managed settings, hooks, prompts, and runtime defaults
+
+The POC's Agent CRs, pods, persistent volumes, IAM roles, provider
+registrations, and local Terraform state are outside this plan. They do not
+need migration, compatibility, adoption, deletion, or cleanup as part of the
+new implementation.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
   owner["Owner"] -->|"browser OIDC login"| gateway["Envoy Gateway"]
-  gateway -->|"verified X-ID-Token"| portal["HTML portal"]
-  cli["CLI"] -->|"Bearer token"| controlAPI["Agent Control API"]
-  workflow["CI and scheduled workflows"] -->|"service Bearer token"| controlAPI
-  portal -->|"application service"| controlAPI
-  controlAPI -->|"read owner entitlements"| okta["Okta applications"]
-  controlAPI -->|"read account and role mappings"| rolemap["rolemap ConfigMap"]
-  controlAPI -->|"validated CRUD"| kubeAPI["Kubernetes API: Agent CRs in etcd"]
+  gateway -->|"verified ID token"| portal["Agent Registry Portal"]
+  cli["Agent Registry CLI"] -->|"bearer token"| api["Agent Registry API"]
+  automation["Approved automation"] -->|"scoped service token"| api
+  portal --> app["Shared application service"]
+  api --> app
 
-  operator["Agent operator"] -->|"watch and update status"| kubeAPI
-  operator -->|"assume per-account provisioner role"| iam["AWS IAM"]
-  operator -->|"reconcile runtime objects"| runtime["StatefulSet and supporting objects"]
+  app -->|"forward authenticated user token"| entitlements["aws-oidc entitlement API"]
+  entitlements --> rolemap["rolemap and Okta assignments"]
+  app -->|"validated CRUD"| kube["Kubernetes API"]
 
-  runtime --> efs["EFS persistent workspace"]
-  runtime -->|"projected service-account token"| sts["AWS STS"]
-  runtime -->|"projected service-account token"| anthropic["Anthropic WIF"]
-  runtime -->|"GitHub App installation token"| github["GitHub"]
-  runtime -->|"projected service-account token"| tailscale["Tailscale OIDC"]
+  profile["AgentProfile CR"] --> kube
+  agent["Agent CR"] -->|"profileRef"| profile
+  operator["Agent Registry Operator"] -->|"watch and update status"| kube
+  operator -->|"profile grant reconciliation"| providers["AWS, Anthropic, GitHub, Tailscale"]
+  operator -->|"one runtime per Agent"| runtime["StatefulSet with one pod"]
 
-  config["Existing aws-oidc config server"] -->|"read Agent status"| kubeAPI
-  laptop["Optional laptop agent"] -->|"aws-oidc configure"| config
+  runtime -->|"profile PVC"| efs["EFS workspace"]
+  runtime -->|"profile service-account tokens"| providers
+  runtime -->|"repository tokens"| broker["GitHub credential broker"]
 ```
 
-The control plane ships three subcommands from the existing `aws-oidc` image:
+The API and portal share one application layer for authorization, validation,
+idempotency, and Kubernetes mutations. The operator is a separate process and
+does not serve public requests. API rollouts must not interrupt reconciliation.
 
-- `serve-config` keeps serving human AWS profiles and adds agent profiles to the same response.
-- `serve-agents` exposes the authenticated `/api/v1` JSON API and the optional HTML portal.
-- `operator` reconciles Agent resources into AWS access and Kubernetes runtimes.
+## Resource model
 
-The runtime uses a separate agent image. It contains Claude Code and the tools needed for common infrastructure work.
+### AgentProfile
 
-## Kubernetes data model
+`AgentProfile` is the durable identity and policy object. It is namespaced and
+human-owned. It contains:
 
-The existing namespaced `Agent` custom resource remains the only durable application record. The API translates public requests into Agent spec changes, and the operator owns status.
+- the verified owner subject and email
+- provider grants and repository allowlists
+- runtime defaults and bounded owner-configurable settings
+- Tailscale and Claude configuration
+- references to profile-scoped managed configuration
+- provider reconciliation status and conditions
+- the profile's stable service-account and persistent-volume references
 
-Important model choices:
+Provider identities are reconciled from the profile, not from an individual
+runtime. Every `Agent` referencing the profile uses the same profile-scoped
+workload service account. Adding or replacing a runtime therefore does not
+require recreating AWS roles or third-party federation rules.
 
-- `spec.grants` is a provider union. AWS is implemented, and another provider can be added without changing the controller's main reconcile loop.
-- `spec.runtime` is a curated subset of a pod spec. Owners cannot select a service account, mount arbitrary secrets or request host access.
-- An absent runtime keeps the agent as an access identity that can be used from a laptop.
-- One runtime belongs to one agent. The earlier thread and workspace hierarchy was removed.
-- `status.grants`, `status.runtime`, `status.conditions` and `status.observedGeneration` report reconciliation without racing spec writes because status is a subresource.
-- The immutable Agent UID derives service account names, IAM trust subjects and runtime labels.
+Example:
 
-The public API model is deliberately smaller than the custom resource. It exposes owner-editable desired state, useful status and connection data. It does not expose Kubernetes metadata, finalizers, managed fields, internal annotations or arbitrary status writes.
-
-Keep all Agent resources in the deployment namespace. Scope portal and operator role-based access control (RBAC) to that namespace. The API service can read and mutate Agent specs but cannot update status. The operator can update status and finalizers and can manage only the runtime object types it owns.
-
-## OpenAPI contract and generated clients
-
-Define `openapi.yaml` as the public contract and check it into the repository. Generate:
-
-- Go request and response models
-- a strict Go server interface and request validation
-- the Go client used by `aws-oidc agents`
-
-Use `oapi-codegen` for the Go server and client. Keep business logic in an application service behind the generated handlers so the JSON API and server-rendered portal share authorization, validation and Kubernetes mutations.
-
-Generate code through `go generate` and require CI to fail when generated files or the OpenAPI document are stale. Generate another language client only when a real caller needs it.
-
-## Agent Control API
-
-The API owns all public control-plane reads and writes. Keep Kubernetes, Okta, GitHub and provider details behind it. Publish the OpenAPI 3 specification and generate the CLI client from that contract so automation does not depend on HTML forms or Kubernetes Go types.
-
-Use `/api/v1` from the first release. Additive fields remain backward compatible within v1. Breaking request or response changes require a new major path. Every response uses JSON, including errors.
-
-Define public OpenAPI schemas separately from the custom resource types. Do not expose raw Kubernetes metadata, token material or internal reconciliation fields.
-
-Core resources:
-
-- `GET /api/v1/agents` lists agents visible to the caller, with pagination and stable filters for owner, readiness and runtime state.
-- `POST /api/v1/agents` creates an Agent. Human callers become the owner. Only explicitly authorized automation may supply an owner.
-- `GET /api/v1/agents/{name}` returns desired configuration, observed status and connection information.
-- `PATCH /api/v1/agents/{name}` applies a merge patch to owner-editable fields. Reject Kubernetes metadata and status fields.
-- `DELETE /api/v1/agents/{name}` deletes the Agent and returns `202 Accepted` while finalizer-backed cleanup runs.
-- `POST /api/v1/agents/{name}:suspend` and `POST /api/v1/agents/{name}:resume` provide idempotent lifecycle actions.
-- `GET /api/v1/entitlements/aws` returns the caller's grantable AWS accounts and roles.
-- `GET /api/v1/repositories` searches repositories reachable through configured GitHub App installations.
-- `POST /api/v1/agents/{name}/memory-imports` stages a revisioned project-memory import.
-- `GET /api/v1/agents/{name}/events` returns Kubernetes Events selected by the Agent UID without exposing unrestricted cluster event access.
-
-Create and patch requests return the accepted Agent representation immediately. Reconciliation remains asynchronous. Clients watch `status.conditions`, poll with exponential backoff or request a bounded server-side wait such as `?wait=Ready&timeout=60s`. A timeout never cancels reconciliation.
-
-API behavior for reliable workflows:
-
-- Accept an `Idempotency-Key` on creates and memory imports. Store a hash of the principal and key as an Agent or staging ConfigMap label and store the request hash as an annotation. Replaying the same key and body returns the existing result. Reusing a key with a different body returns `409 Conflict`.
-- Return an opaque `ETag` derived from Kubernetes `resourceVersion`. Mutations accept `If-Match`, include the resource version on the update and return `412 Precondition Failed` after a concurrent edit.
-- Use stable machine-readable error codes, a human message, field-level validation details and a request ID.
-- Return `202 Accepted` only for operations whose result is not yet represented by the returned resource. Otherwise return the created or updated representation.
-- Support `application/json` for normal requests and `multipart/form-data` only for bounded memory-import files.
-- Enforce request size, file count, file size, rate and timeout limits at the service boundary.
-- Emit a structured audit log entry for every mutation with principal, action, agent, owner, request ID and outcome. Never log bearer tokens, projected tokens, private keys or imported memory contents.
-
-The first CLI can be a new `aws-oidc agents` command group:
-
-```text
-aws-oidc agents list --output json
-aws-oidc agents create --file agent.yaml
-aws-oidc agents get reviewer --output json
-aws-oidc agents apply reviewer --file desired.json --if-match <etag>
-aws-oidc agents suspend reviewer
-aws-oidc agents resume reviewer
-aws-oidc agents wait reviewer --for RuntimeReady --timeout 5m
-aws-oidc agents delete reviewer
+```yaml
+apiVersion: agents.czi.team/v1
+kind: AgentProfile
+metadata:
+  name: infra-worker
+spec:
+  owner:
+    subject: 00ugbvc7oiheU3Glz1t7
+    email: jheath@chanzuckerberg.com
+  grants:
+    - aws:
+        accountId: "911167894392"
+        roleArn: arn:aws:iam::911167894392:role/readonly
+  repositories:
+    - chanzuckerberg/shared-infra
+    - chanzuckerberg/core-platform-infra
+  runtimeDefaults:
+    resources:
+      requests:
+        cpu: "2"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+  tailscale:
+    enabled: true
+status:
+  serviceAccountName: agent-profile-4d7f1d3a
+  persistentVolumeClaimName: agent-profile-infra-worker
+  grants:
+    - provider: aws
+      state: Ready
+      roleArn: arn:aws:iam::911167894392:role/agents/jheath-infra-worker-readonly
+  conditions:
+    - type: Ready
+      status: "True"
+  observedGeneration: 3
 ```
 
-Commands return nonzero on authentication, authorization, validation, conflict or terminal reconciliation failure. Human-readable output is the default for terminals. `--output json` is stable for workflows.
+The API stamps ownership from verified identity. Clients cannot choose an
+arbitrary owner unless an explicitly authorized service principal has both the
+required scope and an allowed owner policy.
 
-The portal remains server-rendered and small. Its pages and forms consume the same `/api/v1` contract rather than maintaining separate validation or mutation handlers. Browser-specific handlers may render HTML and translate form submissions, but they call the same generated client or application commands as external clients.
+### Agent
 
-### UI changes
+`Agent` is one concrete runtime instance. It contains:
 
-Keep the existing templates, provider sidebar and guided setup. The UI does not need React, a single-page application or browser-managed bearer tokens.
+- an immutable `profileRef`
+- desired lifecycle state, including suspension
+- bounded resource overrides
+- optional instance-specific command or purpose metadata
+- runtime, connection, and readiness status
 
-Refactor each current handler into a thin HTML adapter:
+One `Agent` maps to one StatefulSet with one replica and therefore one pod.
+V1 creates one default persistent Agent during guided profile setup. The data
+model permits more than one Agent to reference the same profile so later
+automation can create additional instances without changing the profile's
+identity or grants.
 
-- A page loader calls the shared application service and maps the public Agent response into its template view model.
-- A form handler parses form fields into the same command used by the generated API handler.
-- Validation errors map back to existing field errors. Authorization, conflict and not-found errors use the same typed errors as the JSON API.
-- Successful mutations keep the current redirect-after-post behavior and onboarding query parameter.
-- Browser requests continue using the gateway-provided identity and CSRF protection.
+Example:
 
-The generated JSON handlers and HTML handlers can live in the same `serve-agents` process. Calling the shared application service in-process avoids an unnecessary HTTP call back into the same pod while preserving one authorization and validation path. JavaScript may call `/api/v1` for progressive features such as repository search, status polling and suspend or resume, but the core portal remains functional without a frontend build.
+```yaml
+apiVersion: agents.czi.team/v1
+kind: Agent
+metadata:
+  name: infra-worker-primary
+spec:
+  profileRef:
+    name: infra-worker
+  suspended: false
+  runtime:
+    resources:
+      requests:
+        cpu: "2"
+        memory: 4Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+status:
+  serviceName: agent-infra-worker-primary
+  statefulSetName: agent-infra-worker-primary
+  readyReplicas: 1
+  tailscaleHostname: jheath-infra-worker-primary
+  conditions:
+    - type: Ready
+      status: "True"
+  observedGeneration: 2
+```
+
+Admission and application validation enforce that:
+
+- `profileRef` cannot change after creation
+- a human can instantiate only a profile they own
+- a service principal can instantiate only profiles allowed by its policy
+- regular owners cannot select service accounts, mount arbitrary secrets,
+  request host access, or override reserved identity variables
+- resource overrides remain within platform ceilings
+
+Deleting an `Agent` removes only its runtime objects. It does not revoke the
+profile, delete the profile workspace, or clean up profile grants. Deleting an
+`AgentProfile` first terminates its Agent instances, then removes provider
+grants and profile-scoped state through ordered finalizers.
+
+### Status ownership
+
+The API service mutates desired specs but cannot write status. The operator
+owns status and finalizers. Status remains a Kubernetes subresource so API
+spec updates do not race reconciliation updates.
+
+The public API schemas are smaller than the CRD schemas. They do not expose
+managed fields, finalizers, arbitrary annotations, raw token material, or
+status writes.
+
+## User experience
+
+The portal guides an owner through:
+
+1. Create and name an `AgentProfile`.
+2. Select AWS roles from entitlements returned by `aws-oidc`.
+3. Select repositories reachable through approved GitHub App installations.
+4. Configure runtime defaults and optional Tailscale access.
+5. Create the default `Agent` instance.
+6. Wait for provider and runtime readiness.
+7. Copy the Tailscale SSH, VS Code, or Cursor connection information.
+
+Owners can later:
+
+- update profile grants, repositories, and bounded defaults
+- edit owner-managed Claude instructions and settings
+- import selected project memories into profile storage
+- create another Agent instance from the profile
+- suspend, resume, resize, or delete an Agent instance
+- delete the profile and all resources it owns
+
+Administrators can inspect, suspend, revoke, or delete any profile and its
+instances. The portal explains why an administrator can access profiles they
+do not own.
+
+## OpenAPI contract and clients
+
+Check an OpenAPI 3 document into `agent-registry` and generate:
+
+- public request and response models
+- strict Go server interfaces and request validation
+- a Go client used by the portal and CLI
+
+Use `oapi-codegen` and require CI to fail when generated files are stale.
+Keep business logic in an application service behind generated handlers so
+the JSON API and server-rendered portal cannot diverge on authorization or
+validation.
+
+The new repository owns its CLI and generated clients. Do not add an
+`aws-oidc agents` command or agent API types to the `aws-oidc` module.
+
+### API resources
+
+Use `/api/v1` from the first release:
+
+- `GET /api/v1/profiles`
+- `POST /api/v1/profiles`
+- `GET /api/v1/profiles/{name}`
+- `PATCH /api/v1/profiles/{name}`
+- `DELETE /api/v1/profiles/{name}`
+- `GET /api/v1/profiles/{name}/agents`
+- `POST /api/v1/profiles/{name}/agents`
+- `GET /api/v1/agents/{name}`
+- `PATCH /api/v1/agents/{name}`
+- `DELETE /api/v1/agents/{name}`
+- `POST /api/v1/agents/{name}:suspend`
+- `POST /api/v1/agents/{name}:resume`
+- `GET /api/v1/entitlements/aws`
+- `GET /api/v1/repositories`
+- `POST /api/v1/profiles/{name}/memory-imports`
+- `GET /api/v1/agents/{name}/events`
+
+Profile and Agent lists support pagination and stable filters. Creates and
+memory imports accept `Idempotency-Key`. Mutations return an `ETag` derived
+from Kubernetes `resourceVersion` and accept `If-Match`; stale writes return
+`412 Precondition Failed`.
+
+Reconciliation is asynchronous. Create and patch return the accepted
+representation. Clients poll status with exponential backoff or request a
+bounded wait such as `?wait=Ready&timeout=60s`. A timeout never cancels
+reconciliation.
+
+Every error is JSON with a stable code, message, request ID, and optional
+field-level details. The service enforces request-size, file-size, rate, and
+timeout limits.
+
+Every mutation emits a structured audit record with principal, action,
+profile, Agent, owner, request ID, and outcome. It never logs bearer tokens,
+projected tokens, private keys, or imported memory contents.
 
 ## Authentication and authorization
 
-Envoy Gateway performs the browser login. The portal requires the gateway to forward the OpenID Connect (OIDC) ID token in `X-ID-Token`. It verifies the token signature, issuer and audience before trusting the subject, email or `teamGroups` claim.
+Envoy Gateway performs browser login and forwards a verified OpenID Connect
+(OIDC) ID token. The API independently verifies signature, issuer, audience,
+expiry, subject, email, and the `teamGroups` claim before trusting them.
 
-CLI users authenticate through an Okta native OIDC client with device authorization and send `Authorization: Bearer <token>` to the API. The CLI stores refresh material in the operating system credential store and refreshes short-lived access tokens. It never writes tokens into its config file or command arguments.
+CLI users authenticate through a dedicated native OIDC client and send a
+bearer token. This client is separate from the retired POC application that
+gave laptop agents an AWS web identity. If a CLI is not required for the first
+release, its OIDC application can be deferred without changing the API.
 
-Noninteractive workflows use a distinct Okta service application and client-credentials tokens. Give each service principal explicit API scopes and an allowlist of owners or agents it can manage. Do not let a service token impersonate an arbitrary human or inherit an administrator's group access.
-
-The service accepts two trusted presentation paths and normalizes both into one internal principal:
-
-- a verified `X-ID-Token` from the gateway for browser requests
-- a verified bearer token for CLIs and automation
-
-Reject requests that present both identities unless they resolve to the same issuer and subject. Verify signature, issuer, audience, expiry and required scopes inside the service. The API route must not depend on an interactive gateway redirect. Expose it on a separate API hostname or a gateway route that passes bearer requests through unchanged.
-
-The deployment must use an Argus stack chart that forwards the ID token and must configure the portal with a gateway `securityPolicy`. The service must not accept identity from an unverified user header.
-
-Protect browser mutations with same-site cookies and Cross-Site Request Forgery (CSRF) tokens. Bearer-only API requests do not use cookie authentication and reject browser session cookies on the API hostname.
+Noninteractive clients use distinct service applications and explicit API
+scopes. Principal policy limits which profiles and owners each service may
+manage. A service token cannot inherit an administrator's group access or
+impersonate an arbitrary human.
 
 Authorization rules:
 
-- A regular user can list, read, update and delete only Agents whose `spec.owner` matches the token subject.
-- The API stamps the owner subject and email during human creation.
-- A configured Okta group grants administrator access to all agents.
-- An administrator edit preserves the original owner.
-- A service principal can perform only actions granted by token scopes and server-side principal policy.
-- Read scopes and write scopes are separate. Memory import, deletion and administration require dedicated scopes.
-- Kubernetes role-based access control (RBAC) gives the API service Agent CRUD plus the minimum rolemap, Event and memory-staging ConfigMap access. It cannot update Agent status and does not receive the operator's cross-account AWS identity or workload mutation access.
+- regular users manage only profiles they own and Agents that reference them
+- administrators in configured `teamGroups` manage all profiles and Agents
+- administrator updates preserve the original owner
+- service principals perform only scoped actions against allowed profiles
+- memory import, deletion, and administration require dedicated scopes
+- neither humans nor automation receive Kubernetes credentials
 
-The API is the only supported write gate. No human, CLI or workflow receives Kubernetes credentials. Add an admission policy as defense in depth if any other principal can write Agent resources.
+The API service has namespaced CRUD for `AgentProfile` and `Agent`, read
+access to their status and selected Events, and bounded write access to
+memory-staging objects. It cannot update status and does not receive the
+operator's cross-account AWS identity.
+
+## AWS entitlement service boundary
+
+`aws-oidc` remains the owner of:
+
+- Okta AWS application assignment lookup
+- rolemap generation and storage
+- mapping assigned applications to AWS account and role pairs
+- the existing human AWS config behavior
+
+Add a versioned, user-bound endpoint, conceptually:
+
+```text
+GET /api/v1/entitlements
+Authorization: Bearer <authenticated-user-token>
+```
+
+The `agent-registry` service forwards the authenticated user's bearer token.
+`aws-oidc` independently validates issuer, audience, expiry, and signature,
+derives the subject only from verified claims, and returns normalized
+entitlements containing account ID, alias, role ARN, role name, and any
+required source-client metadata.
+
+Do not accept a caller-supplied user subject header. If the portal token cannot
+safely be delegated because its audience is restricted to `agent-registry`,
+define a token-exchange or on-behalf-of flow before implementation rather than
+weakening audience validation.
+
+The portal may cache entitlements briefly for display. Profile grant mutations
+must use fresh-enough data, fail closed when validation is unavailable, and
+produce correlated audit records in both services.
+
+The two repositories share no Go package, ConfigMap, CR, service account,
+container image, or release workflow. Their integration is only the versioned
+HTTP contract. `aws-oidc` never reads `AgentProfile` or `Agent` resources.
 
 ## Reconciliation model
 
-The operator is a separate controller-runtime process. It does not serve the API, and API handlers do not perform AWS writes or create runtime workloads.
+The operator runs separate controllers for profiles and Agents.
 
-The controller watches Agent resources and reconciles one resource at a time:
+### AgentProfile controller
 
-1. Read the latest Agent generation from the informer cache.
+For each profile:
+
+1. Ensure a stable profile service account and profile workspace exist.
 2. Reconcile provider grants with bounded parallelism.
-3. Reconcile namespaced runtime objects owned by the Agent.
-4. Write grant status, runtime status, conditions and observed generation through the status subresource.
-5. Return transient errors so the rate-limited workqueue retries with exponential backoff.
+3. Render profile-scoped AWS and managed configuration.
+4. Write provider status and conditions.
+5. Retry transient failures through the rate-limited workqueue.
 
-The controller also watches owned StatefulSets and Jobs so pod readiness and memory-import completion enqueue the Agent immediately. A periodic resync repairs missed events and external drift.
+The profile finalizer orders cleanup:
 
-An Agent finalizer removes reachable IAM roles before deletion completes. Kubernetes garbage collection removes owner-referenced runtime objects. If an account remains unreachable, the operator reports the blocked cleanup and requires an explicit administrative waiver rather than silently abandoning the role.
+1. suspend and remove referencing Agent runtimes
+2. revoke or delete reachable provider grants
+3. remove profile-scoped configuration and storage
+4. remove the finalizer
 
-This model keeps one source of truth in etcd. Do not add a second persistence layer or let external callers bypass the API with direct custom-resource writes.
+Provider-specific errors are isolated so one failed grant does not prevent
+sibling grants from reporting status.
 
-## AWS access
+### Agent controller
 
-### Owner entitlement selection
+For each Agent:
 
-The API combines two existing sources:
+1. Resolve and authorize its `profileRef`.
+2. Read profile readiness and runtime defaults.
+3. Merge bounded instance overrides.
+4. Reconcile one StatefulSet replica and its supporting runtime objects.
+5. Write runtime, connection, and readiness status.
 
-- Okta application assignments identify the AWS applications assigned to the owner.
-- The `rolemap` ConfigMap maps those applications to account and role pairs.
+Suspension scales the StatefulSet to zero while retaining the profile PVC.
+Deleting an Agent garbage-collects only instance-owned objects.
 
-The server validates every submitted grant against a fresh entitlement result. The user cannot submit an arbitrary account or role. The API caches slow Okta lookups per user, serves stale values while it refreshes them and keeps rolemap reads live.
+The controller watches owned StatefulSets and Jobs so readiness and memory
+imports enqueue reconciliation immediately. A periodic resync repairs missed
+events and external drift.
 
-The working implementation grants the agent the selected source role's permissions. This replaced the original curated-policy catalog design.
+## Provider reconciliation
 
-### Per-agent IAM roles
+### AWS
 
-For every AWS grant, the operator assumes `agent-provisioner` in the target account and reconciles a role under `/agents/`. The role name identifies the owner, agent and source role. The operator:
+The API validates every requested AWS grant against the fresh entitlement
+result from `aws-oidc`. A user cannot submit an arbitrary account or role.
 
-- creates the role when absent
-- mirrors all attached managed policies and inline policies from the selected source role
-- repairs its trust policy
-- writes the resulting role ARN and state to Agent status
+For every profile grant, the operator assumes `agent-provisioner` in the
+target account and reconciles a role under `/agents/`. It:
+
+- creates a deterministic, length-safe role name
+- mirrors attached managed policies and inline policies from the selected
+  source role
+- removes policies the source role no longer carries
+- attaches the mandatory agent permissions boundary
+- trusts only the profile's Kubernetes service-account subject through the
+  cluster OIDC provider
+- writes the role ARN and condition into `AgentProfile.status`
 - removes attached and inline policies before deleting the role
-- uses a finalizer so Agent deletion waits for IAM cleanup
 
-The controller reconciles grants concurrently with a configured limit. One failed grant does not prevent sibling grants from reconciling. An account where the provisioner role cannot be assumed records a failed grant without causing a hot retry loop.
+There is no Okta trust statement for laptop use. Agent pods receive a
+projected `sts.amazonaws.com` token and a rendered AWS config. No static AWS
+keys enter the pod.
 
-The trust policy has two independent web-identity paths:
+### Anthropic and OpenAI
 
-- The shared agent Okta application's audience plus the owner's Okta subject supports an optional laptop agent.
-- The cluster OIDC provider plus the agent's UID-derived service account supports the in-cluster runtime.
+Reconcile Anthropic Workload Identity Federation (WIF) at profile scope. The
+federation rule trusts the cluster issuer, expected audience, and profile
+service-account subject. Tag provider-side identities with profile owner and
+stable profile identifiers for billing and audit correlation.
 
-The service account name derives from the immutable Agent UID. This prevents overlapping trust patterns between similarly named agents.
+Each Agent pod receives a short-lived projected token for the profile
+identity. No Anthropic API key is stored in a CR or pod environment.
 
-### Config server and laptop use
+OpenAI WIF follows the same provider interface after the Anthropic production
+path is complete. It is a provider follow-up, not a dependency for the first
+runtime.
 
-The existing config endpoint adds an optional `agents` field to its response. Older clients ignore it. An upgraded `aws-oidc configure` writes each owned agent's profiles to:
+### GitHub
 
-```text
-$HOME/.aws-oidc/agents/<agent-name>/config
-```
+Use a shared GitHub App for approved repositories, but do not mount its private
+key into Agent pods. A credential broker:
 
-Each file uses the shared agent Okta client and the provisioned role ARNs from Agent status. It includes stable account and role profile names plus an `agent-scoped` alias for the first grant. Removing ownership or deleting an agent removes its generated config on the next configure run.
+1. validates the pod's projected profile identity
+2. verifies the repository is allowed by `AgentProfile`
+3. selects the correct organization installation
+4. returns a short-lived installation token
 
-### In-cluster AWS use
+The portal searches only repositories reachable by configured installations
+and rejects inaccessible repositories on write. Git and `gh` use a credential
+helper that requests brokered tokens. Commits identify the profile owner and
+agent instance, and a mandatory hook blocks direct work on protected default
+branches.
 
-The operator writes an AWS ConfigMap for the pod. Every profile points to a provisioned agent role and the projected `sts.amazonaws.com` service-account token. The pod receives:
+### Tailscale
 
-- `AWS_CONFIG_FILE=/etc/aws/config`
-- `AWS_PROFILE=agent-scoped`
-- `AWS_REGION`
+Tailscale trusts a projected token for the profile service account. Each
+Agent instance registers a distinct node with an owner/profile/instance
+hostname and records connection state in `Agent.status`.
 
-No static AWS keys enter the pod. The operator updates existing IAM trust policies when a runtime is enabled or disabled.
+Tailscale policy must:
 
-## Persistent runtime
+- allow only the profile owner and configured administrators to reach the
+  instance
+- constrain the tag's destinations
+- reject root SSH
+- retain audit and SSH session logs
 
-For each Agent with `spec.runtime`, the operator manages:
+Prefer userspace networking when it meets requirements. If kernel TUN is
+required, provide it deliberately and grant `NET_ADMIN` and `NET_RAW` only to
+Tailscale-enabled Agent pods.
 
-- one service account
+## Runtime and persistent state
+
+The profile controller owns:
+
+- one stable service account
+- one ReadWriteMany EFS PVC mounted at `/workspace`
+- rendered AWS configuration
+- owner-managed Claude configuration
+- references to immutable platform-managed settings and hooks
+
+The Agent controller owns, per instance:
+
 - one headless service
-- one AWS config ConfigMap
-- one user Claude config ConfigMap
-- one ReadWriteMany persistent volume claim
 - one StatefulSet with one replica
-- short-lived Jobs for Claude memory imports
+- instance connection metadata
+- bounded one-shot Jobs initiated for that profile
 
-The pod mounts its EFS-backed persistent volume at `/workspace` and uses that path as `HOME`. The EFS Container Storage Interface (CSI) driver creates an access point per claim, and the pod and access point use uid and gid 1000.
+All Agents for a profile mount the same workspace. EFS access points isolate
+profiles from each other. Pods and access points use uid and gid 1000.
 
-Every object carries Agent and managed-by labels plus an owner reference. Suspension scales the StatefulSet to zero and retains the persistent volume claim (PVC). Removing `spec.runtime` prunes compute and identity objects but retains the PVC. Deleting the Agent releases the owner-referenced PVC after finalizer cleanup. EFS does not enforce the requested size, so the deployment needs storage monitoring outside Kubernetes.
+ReadWriteMany preserves the future ability to run multiple instances, but V1
+defaults to one active interactive Agent per profile. Concurrent instances
+can race on repositories and session files, so the portal must make the
+shared-state behavior explicit. Later automation must add concurrency quotas
+and default TTLs before creating instances at scale.
 
-Runtime defaults live in a mounted YAML ConfigMap and refresh without restarting the operator or API service. The precedence is:
+Profile storage contains repositories, sessions, provider settings, imported
+memories, and owner configuration. Deleting or suspending an Agent does not
+delete that storage.
 
-1. Agent spec values
-2. live ConfigMap defaults
-3. process flags and built-in defaults
+Runtime defaults come from live configuration and apply in this order:
 
-The API enforces configured CPU, memory and storage ceilings. It lets administrators override the image and storage class while regular owners use platform defaults.
+1. bounded Agent overrides
+2. AgentProfile runtime defaults
+3. platform-managed defaults
 
-The runtime security posture includes:
+The platform-managed layer is immutable to owners. Owner settings are
+additive and cannot disable mandatory hooks, telemetry, identity variables,
+or security controls.
 
-- no default Kubernetes API token
-- projected tokens with an explicit audience for each external service
+## Runtime security and observability
+
+Agent pods have no public ingress. Humans connect through Tailscale. The
+runtime baseline includes:
+
+- non-root execution with fixed uid and gid
 - runtime-default seccomp
 - no privilege escalation
-- all Linux capabilities dropped when Tailscale is disabled
-- owner-controlled environment values cannot overwrite reserved identity variables
-- an arm64 node selector matching the current image build
+- a read-only root filesystem where tooling permits it
+- all Linux capabilities dropped unless a documented integration requires one
+- no default Kubernetes API token
+- separate projected tokens with explicit audience and short lifetime
+- no Kubernetes RBAC bindings for profile runtime service accounts
+- NetworkPolicies isolating Agent pods and provider egress where practical
+- owner environment values blocked from reserved identity variables
+- centrally managed Claude settings, hooks, system prompts, and telemetry
+- image provenance, vulnerability scanning, and a package/version inventory
 
-## Claude identity and configuration
+Emit OpenTelemetry logs, metrics, and traces with profile, Agent, owner, and
+provider labels that do not expose prompt or memory contents. Correlate
+control-plane mutations with Kubernetes Events and available provider audit
+logs. Provide fleet readiness and provider-reconciliation dashboards before
+production rollout.
 
-When all Anthropic Workload Identity Federation (WIF) settings are configured, the operator projects a second service-account token into the pod. This token has the Anthropic audience and a 10-minute lifetime. The kubelet rotates it before the Anthropic SDK refreshes the exchanged access token.
+## New repository and Argus application
 
-The pod receives the four `ANTHROPIC_*` variables required by Claude Code. No Anthropic API key is stored in the Agent resource or pod environment.
+Create `chanzuckerberg/agent-registry` with a layout such as:
 
-Claude configuration has two layers:
+```text
+agent-registry/
+├── .argus-ci.yaml
+├── .infra/
+│   ├── common.yaml
+│   ├── rdev/
+│   └── prod/
+├── api/
+│   ├── openapi.yaml
+│   └── v1/
+├── cmd/
+│   ├── agent-registry-api/
+│   ├── agent-registry-operator/
+│   └── agent-registry/
+├── internal/
+│   ├── app/
+│   ├── controller/
+│   ├── portal/
+│   ├── providers/
+│   └── runtime/
+├── docs/
+│   └── infrastructure-dependencies.md
+├── Dockerfile.control-plane
+└── Dockerfile.runtime
+```
 
-- Platform-managed settings mount at `/etc/claude-code`. They set the default permission mode, telemetry and mandatory hooks.
-- Owner-managed `CLAUDE.md` and `settings.json` mount read-only from a per-agent ConfigMap and appear under `/workspace/.claude`.
+The `agent-registry` Argus app owns:
 
-The platform default instructions also live in the live defaults ConfigMap. An owner can replace them for one agent through the API or portal.
+- `agents.czi.team`
+- its namespace and all namespaced CR instances
+- the `AgentProfile` and `Agent` CRDs
+- API/portal and operator deployments
+- control-plane and runtime images
+- service accounts, RBAC, IRSA, secrets, defaults, and managed settings
+- dashboards, alerts, and release workflows
 
-The API can import local Claude project memory Markdown files for a configured repository. It stages validated files in a revision-named ConfigMap and adds the desired revision to the Agent. The operator runs a one-shot Job that atomically replaces that repository's memory directory on the persistent volume, records `Pending`, `Applied` or `Failed` status and deletes completed staging objects.
+Use a browser-authenticated gateway route for the portal and a
+non-redirecting bearer-token route or separate API hostname for clients. The
+runtime pods themselves have no gateway or ingress.
 
-## GitHub identity and repositories
+No agent-specific service, image, chart template, RBAC rule, CRD, or command
+is added to the production `aws-oidc` application.
 
-All agents use a shared GitHub App. The App supplies repository-scoped, revocable credentials and keeps activity attributable to the agent fleet instead of a person's personal access token.
+## External infrastructure provenance
 
-The API:
+Create `docs/infrastructure-dependencies.md` in the new repository and link it
+from the README and deployment documentation. For each dependency record:
 
-- mints installation tokens from the App key
-- refreshes an in-memory cache of reachable repositories in the background
-- offers type-ahead search from that cache
-- rejects repositories no configured installation can reach
-- supports a default installation plus an owner-to-installation map for multiple organizations
+- owning repository and source path
+- pull request and merge state
+- environments and non-secret resource identifiers
+- whether it is reusable, legacy, superseded, manual, or must be replaced
+- POC namespace or service-account assumptions
+- secret and rotation owner
+- required follow-up PR
 
-The operator republishes only the GitHub App private key into a dedicated Secret. It does not expose the Argus workload's complete secret environment to agent pods. It validates the key at startup and mounts it read-only.
+The following inventory has been verified and must seed that document.
 
-The agent image provides:
+### AWS and Okta
 
-- `gh`
-- a Git credential helper
-- a GitHub App token minter
-- installation routing based on repository owner
+- [shared-infra#11950](https://github.com/chanzuckerberg/shared-infra/pull/11950)
+  created the POC agent Okta app, prod/nonprod operator IRSA roles, and
+  per-account `agent-provisioner` roles. The device-flow agent app is legacy.
+  The IRSA trust names `argus-aws-oidc-*` service accounts and must be replaced
+  for `agent-registry`. The current provisioner does not enforce the required
+  permissions boundary.
+- [shared-infra#11978](https://github.com/chanzuckerberg/shared-infra/pull/11978)
+  registered dev-central and prod-central EKS OIDC issuers in participating
+  accounts and granted `iam:UpdateAssumeRolePolicy`.
+- [shared-infra#11981](https://github.com/chanzuckerberg/shared-infra/pull/11981)
+  fixed host-account ownership by skipping providers already owned by cluster
+  Terraform.
 
-Git and `gh` mint one-hour installation tokens on demand and cache them until five minutes before expiry. The wrapper derives the repository owner from explicit arguments, API paths, `GH_REPO` or the current checkout, then selects the matching installation.
+Required follow-ups are new operator IRSA subjects and a mandatory boundary
+resource plus provisioner conditions that require it.
 
-The entrypoint clones configured repositories into `/workspace` on first boot and leaves existing checkouts untouched. Clone failures do not prevent the runtime from starting.
+### Anthropic WIF
 
-Commits use the owner's email and a name such as `owner's agent (reviewer)`. A managed Claude hook blocks commits on and pushes to `main`, `master` or the remote's default branch. Agents must create a branch and open a pull request.
+- [anthropic-infra#8](https://github.com/chanzuckerberg/anthropic-infra/pull/8)
+  added EKS WIF examples and the workload-identity setup skill.
+- [anthropic-infra#9](https://github.com/chanzuckerberg/anthropic-infra/pull/9)
+  created the dev-central issuer, `remote-agent-rdev` service account, and
+  federation rule.
+- [anthropic-infra#10](https://github.com/chanzuckerberg/anthropic-infra/pull/10)
+  added retries while a new issuer becomes referenceable.
+- [aws-oidc#1253](https://github.com/chanzuckerberg/aws-oidc/pull/1253)
+  contains the POC token projection and environment wiring.
 
-## Tailscale and SSH
+The existing rule matches the old POC namespace and service-account prefix.
+Create profile-scoped nonprod and production rules for `agent-registry`
+rather than reusing that matcher.
 
-Tailscale enrollment is optional per Agent. When enabled:
+POC identifiers useful for inventory are:
 
-1. The operator projects a short-lived service-account token with audience `api.tailscale.com/<client-id>`.
-2. The entrypoint extracts the client ID from the audience and calls `tailscale up` with the ID token, configured tag and a stable owner-and-agent hostname.
-3. Tailscale validates the cluster issuer, namespace service account subject and allowed tag.
-4. The pod enables Tailscale SSH and becomes reachable through the connection command shown in the portal.
+- organization `b46fb0b7-0e07-435c-9bea-a59af9f39043`
+- federation rule `fdrl_01JvnDmJXHSgUteRh5DNky25`
+- service account `svac_01EpQjQEhcsene64iA8AkyGZ`
 
-The preferred deployment provides a TUN device through the cluster device plugin. The pod receives `NET_ADMIN` and `NET_RAW` only when Tailscale is enabled. The entrypoint falls back to userspace networking if kernel TUN startup fails.
+### Tailscale
 
-The API derives `spec.tailscale.sshUser` from the owner's email local part and rejects `root`. A mandatory Claude `PreToolUse` hook blocks `ssh` and `tailscale ssh` commands that omit that user, select a different user or select root.
+Reusable foundations:
 
-Tailscale needs:
+- [biohub-ai-infra#140](https://github.com/chanzuckerberg/biohub-ai-infra/pull/140)
+- [biohub-ai-infra#165](https://github.com/chanzuckerberg/biohub-ai-infra/pull/165)
+- [biohub-ai-infra#534](https://github.com/chanzuckerberg/biohub-ai-infra/pull/534)
 
-- an OIDC trust relationship for the cluster issuer and agent service accounts
-- ownership of the advertised tag
-- network and SSH policy allowing that tag to reach the intended hosts
+Agent policy lineage:
 
-Codify the trust relationship in Terraform. Do not reproduce the current rdev environment's manual Tailscale console setup.
+- [biohub-ai-infra#565](https://github.com/chanzuckerberg/biohub-ai-infra/pull/565)
+  created the MantisShrimp federated identity and tag later reused by the POC.
+- [biohub-ai-infra#599](https://github.com/chanzuckerberg/biohub-ai-infra/pull/599)
+  corrected the federated-identity description so the initial apply could
+  succeed.
+- [biohub-ai-infra#601](https://github.com/chanzuckerberg/biohub-ai-infra/pull/601)
+  made the tag self-owning so the Terraform OAuth client could assign it.
+- [biohub-ai-infra#629](https://github.com/chanzuckerberg/biohub-ai-infra/pull/629)
+  allowed tagged agents to SSH to login nodes.
+- [biohub-ai-infra#635](https://github.com/chanzuckerberg/biohub-ai-infra/pull/635)
+  and [#636](https://github.com/chanzuckerberg/biohub-ai-infra/pull/636)
+  added inbound member SSH in nonprod and prod.
+- [biohub-ai-infra#638](https://github.com/chanzuckerberg/biohub-ai-infra/pull/638)
+  removed an invalid production assertion.
+- Closed [#637](https://github.com/chanzuckerberg/biohub-ai-infra/pull/637)
+  was superseded by the split nonprod and prod changes.
 
-## Agent image
+The POC dev-central OIDC trust was created manually. Its non-secret client ID
+is `TjHt1v2bSH11CNTRL-kz7ofAGpBJ11CNTRL`. Create canonical Terraform for a new
+`agent-registry` trust and dedicated tag policy rather than depending on the
+MantisShrimp identity.
 
-Build and publish a separate image for agent runtimes. The working image includes:
+### EFS and Kubernetes storage
 
-- Claude Code
-- AWS CLI
-- Git and GitHub CLI
-- Tailscale and OpenSSH client
-- Argus, fogg, Terraform, Helm, kubectl and yq
-- Go, Node.js and Python
-- PostgreSQL and Redis clients
-- common shell, network and source-inspection tools
+- [aws-oidc#1251](https://github.com/chanzuckerberg/aws-oidc/pull/1251)
+  contains recoverable scratch Terraform for the filesystem, mount targets,
+  security group, dynamic-access-point StorageClass, and size alarm.
+- [core-platform-infra#574](https://github.com/chanzuckerberg/core-platform-infra/pull/574)
+  was closed unmerged because it targeted the wrong EKS workspaces. It is not
+  deployed canonical infrastructure.
 
-The entrypoint:
+The POC Terraform was applied locally with no remote backend. Capture the
+local checkout/state location and non-secret outputs if they still exist;
+otherwise record them as unknown. Do not make POC state recovery, import,
+migration, deletion, or cleanup part of this implementation.
 
-- persists selected identity environment variables into SSH login shells
-- starts and enrolls Tailscale when configured
-- waits briefly for DNS after enrollment
-- clones configured repositories
-- links owner-managed Claude configuration
-- installs the shared CZI Claude plugin bundles once per persistent volume
-- starts the configured long-running command
+Provision production EFS through the repository that owns the target cluster,
+with reviewed Terraform and remote state. The POC source identifies the
+required filesystem encryption, mount targets, NFS security group,
+`efs-agent-workspaces` dynamic access-point StorageClass, and storage alarm.
 
-## Deployment and external prerequisites
+### GitHub App
 
-Deploy the API service and operator beside the existing config server. The API service also serves the optional portal. Keep it separate from the operator so API or config-server rollouts do not interrupt reconciliation.
+- [aws-oidc#1257](https://github.com/chanzuckerberg/aws-oidc/pull/1257)
+  contains the POC GitHub App integration.
+- [aws-oidc#1261](https://github.com/chanzuckerberg/aws-oidc/pull/1261)
+  added installation routing for EvolutionaryScale.
 
-### Kubernetes and Argus
+The app was created manually:
 
-- Install the Agent custom resource definition (CRD).
-- Give the API service Agent CRUD plus read access to Agent status, the rolemap and selected Events and write access to memory-staging ConfigMaps.
-- Give the operator Agent status and finalizer access plus namespaced access to StatefulSets, Jobs, services, service accounts, ConfigMaps, persistent volume claims and its dedicated GitHub Secret.
-- Enable controller-runtime leader election when running more than one operator replica.
-- Expose browser routes through an Envoy Gateway OIDC `securityPolicy`.
-- Expose `/api/v1` on a non-redirecting bearer-token route or separate API hostname.
-- Forward `X-ID-Token` only on the browser-authenticated route.
-- Mount live defaults and managed Claude settings ConfigMaps.
-- Install the EFS CSI driver, filesystem, mount targets, security group and `efs-agent-workspaces` StorageClass.
-- Provide TUN devices if kernel Tailscale networking is required.
+- app name `czi-remote-agents`
+- app ID `4783816`
+- `chanzuckerberg` installation `158028824`
+- `evolutionaryscale` installation `158867890`
 
-### AWS accounts
+Document app ownership, approved permissions, installation management,
+private-key rotation, and how the new Argus app receives the broker secret.
 
-Every target account needs:
+### Gateway and identity
 
-- the Okta OIDC provider
-- the cluster OIDC provider
-- an `agent-provisioner` role trusted by the operator's Identity and Access Management Roles for Service Accounts (IRSA) role
-- permission for the provisioner to create, read, update and delete roles under `/agents/`
-- permission to attach, detach, read, create and delete the managed and inline policies the mirror needs
-- `iam:UpdateAssumeRolePolicy`
-- a mandatory permissions boundary for agent roles in any production deployment
+- [argo-helm-charts#520](https://github.com/chanzuckerberg/argo-helm-charts/pull/520),
+  [#522](https://github.com/chanzuckerberg/argo-helm-charts/pull/522),
+  [#523](https://github.com/chanzuckerberg/argo-helm-charts/pull/523),
+  [#525](https://github.com/chanzuckerberg/argo-helm-charts/pull/525), and
+  [#527](https://github.com/chanzuckerberg/argo-helm-charts/pull/527)
+  established and refined per-service OIDC callback and credential behavior.
+  The final behavior in #527 supersedes the earlier per-service credential
+  merge approach.
+- [core-platform-infra#539](https://github.com/chanzuckerberg/core-platform-infra/pull/539)
+  added the old `/portal` callback and is POC-only.
+- [core-platform-infra#550](https://github.com/chanzuckerberg/core-platform-infra/pull/550)
+  enabled device flow on the gateway app; retain it only if the new CLI uses
+  that client.
+- [core-platform-infra#580](https://github.com/chanzuckerberg/core-platform-infra/pull/580)
+  attempted the team groups claim.
+- [core-platform-infra#585](https://github.com/chanzuckerberg/core-platform-infra/pull/585)
+  added the effective federated `teamGroups` claim used for administrator
+  authorization.
 
-The operator's IRSA role needs permission to assume each account's provisioner role.
+Add explicit follow-up work for `agents.czi.team` DNS, TLS, callback URIs, and
+gateway security policy.
 
-### External identity providers
+### Observability
 
-- Create an Okta native OIDC application with device authorization for the human CLI.
-- Create an Okta service application, API authorization server scopes and principal policy for approved automation.
-- Create one shared Okta agent OIDC application for optional laptop use.
-- Create an Anthropic WIF rule bound to the cluster issuer, token audience and agent service accounts.
-- Create and install the shared GitHub App with only the repository permissions agents need.
-- Create the Tailscale federated identity and tag policy.
+- [argus-infra-stacks#2714](https://github.com/chanzuckerberg/argus-infra-stacks/pull/2714)
+  deployed a standalone OTLP/HTTP receiver on dev-central-o11y specifically
+  for developer-agent telemetry. It forwards metrics to Prometheus and logs
+  to Loki and protects ingestion with gateway basic authentication.
+- Closed [argo-helm-charts#498](https://github.com/chanzuckerberg/argo-helm-charts/pull/498)
+  was the companion chart attempt and must not be represented as a merged
+  prerequisite.
+
+Document the current endpoint, credential owner, telemetry schema, retention,
+and whether production will extend this receiver or deploy a dedicated
+`agent-registry` pipeline.
+
+### Cluster TUN support
+
+[argus-infra-stacks#3119](https://github.com/chanzuckerberg/argus-infra-stacks/pull/3119)
+advertised `agents.czi.team/tun` capacity for the POC. The final POC stopped
+requesting that extended resource and mounted `/dev/net/tun` directly. Treat
+this PR as historical unless the production runtime chooses the device-plugin
+contract again.
 
 ## Delivery plan
 
-Implement the system in independently usable layers:
+Implement the production system in independently reviewable layers:
 
-1. **Application service.** Extract authorization, validation and Agent mutations from the current HTML handlers into one service over the Kubernetes-backed Agent store.
-2. **OpenAPI and authentication.** Define `openapi.yaml`, generate the strict server and Go client, expose `/api/v1`, verify browser and bearer identities and add structured errors, idempotency, optimistic concurrency and audit logs.
-3. **CLI and portal.** Add `aws-oidc agents` commands and move the existing server-rendered handlers onto the shared application service without replacing the templates.
-4. **AWS grants.** Resolve owner entitlements, keep the provider-agnostic controller, reconcile per-agent IAM roles and extend the config server for optional laptop use.
-5. **Base runtime.** Add one service account, StatefulSet and EFS workspace per agent, rendered in-cluster AWS profiles and suspend or resume controls.
-6. **Claude identity.** Add Anthropic WIF, the agent image, live platform defaults and per-agent Claude configuration.
-7. **GitHub workflow.** Add the GitHub App secret projection, multi-installation token routing, repository selection and cloning, owner-attributed commits and branch protection hook.
-8. **Private connectivity.** Add Tailscale OIDC enrollment, TUN support, the connection page and SSH-user enforcement.
-9. **Guided setup and operations.** Add default runtime and Tailscale creation, background entitlement loading, setup navigation, compact status summaries and memory imports.
-10. **Production hardening.** Codify all external identity setup, require the permissions boundary, add complete policy drift removal and verify etcd backup and Agent restore procedures.
+1. **Repository and dependency record.** Create `agent-registry`, add ownership
+   and CI conventions, and commit `docs/infrastructure-dependencies.md`.
+2. **AWS entitlement boundary.** Add the authenticated entitlement endpoint to
+   `aws-oidc`, publish its contract, and validate end-user token forwarding or
+   token exchange.
+3. **Public models.** Define `AgentProfile` and `Agent` CRDs, OpenAPI schemas,
+   generated clients, authorization, idempotency, optimistic concurrency, and
+   audit logging.
+4. **Portal and API.** Implement profile setup, grants, repositories, runtime
+   creation, administration, status, and connection pages over one
+   application service.
+5. **Profile reconciliation.** Add stable profile identities, provider status,
+   AWS role reconciliation, finalizers, and complete drift removal.
+6. **Runtime reconciliation.** Add one StatefulSet per Agent, shared
+   profile-scoped EFS, suspend/resume, managed defaults, and connection status.
+7. **Provider integrations.** Add Anthropic WIF, the GitHub credential broker,
+   Tailscale identity and policy, and the provider-specific audit labels.
+8. **Production infrastructure.** Land the IRSA, permissions-boundary, EFS,
+   provider-federation, GitHub secret, DNS, gateway, and observability
+   follow-ups referenced by the dependency document.
+9. **Production hardening.** Verify non-root isolation, network policy, token
+   audiences and lifetimes, provider revocation, backup expectations, image
+   provenance, and fleet telemetry with security engineering.
 
-Validate each layer before adding the next. The end-to-end acceptance path is:
+The integration router is not a delivery item in this plan.
 
-1. Create the same agent through the CLI and portal and confirm both return the same API representation.
-2. Replay a create with the same idempotency key and confirm it does not create another Agent.
-3. Attempt a stale conditional update and confirm the API returns `412 Precondition Failed`.
-4. Confirm another non-admin cannot see or mutate the agent.
-5. Confirm an automation principal can perform only its configured scopes against its configured owners or agents.
-6. Select an entitled AWS role and confirm the operator creates only the expected agent role.
-7. Run `aws sts get-caller-identity` in the pod and confirm the agent role appears.
-8. Run Claude without an API key and confirm Anthropic WIF succeeds.
-9. Clone a configured repository, create a branch, push it and open a draft pull request.
-10. Confirm direct work on the primary branch is blocked.
-11. Connect over Tailscale SSH with the derived user and confirm another user and root are blocked.
-12. Suspend and resume the agent through the API and confirm `/workspace` survives.
-13. Import project memory and confirm the requested revision reaches the persistent Claude memory directory.
-14. Delete the agent and confirm Kubernetes runtime objects and reachable IAM roles are removed.
+## Acceptance criteria
 
-## Known hardening gaps in the working rdev solution
+1. Create a profile through the API and portal and receive equivalent public
+   representations.
+2. Confirm the owner comes from verified identity and another non-admin cannot
+   read or mutate the profile.
+3. Request an AWS role the user does not hold and confirm `aws-oidc`
+   entitlement validation rejects it.
+4. Reuse an idempotency key and confirm it does not create a second profile or
+   Agent.
+5. Attempt a stale conditional update and receive
+   `412 Precondition Failed`.
+6. Create the default Agent and confirm exactly one pod runs with the profile
+   service account and workspace.
+7. Create a second Agent from the same profile and confirm it shares profile
+   grants and storage without creating duplicate provider identities.
+8. Suspend and resume one Agent without affecting the profile or another
+   instance.
+9. Run `aws sts get-caller-identity` and confirm the profile-scoped agent role
+   is used without static keys.
+10. Run Claude through Anthropic WIF without an API key.
+11. Clone only an allowed repository through a brokered GitHub installation
+    token.
+12. Connect over Tailscale as the owner and confirm root and unauthorized
+    users are denied.
+13. Delete one Agent and confirm the profile workspace and grants remain.
+14. Delete a test profile and confirm its test Agents and provider grants are
+    cleaned up in order.
 
-Do not copy these gaps into a production deployment:
+POC resources are not used in acceptance testing and remain manually managed.
 
-- The permissions boundary is configurable but the current rdev deployment leaves it unset because the boundary bootstrap has not landed.
-- Policy mirroring adds and updates source policies but does not yet detach a policy that the source role later loses.
-- Tailscale's rdev OIDC trust was created manually and must move to Terraform.
-- The current browser handlers call the Kubernetes store directly. They must move behind the shared application service before external API clients are enabled.
-- IAM role names need deterministic truncation or hashing before long owner, agent or source-role names can reach the 64-character limit.
-- IAM policy listing and cleanup need pagination for unusually policy-heavy roles.
-- The deletion workflow needs an explicit operator waiver for an account that remains unreachable. It must never silently report complete while an IAM role may remain.
-- EFS storage requests are not quotas.
-- Rotating the GitHub App private key requires an operator restart because Kubernetes fixes environment variables at pod startup.
+## Open implementation decisions
+
+- Exact Okta token delegation or exchange between `agent-registry` and
+  `aws-oidc`
+- The production cluster and infrastructure repository that own EFS
+- Profile and Agent naming, deterministic truncation, and collision handling
+- GitHub credential-broker protocol and deployment
+- Whether production Tailscale uses userspace networking, direct TUN, or the
+  device-plugin resource
+- Initial API/portal process topology and API hostname
+- Whether the CLI ships in the first release or follows the portal
