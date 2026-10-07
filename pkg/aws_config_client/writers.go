@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"gopkg.in/ini.v1"
@@ -29,7 +30,17 @@ func NewAWSConfigFileWriter(awsConfigPath string) *AWSConfigFile {
 }
 
 func (a *AWSConfigFile) Finalize() error {
-	tmpfile, err := ioutil.TempFile("", "")
+	// Create the temporary file in the same directory as the destination so the
+	// final os.Rename stays on a single filesystem. Using the system temp dir
+	// (e.g. /tmp) breaks on hosts where /tmp and the home directory live on
+	// different filesystems, where rename(2) fails with EXDEV
+	// ("invalid cross-device link"). This is common on HPC login nodes.
+	destDir := filepath.Dir(a.awsConfigPath)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("could not create directory %s for aws config: %w", destDir, err)
+	}
+
+	tmpfile, err := ioutil.TempFile(destDir, ".aws-oidc-config-*")
 	if err != nil {
 		return fmt.Errorf("could not create temporary file for aws config: %w", err)
 	}
