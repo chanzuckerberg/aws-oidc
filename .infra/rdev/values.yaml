@@ -153,13 +153,13 @@ stack:
             fieldRef:
               fieldPath: metadata.labels['app.kubernetes.io/instance']
         # Claude Workload Identity Federation. Non-secret identifiers from the Claude Console
-        # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev).
+        # (platform.claude.com > Settings > Workload Identity Federation > remote-agent-rdev-demo).
         - name: ANTHROPIC_FEDERATION_RULE_ID
-          value: fdrl_01JvnDmJXHSgUteRh5DNky25
+          value: fdrl_01UyDzvnjwLrUMkUaQEJBZPB
         - name: ANTHROPIC_ORGANIZATION_ID
           value: b46fb0b7-0e07-435c-9bea-a59af9f39043
         - name: ANTHROPIC_SERVICE_ACCOUNT_ID
-          value: svac_01EpQjQEhcsene64iA8AkyGZ
+          value: svac_01JXxqe357Npuisrzdz1pYhz
         - name: ANTHROPIC_TOKEN_AUDIENCE
           value: https://api.anthropic.com
         # The shared GitHub App agents clone and open pull requests as. Neither id is a
