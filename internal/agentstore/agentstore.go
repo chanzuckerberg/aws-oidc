@@ -1,4 +1,4 @@
-// Package agentstore reads and writes Agent custom resources (agents.czi.team/v1), one CR
+// Package agentstore reads and writes Agent custom resources (poc.agents.czi.team/v1), one CR
 // per agent. It is the single reader shared by the portal (which CRUDs agents a person
 // registers) and the config server (which reads a person's agents to build their scoped AWS
 // config). Both speak the api/v1 types directly, so there is no lossy domain model in

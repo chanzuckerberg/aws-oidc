@@ -16,7 +16,7 @@ rules:
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "delete"]
-  - apiGroups: ["agents.czi.team"]
+  - apiGroups: ["poc.agents.czi.team"]
     resources: ["agents"]
     verbs: ["get", "list"]
 ---
@@ -47,7 +47,7 @@ rules:
     resources: ["configmaps"]
     resourceNames: ["rolemap"]
     verbs: ["get"]
-  - apiGroups: ["agents.czi.team"]
+  - apiGroups: ["poc.agents.czi.team"]
     resources: ["agents"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
@@ -73,13 +73,13 @@ kind: ClusterRole
 metadata:
   name: {{ .Release.Namespace }}-agent-operator
 rules:
-  - apiGroups: ["agents.czi.team"]
+  - apiGroups: ["poc.agents.czi.team"]
     resources: ["agents"]
     verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: ["agents.czi.team"]
+  - apiGroups: ["poc.agents.czi.team"]
     resources: ["agents/status"]
     verbs: ["get", "update", "patch"]
-  - apiGroups: ["agents.czi.team"]
+  - apiGroups: ["poc.agents.czi.team"]
     resources: ["agents/finalizers"]
     verbs: ["update"]
 ---

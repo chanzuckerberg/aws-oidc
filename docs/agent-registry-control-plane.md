@@ -317,7 +317,7 @@ Differences from the human config:
 The `Agent` CR is the source of truth. Example:
 
 ```yaml
-apiVersion: agents.czi.team/v1
+apiVersion: poc.agents.czi.team/v1
 kind: Agent
 metadata:
   name: data-bot

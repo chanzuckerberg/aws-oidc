@@ -4,7 +4,7 @@
 // per-agent IAM roles.
 //
 // +kubebuilder:object:generate=true
-// +groupName=agents.czi.team
+// +groupName=poc.agents.czi.team
 package v1
 
 import (
@@ -14,7 +14,7 @@ import (
 )
 
 // GroupVersion is the group and version for the Agent API.
-var GroupVersion = schema.GroupVersion{Group: "agents.czi.team", Version: "v1"}
+var GroupVersion = schema.GroupVersion{Group: "poc.agents.czi.team", Version: "v1"}
 
 // SchemeBuilder registers the Agent types with a runtime scheme. It is built on
 // apimachinery alone so the API types can be imported without pulling in the operator's

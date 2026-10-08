@@ -2,7 +2,7 @@
 // sees the AWS access they already have, registers agents, and grants each agent a subset
 // of that access.
 //
-// Agents are stored as Agent custom resources (agents.czi.team/v1), one per agent, through
+// Agents are stored as Agent custom resources (poc.agents.czi.team/v1), one per agent, through
 // the shared agentstore. The portal writes the desired grants to a CR's spec; the operator
 // reconciles them. There is no database and no ConfigMap registry.
 package portal

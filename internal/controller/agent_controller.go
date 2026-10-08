@@ -28,7 +28,7 @@ import (
 // agentFinalizer gates deletion so the operator can tear down provisioned access before the
 // Agent object is removed.
 const (
-	agentFinalizer             = "agents.czi.team/finalizer"
+	agentFinalizer             = "poc.agents.czi.team/finalizer"
 	argoCDTrackingIDAnnotation = "argocd.argoproj.io/tracking-id"
 )
 
@@ -58,9 +58,9 @@ type AgentReconciler struct {
 	ArgoCDTrackingID    string
 }
 
-// +kubebuilder:rbac:groups=agents.czi.team,resources=agents,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=agents.czi.team,resources=agents/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=agents.czi.team,resources=agents/finalizers,verbs=update
+// +kubebuilder:rbac:groups=poc.agents.czi.team,resources=agents,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=poc.agents.czi.team,resources=agents/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=poc.agents.czi.team,resources=agents/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;services;configmaps;persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
