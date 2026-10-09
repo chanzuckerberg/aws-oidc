@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   build:
-    uses: chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml@v6.41.2
+    uses: chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml@v6.41.3
     secrets: inherit
     with:
       app: ${{ inputs.app }}
