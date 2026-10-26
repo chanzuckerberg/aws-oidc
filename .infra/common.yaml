@@ -45,3 +45,9 @@ stack:
           value: https://czi.okta.com
         - name: OKTA_SERVICE_CLIENT_ID
           value: 0oa18b7m1cb97rFLK1t8
+        - name: OKTA_ENTITLEMENT_TOKEN_ISSUER_URL
+          value: https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03
+        - name: OKTA_ENTITLEMENT_TOKEN_AUDIENCE
+          value: aws-oidc-entitlements
+        - name: OKTA_ENTITLEMENT_TOKEN_TRUSTED_SUBJECT
+          value: system:serviceaccount:argus-agent-registry-rdev:agent-registry-api

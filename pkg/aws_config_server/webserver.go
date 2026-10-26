@@ -166,6 +166,7 @@ type RouterConfig struct {
 	AwsGenerationParams *AWSConfigGenerationParams
 	OktaAppClient       okta.AppLister
 	MappingsProvider    MappingsProvider
+	EntitlementHandler  http.Handler
 }
 
 type SlogRecoveryLogger slog.Logger
@@ -186,6 +187,9 @@ func GetRouter(
 	), config.Verifier)
 
 	mux.Handle("/", handle)
+	if config.EntitlementHandler != nil {
+		mux.Handle("/api/v1/entitlements", config.EntitlementHandler)
+	}
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))

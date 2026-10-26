@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	webserver "github.com/chanzuckerberg/aws-oidc/pkg/aws_config_server"
 	"github.com/chanzuckerberg/aws-oidc/pkg/configmap"
@@ -16,10 +18,13 @@ import (
 var webServerPort int
 
 type OktaWebserverEnvironment struct {
-	PRIVATE_KEY       string `required:"true"`
-	SERVICE_CLIENT_ID string `required:"true"`
-	CLIENT_ID         string `required:"true"`
-	ISSUER_URL        string `required:"true"`
+	PRIVATE_KEY                       string `required:"true"`
+	SERVICE_CLIENT_ID                 string `required:"true"`
+	CLIENT_ID                         string `required:"true"`
+	ISSUER_URL                        string `required:"true"`
+	ENTITLEMENT_TOKEN_ISSUER_URL      string
+	ENTITLEMENT_TOKEN_AUDIENCE        string
+	ENTITLEMENT_TOKEN_TRUSTED_SUBJECT string
 }
 
 func init() {
@@ -42,6 +47,20 @@ func loadOktaEnv() (*OktaWebserverEnvironment, error) {
 	err := envconfig.Process("OKTA", env)
 	if err != nil {
 		return env, fmt.Errorf("Unable to load all the okta environment variables: %w", err)
+	}
+	entitlementValues := []string{
+		env.ENTITLEMENT_TOKEN_ISSUER_URL,
+		env.ENTITLEMENT_TOKEN_AUDIENCE,
+		env.ENTITLEMENT_TOKEN_TRUSTED_SUBJECT,
+	}
+	configured := 0
+	for _, value := range entitlementValues {
+		if strings.TrimSpace(value) != "" {
+			configured++
+		}
+	}
+	if configured != 0 && configured != len(entitlementValues) {
+		return nil, errors.New("all entitlement token settings are required when any are configured")
 	}
 	return env, nil
 }
@@ -105,11 +124,39 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		return mappings.ByClientID(), nil
 	}
 
+	var entitlementHandler http.Handler
+	if oktaEnv.ENTITLEMENT_TOKEN_ISSUER_URL != "" {
+		entitlementProvider, err := oidc.NewProvider(ctx, oktaEnv.ENTITLEMENT_TOKEN_ISSUER_URL)
+		if err != nil {
+			return fmt.Errorf("create entitlement token provider: %w", err)
+		}
+		entitlementVerifier := entitlementProvider.Verifier(&oidc.Config{
+			ClientID: oktaEnv.ENTITLEMENT_TOKEN_AUDIENCE,
+		})
+		handler, err := webserver.NewEntitlementHandler(
+			oktaEnv.ISSUER_URL,
+			oktaAppClient,
+			mappingsProvider,
+		)
+		if err != nil {
+			return fmt.Errorf("create entitlement handler: %w", err)
+		}
+		entitlementHandler, err = webserver.NewWorkloadAuthMiddleware(
+			handler,
+			entitlementVerifier,
+			oktaEnv.ENTITLEMENT_TOKEN_TRUSTED_SUBJECT,
+		)
+		if err != nil {
+			return fmt.Errorf("create entitlement authentication: %w", err)
+		}
+	}
+
 	routerConfig := &webserver.RouterConfig{
 		Verifier:            verifier,
 		AwsGenerationParams: &configGenerationParams,
 		OktaAppClient:       oktaAppClient,
 		MappingsProvider:    mappingsProvider,
+		EntitlementHandler:  entitlementHandler,
 	}
 
 	router := webserver.GetRouter(ctx, routerConfig)
