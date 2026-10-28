@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.40.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.39.1...v0.40.0) (2026-10-28)
+
+
+### Features
+
+* **entitlements:** expose Agent Registry AWS access ([#1291](https://github.com/chanzuckerberg/aws-oidc/issues/1291)) ([413362e](https://github.com/chanzuckerberg/aws-oidc/commit/413362e6ec2e9c3b15deb7a7ca68bdc61fb4dfe9))
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions from 6.41.2 to 6.41.3 ([#1285](https://github.com/chanzuckerberg/aws-oidc/issues/1285)) ([86142cb](https://github.com/chanzuckerberg/aws-oidc/commit/86142cbe50ead928a9d69fbf40bbe4f977c34b4b))
+* bump chanzuckerberg/github-actions from 6.41.3 to 6.42.0 ([#1288](https://github.com/chanzuckerberg/aws-oidc/issues/1288)) ([0fc456d](https://github.com/chanzuckerberg/aws-oidc/commit/0fc456d30bd57b7b8def76bfcbc89a9f302cc61f))
+* bump chanzuckerberg/github-actions from 6.42.0 to 6.42.1 ([#1289](https://github.com/chanzuckerberg/aws-oidc/issues/1289)) ([175b20e](https://github.com/chanzuckerberg/aws-oidc/commit/175b20e6ba45dd56abfb01e6d72bd26d3212d49e))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.41.2 to 6.41.3 ([#1284](https://github.com/chanzuckerberg/aws-oidc/issues/1284)) ([64dcb2d](https://github.com/chanzuckerberg/aws-oidc/commit/64dcb2dfda99b19c19b7f04d40046ecc339d6f2c))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.41.3 to 6.42.0 ([#1287](https://github.com/chanzuckerberg/aws-oidc/issues/1287)) ([f8b99fd](https://github.com/chanzuckerberg/aws-oidc/commit/f8b99fd614cbb814746c246b80eed5fd1661e749))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.42.0 to 6.42.1 ([#1290](https://github.com/chanzuckerberg/aws-oidc/issues/1290)) ([5854a0a](https://github.com/chanzuckerberg/aws-oidc/commit/5854a0a882cacbefa3367e6dfbc8819215bc7cf6))
+* update 'stack' helm chart version for aws-oidc rdev ([#1210](https://github.com/chanzuckerberg/aws-oidc/issues/1210)) ([f5ba31e](https://github.com/chanzuckerberg/aws-oidc/commit/f5ba31ed7436cccb184620bbad73c48b54f195c8))
+
 ## [0.39.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.39.0...v0.39.1) (2026-10-07)
 
 
