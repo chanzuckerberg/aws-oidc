@@ -2,14 +2,17 @@ package aws_config_server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/okta/okta-sdk-golang/v3/okta"
+	oktasdk "github.com/okta/okta-sdk-golang/v3/okta"
 	"github.com/stretchr/testify/require"
+
+	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
 type idTokenVerifier struct {
@@ -24,15 +27,25 @@ func (idtv *idTokenVerifier) Verify(_ context.Context, idToken string) (Principa
 	return idtv.principal, nil
 }
 
-var testAWSConfigGenerationParams = AWSConfigGenerationParams{
-	OIDCProvider: "validProvider",
-	Concurrency:  1,
-}
+const testOIDCProvider = "https://issuer.example.com"
 
 type emptyOktaApplications struct{}
 
-func (m *emptyOktaApplications) ListApplications(_ context.Context, _, _ string) ([]okta.ListApplications200ResponseInner, string, error) {
+func (m *emptyOktaApplications) ListApplications(_ context.Context, _, _ string) ([]oktasdk.ListApplications200ResponseInner, string, error) {
 	return nil, "", nil
+}
+
+func emptyAccessResolver(t *testing.T) *AccessResolver {
+	t.Helper()
+	resolver, err := NewAccessResolver(
+		testOIDCProvider,
+		&emptyOktaApplications{},
+		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
+			return nil, nil
+		},
+	)
+	require.NoError(t, err)
+	return resolver
 }
 
 func TestNoEmail(t *testing.T) {
@@ -42,15 +55,14 @@ func TestNoEmail(t *testing.T) {
 	idTokenVerifier := &idTokenVerifier{
 		expectedIDToken: "this is an id token I want",
 		principal: Principal{
-			Issuer:  testAWSConfigGenerationParams.OIDCProvider,
+			Issuer:  testOIDCProvider,
 			Subject: testEntitlementUserID,
 		},
 	}
 
 	routerConfig := &RouterConfig{
-		Verifier:            idTokenVerifier,
-		AwsGenerationParams: &testAWSConfigGenerationParams,
-		OktaAppClient:       &emptyOktaApplications{},
+		Verifier:       idTokenVerifier,
+		AccessResolver: emptyAccessResolver(t),
 	}
 
 	router := GetRouter(ctx, routerConfig)
@@ -66,6 +78,69 @@ func TestNoEmail(t *testing.T) {
 	r.Equal(403, resp.StatusCode)
 }
 
+func TestIndexReturnsResolvedProfiles(t *testing.T) {
+	apps := &entitlementAppLister{
+		pages: [][]oktasdk.ListApplications200ResponseInner{
+			{oktaApplication("client-a")},
+		},
+	}
+	resolver, err := NewAccessResolver(
+		testEntitlementIssuer,
+		apps,
+		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
+			return okta.OIDCRoleMappingsByKey{
+				"client-a": {
+					{
+						AWSAccountID:    "111111111111",
+						AWSAccountAlias: "alpha",
+						AWSRoleARN:      "arn:aws:iam::111111111111:role/readonly",
+						OktaClientID:    "client-a",
+					},
+				},
+			}, nil
+		},
+	)
+	require.NoError(t, err)
+	verifier := &idTokenVerifier{
+		expectedIDToken: "token",
+		principal: Principal{
+			Issuer:  testEntitlementIssuer,
+			Subject: testEntitlementUserID,
+			Email:   "user@example.com",
+		},
+	}
+	server := httptest.NewServer(GetRouter(context.Background(), &RouterConfig{
+		Verifier:       verifier,
+		AccessResolver: resolver,
+	}))
+	defer server.Close()
+	request, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	request.Header.Set("Authorization", "Bearer token")
+
+	response, err := server.Client().Do(request)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	defer response.Body.Close()
+	var config AWSConfig
+	err = json.NewDecoder(response.Body).Decode(&config)
+	require.NoError(t, err)
+	require.Equal(t, []AWSProfile{
+		{
+			ClientID: "client-a",
+			AWSAccount: AWSAccount{
+				ID:    "111111111111",
+				Name:  "alpha",
+				Alias: "alpha",
+			},
+			RoleARN:   "arn:aws:iam::111111111111:role/readonly",
+			IssuerURL: testEntitlementIssuer,
+			RoleName:  "readonly",
+		},
+	}, config.Profiles)
+}
+
 func TestMalformedBearerPrefix(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
@@ -75,9 +150,8 @@ func TestMalformedBearerPrefix(t *testing.T) {
 	}
 
 	routerConfig := &RouterConfig{
-		Verifier:            idTokenVerifier,
-		AwsGenerationParams: &testAWSConfigGenerationParams,
-		OktaAppClient:       &emptyOktaApplications{},
+		Verifier:       idTokenVerifier,
+		AccessResolver: emptyAccessResolver(t),
 	}
 
 	router := GetRouter(ctx, routerConfig)
@@ -99,9 +173,8 @@ func TestMissingAuthHeader(t *testing.T) {
 	r := require.New(t)
 
 	routerConfig := &RouterConfig{
-		Verifier:            &failingVerifier{},
-		AwsGenerationParams: &testAWSConfigGenerationParams,
-		OktaAppClient:       &emptyOktaApplications{},
+		Verifier:       &failingVerifier{},
+		AccessResolver: emptyAccessResolver(t),
 	}
 
 	router := GetRouter(ctx, routerConfig)
@@ -123,9 +196,8 @@ func TestHealthEndpoint(t *testing.T) {
 	r := require.New(t)
 
 	routerConfig := &RouterConfig{
-		Verifier:            &failingVerifier{},
-		AwsGenerationParams: &testAWSConfigGenerationParams,
-		OktaAppClient:       &emptyOktaApplications{},
+		Verifier:       &failingVerifier{},
+		AccessResolver: emptyAccessResolver(t),
 	}
 
 	router := GetRouter(ctx, routerConfig)

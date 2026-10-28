@@ -256,19 +256,24 @@ func TestResolveEntitlementsRejectsAccountMismatch(t *testing.T) {
 	apps := &entitlementAppLister{
 		pages: [][]oktasdk.ListApplications200ResponseInner{{oktaApplication("client-a")}},
 	}
-	_, err := resolveEntitlements(
-		context.Background(),
-		testEntitlementUserID,
+	resolver, err := NewAccessResolver(
+		testEntitlementIssuer,
 		apps,
-		okta.OIDCRoleMappingsByKey{
-			"client-a": {
-				{
-					AWSAccountID: "111111111111",
-					AWSRoleARN:   "arn:aws:iam::222222222222:role/readonly",
+		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
+			return okta.OIDCRoleMappingsByKey{
+				"client-a": {
+					{
+						AWSAccountID: "111111111111",
+						AWSRoleARN:   "arn:aws:iam::222222222222:role/readonly",
+					},
 				},
-			},
+			}, nil
 		},
 	)
+	require.NoError(t, err)
+
+	_, err = resolver.Resolve(context.Background(), testEntitlementUserID)
+
 	require.ErrorContains(t, err, "does not match account")
 }
 
@@ -279,7 +284,9 @@ func entitlementEndpoint(
 	mappings MappingsProvider,
 ) http.Handler {
 	t.Helper()
-	handler, err := NewEntitlementHandler(testEntitlementIssuer, apps, mappings)
+	resolver, err := NewAccessResolver(testEntitlementIssuer, apps, mappings)
+	require.NoError(t, err)
+	handler, err := NewEntitlementHandler(resolver)
 	require.NoError(t, err)
 	return NewAuthMiddleware(handler, verifier)
 }

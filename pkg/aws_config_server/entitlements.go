@@ -1,19 +1,13 @@
 package aws_config_server
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"regexp"
 	"sort"
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
 var oktaUserIDPattern = regexp.MustCompile(`^00u[A-Za-z0-9]{17}$`)
@@ -35,30 +29,14 @@ type EntitlementList struct {
 }
 
 type EntitlementHandler struct {
-	ownerIssuer      string
-	oktaAppClient    okta.AppLister
-	mappingsProvider MappingsProvider
+	resolver *AccessResolver
 }
 
-func NewEntitlementHandler(
-	ownerIssuer string,
-	oktaAppClient okta.AppLister,
-	mappingsProvider MappingsProvider,
-) (*EntitlementHandler, error) {
-	if strings.TrimSpace(ownerIssuer) == "" {
-		return nil, errors.New("owner issuer is required")
+func NewEntitlementHandler(resolver *AccessResolver) (*EntitlementHandler, error) {
+	if resolver == nil {
+		return nil, errors.New("access resolver is required")
 	}
-	if oktaAppClient == nil {
-		return nil, errors.New("Okta application client is required")
-	}
-	if mappingsProvider == nil {
-		return nil, errors.New("mappings provider is required")
-	}
-	return &EntitlementHandler{
-		ownerIssuer:      strings.TrimSuffix(ownerIssuer, "/"),
-		oktaAppClient:    oktaAppClient,
-		mappingsProvider: mappingsProvider,
-	}, nil
+	return &EntitlementHandler{resolver: resolver}, nil
 }
 
 func (h *EntitlementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -107,23 +85,18 @@ func (h *EntitlementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
-	if targetIssuer != h.ownerIssuer || !oktaUserIDPattern.MatchString(targetUserID) {
+	if targetIssuer != h.resolver.OIDCProvider() || !oktaUserIDPattern.MatchString(targetUserID) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	mappings, err := h.mappingsProvider(r.Context())
-	if err != nil {
-		slog.Error("reading entitlement rolemap", "request_id", requestID, "error", err)
-		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-		return
-	}
-	items, err := resolveEntitlements(r.Context(), targetUserID, h.oktaAppClient, mappings)
+	config, err := h.resolver.Resolve(r.Context(), targetUserID)
 	if err != nil {
 		slog.Error("resolving AWS entitlements", "request_id", requestID, "user_id", targetUserID, "error", err)
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
+	items := entitlementsFromAWSConfig(config)
 	slog.Info(
 		"resolved AWS entitlements",
 		"request_id", requestID,
@@ -138,39 +111,21 @@ func (h *EntitlementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func resolveEntitlements(
-	ctx context.Context,
-	userID string,
-	oktaAppClient okta.AppLister,
-	mappings okta.OIDCRoleMappingsByKey,
-) ([]Entitlement, error) {
-	clientIDs, err := okta.GetClientIDs(ctx, userID, oktaAppClient)
-	if err != nil {
-		return nil, fmt.Errorf("get assigned applications: %w", err)
-	}
+func entitlementsFromAWSConfig(config *AWSConfig) []Entitlement {
 	seen := make(map[string]struct{})
 	items := make([]Entitlement, 0)
-	for _, clientID := range clientIDs {
-		for _, mapping := range mappings[clientID.String()] {
-			roleARN, err := arn.Parse(mapping.AWSRoleARN)
-			if err != nil {
-				return nil, fmt.Errorf("parse role ARN: %w", err)
-			}
-			if roleARN.Service != "iam" || roleARN.AccountID != mapping.AWSAccountID || !strings.HasPrefix(roleARN.Resource, "role/") {
-				return nil, fmt.Errorf("role ARN %q does not match account %q", mapping.AWSRoleARN, mapping.AWSAccountID)
-			}
-			key := mapping.AWSAccountID + "\x00" + mapping.AWSRoleARN
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			items = append(items, Entitlement{
-				AccountID:    mapping.AWSAccountID,
-				AccountAlias: mapping.AWSAccountAlias,
-				RoleARN:      mapping.AWSRoleARN,
-				RoleName:     strings.TrimPrefix(roleARN.Resource, "role/"),
-			})
+	for _, profile := range config.Profiles {
+		key := profile.AWSAccount.ID + "\x00" + profile.RoleARN
+		if _, ok := seen[key]; ok {
+			continue
 		}
+		seen[key] = struct{}{}
+		items = append(items, Entitlement{
+			AccountID:    profile.AWSAccount.ID,
+			AccountAlias: profile.AWSAccount.Alias,
+			RoleARN:      profile.RoleARN,
+			RoleName:     profile.RoleName,
+		})
 	}
 	sort.Slice(items, func(i, j int) bool {
 		leftAccount := items[i].AccountAlias
@@ -189,5 +144,5 @@ func resolveEntitlements(
 		}
 		return items[i].RoleARN < items[j].RoleARN
 	})
-	return items, nil
+	return items
 }

@@ -12,11 +12,6 @@ import (
 	"github.com/gorilla/handlers"
 )
 
-type AWSConfigGenerationParams struct {
-	OIDCProvider string
-	Concurrency  int
-}
-
 // From https://github.com/dgrijalva/jwt-go/blob/master/request/oauth2.go
 // Strips 'Bearer ' prefix from bearer token string
 func stripBearerPrefixFromTokenString(token string) string {
@@ -27,11 +22,7 @@ func stripBearerPrefixFromTokenString(token string) string {
 	return token
 }
 
-func Index(
-	awsGenerationParams *AWSConfigGenerationParams,
-	oktaClient okta.AppLister,
-	mappingsProvider MappingsProvider,
-) http.Handler {
+func Index(resolver *AccessResolver) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -41,35 +32,19 @@ func Index(
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-		if principal.Issuer != normalizeIssuer(awsGenerationParams.OIDCProvider) ||
+		if principal.Issuer != resolver.OIDCProvider() ||
 			principal.Email == "" {
 			http.Error(w, fmt.Sprintf("%v:%s", 403, http.StatusText(403)), 403)
 			return
 		}
 
-		// Re-read the rolemap on every request so a freshly generated mapping is picked up
-		// without restarting the server.
-		clientMappingsByKey, err := mappingsProvider(ctx)
-		if err != nil {
-			slog.Error("reading rolemap", "error", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
-			return
-		}
-
-		clientIDs, err := okta.GetClientIDs(ctx, principal.Subject, oktaClient)
-		if err != nil {
-			slog.Error(fmt.Sprintf("getting list of ClientIDs for sub %s", principal.Subject), "error", err)
-			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
-			return
-		}
-
-		slog.Debug("creating aws config", "email", principal.Email, "clientIDsLen", len(clientIDs))
-		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappingsByKey, clientIDs)
+		awsConfig, err := resolver.Resolve(ctx, principal.Subject)
 		if err != nil {
 			slog.Error("getting AWS Config File", "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
+		slog.Debug("creating aws config", "email", principal.Email, "profilesLen", len(awsConfig.Profiles))
 
 		encoder := json.NewEncoder(w)
 		err = encoder.Encode(awsConfig)
@@ -86,11 +61,9 @@ func Index(
 type MappingsProvider func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error)
 
 type RouterConfig struct {
-	Verifier            IdentityVerifier
-	AwsGenerationParams *AWSConfigGenerationParams
-	OktaAppClient       okta.AppLister
-	MappingsProvider    MappingsProvider
-	EntitlementHandler  http.Handler
+	Verifier           IdentityVerifier
+	AccessResolver     *AccessResolver
+	EntitlementHandler http.Handler
 }
 
 type SlogRecoveryLogger slog.Logger
@@ -104,11 +77,7 @@ func GetRouter(
 	config *RouterConfig,
 ) http.Handler {
 	mux := http.NewServeMux()
-	handle := NewAuthMiddleware(Index(
-		config.AwsGenerationParams,
-		config.OktaAppClient,
-		config.MappingsProvider,
-	), config.Verifier)
+	handle := NewAuthMiddleware(Index(config.AccessResolver), config.Verifier)
 
 	mux.Handle("/", handle)
 	if config.EntitlementHandler != nil {

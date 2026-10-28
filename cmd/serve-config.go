@@ -165,10 +165,6 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create okta apps: %w", err)
 	}
 
-	configGenerationParams := webserver.AWSConfigGenerationParams{
-		OIDCProvider: oktaEnv.ISSUER_URL,
-	}
-
 	configMapName, err := cmd.Flags().GetString(flagConfigMapName)
 	if err != nil {
 		return fmt.Errorf("missing configmap-name flag: %w", err)
@@ -193,21 +189,23 @@ func serveConfigRun(cmd *cobra.Command, args []string) error {
 		return mappings.ByClientID(), nil
 	}
 
-	entitlementHandler, err := webserver.NewEntitlementHandler(
+	accessResolver, err := webserver.NewAccessResolver(
 		oktaEnv.ISSUER_URL,
 		oktaAppClient,
 		mappingsProvider,
 	)
 	if err != nil {
+		return fmt.Errorf("create AWS access resolver: %w", err)
+	}
+	entitlementHandler, err := webserver.NewEntitlementHandler(accessResolver)
+	if err != nil {
 		return fmt.Errorf("create entitlement handler: %w", err)
 	}
 
 	routerConfig := &webserver.RouterConfig{
-		Verifier:            verifier,
-		AwsGenerationParams: &configGenerationParams,
-		OktaAppClient:       oktaAppClient,
-		MappingsProvider:    mappingsProvider,
-		EntitlementHandler:  entitlementHandler,
+		Verifier:           verifier,
+		AccessResolver:     accessResolver,
+		EntitlementHandler: entitlementHandler,
 	}
 
 	router := webserver.GetRouter(ctx, routerConfig)
