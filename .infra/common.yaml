@@ -49,7 +49,9 @@ stack:
           value: >-
             [
               {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03","clientId":"aws-oidc-entitlements"},
-              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/8AD885CD7DC73A5157591DDCBE3041A6","clientId":"aws-oidc-entitlements"}
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03","clientId":"https://kubernetes.default.svc"},
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/8AD885CD7DC73A5157591DDCBE3041A6","clientId":"aws-oidc-entitlements"},
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/8AD885CD7DC73A5157591DDCBE3041A6","clientId":"https://kubernetes.default.svc"}
             ]
         - name: OKTA_PRIVILEGED_IDENTITIES
           value: >-
