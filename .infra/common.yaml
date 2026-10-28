@@ -47,7 +47,13 @@ stack:
           value: 0oa18b7m1cb97rFLK1t8
         - name: OKTA_ADDITIONAL_TOKEN_VERIFIERS
           value: >-
-            [{"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03","clientId":"aws-oidc-entitlements"}]
+            [
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03","clientId":"aws-oidc-entitlements"},
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/8AD885CD7DC73A5157591DDCBE3041A6","clientId":"aws-oidc-entitlements"}
+            ]
         - name: OKTA_PRIVILEGED_IDENTITIES
           value: >-
-            [{"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03","subject":"system:serviceaccount:argus-agent-registry-rdev:agent-registry-api"}]
+            [
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/A72DBBC7C19B4B419EEA3497A3A4CC03","subject":"system:serviceaccount:argus-agent-registry-rdev:agent-registry-api"},
+              {"issuerUrl":"https://oidc.eks.us-west-2.amazonaws.com/id/8AD885CD7DC73A5157591DDCBE3041A6","subject":"system:serviceaccount:argus-agent-registry-prod:agent-registry-api"}
+            ]
