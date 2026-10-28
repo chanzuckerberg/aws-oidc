@@ -8,4 +8,4 @@ stack:
           - path: /
             pathType: Prefix
       image:
-        tag: sha-d7f00ae
+        tag: sha-9173ef1

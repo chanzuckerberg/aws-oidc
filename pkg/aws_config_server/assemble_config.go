@@ -22,6 +22,15 @@ func createAWSConfig(oidcProvider string, clientMapping okta.OIDCRoleMappingsByK
 			if err != nil {
 				return nil, fmt.Errorf("parsing role ARN: %w", err)
 			}
+			if roleARN.Service != "iam" ||
+				roleARN.AccountID != mapping.AWSAccountID ||
+				!strings.HasPrefix(roleARN.Resource, "role/") {
+				return nil, fmt.Errorf(
+					"role ARN %q does not match account %q",
+					mapping.AWSRoleARN,
+					mapping.AWSAccountID,
+				)
+			}
 			profile := AWSProfile{
 				ClientID: mapping.OktaClientID,
 				RoleARN:  mapping.AWSRoleARN,
@@ -31,7 +40,7 @@ func createAWSConfig(oidcProvider string, clientMapping okta.OIDCRoleMappingsByK
 					ID:    mapping.AWSAccountID,
 				},
 				IssuerURL: oidcProvider,
-				RoleName:  strings.ReplaceAll(roleARN.Resource, "role/", ""),
+				RoleName:  strings.TrimPrefix(roleARN.Resource, "role/"),
 			}
 			awsConfig.Profiles = append(awsConfig.Profiles, profile)
 		}
