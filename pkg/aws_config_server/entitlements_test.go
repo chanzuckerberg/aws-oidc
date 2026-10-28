@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	oidc "github.com/coreos/go-oidc"
 	oktasdk "github.com/okta/okta-sdk-golang/v3/okta"
 	"github.com/stretchr/testify/require"
 
@@ -22,16 +21,16 @@ const (
 	testEntitlementUserID  = "00u12345678901234567"
 )
 
-type workloadVerifier struct {
-	subject string
-	err     error
+type staticIdentityVerifier struct {
+	principal Principal
+	err       error
 }
 
-func (v *workloadVerifier) Verify(context.Context, string) (*oidc.IDToken, error) {
+func (v *staticIdentityVerifier) Verify(context.Context, string) (Principal, error) {
 	if v.err != nil {
-		return nil, v.err
+		return Principal{}, v.err
 	}
-	return &oidc.IDToken{Subject: v.subject}, nil
+	return v.principal, nil
 }
 
 type entitlementAppLister struct {
@@ -86,7 +85,7 @@ func TestEntitlementEndpoint(t *testing.T) {
 			},
 		},
 	}
-	handler := entitlementEndpoint(t, &workloadVerifier{subject: testEntitlementSubject}, apps, func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
+	handler := entitlementEndpoint(t, &staticIdentityVerifier{principal: privilegedTestPrincipal()}, apps, func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
 		return mappings, nil
 	})
 	request := httptest.NewRequest(
@@ -128,22 +127,25 @@ func TestEntitlementEndpoint(t *testing.T) {
 func TestEntitlementAuthentication(t *testing.T) {
 	tests := map[string]struct {
 		authorization string
-		verifier      *workloadVerifier
+		verifier      *staticIdentityVerifier
 		status        int
 	}{
 		"missing token": {
-			verifier: &workloadVerifier{subject: testEntitlementSubject},
+			verifier: &staticIdentityVerifier{principal: privilegedTestPrincipal()},
 			status:   http.StatusUnauthorized,
 		},
 		"invalid token": {
 			authorization: "Bearer invalid",
-			verifier:      &workloadVerifier{err: errors.New("wrong issuer, audience or expiry")},
+			verifier:      &staticIdentityVerifier{err: errors.New("wrong issuer, audience or expiry")},
 			status:        http.StatusUnauthorized,
 		},
-		"wrong service account": {
+		"unprivileged cross-user lookup": {
 			authorization: "Bearer token",
-			verifier:      &workloadVerifier{subject: "system:serviceaccount:other:api"},
-			status:        http.StatusForbidden,
+			verifier: &staticIdentityVerifier{principal: Principal{
+				Issuer:  "https://issuer.example.com",
+				Subject: "unprivileged",
+			}},
+			status: http.StatusForbidden,
 		},
 	}
 	for name, test := range tests {
@@ -171,10 +173,40 @@ func TestEntitlementAuthentication(t *testing.T) {
 	}
 }
 
+func TestEntitlementEndpointUsesNormalUserIdentity(t *testing.T) {
+	apps := &entitlementAppLister{
+		pages: [][]oktasdk.ListApplications200ResponseInner{{}},
+	}
+	handler := entitlementEndpoint(
+		t,
+		&staticIdentityVerifier{principal: Principal{
+			Issuer:  testEntitlementIssuer,
+			Subject: testEntitlementUserID,
+			Email:   "user@example.com",
+		}},
+		apps,
+		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
+			return nil, nil
+		},
+	)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/entitlements",
+		strings.NewReader(`{}`),
+	)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Equal(t, 1, apps.calls)
+}
+
 func TestEntitlementRequestValidation(t *testing.T) {
 	handler := entitlementEndpoint(
 		t,
-		&workloadVerifier{subject: testEntitlementSubject},
+		&staticIdentityVerifier{principal: privilegedTestPrincipal()},
 		&entitlementAppLister{pages: [][]oktasdk.ListApplications200ResponseInner{{}}},
 		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
 			return nil, nil
@@ -201,7 +233,7 @@ func TestEntitlementRequestValidation(t *testing.T) {
 func TestEntitlementDependencyFailure(t *testing.T) {
 	handler := entitlementEndpoint(
 		t,
-		&workloadVerifier{subject: testEntitlementSubject},
+		&staticIdentityVerifier{principal: privilegedTestPrincipal()},
 		&entitlementAppLister{pages: [][]oktasdk.ListApplications200ResponseInner{{}}},
 		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
 			return nil, errors.New("rolemap unavailable")
@@ -242,16 +274,22 @@ func TestResolveEntitlementsRejectsAccountMismatch(t *testing.T) {
 
 func entitlementEndpoint(
 	t *testing.T,
-	verifier oidcVerifier,
+	verifier IdentityVerifier,
 	apps okta.AppLister,
 	mappings MappingsProvider,
 ) http.Handler {
 	t.Helper()
 	handler, err := NewEntitlementHandler(testEntitlementIssuer, apps, mappings)
 	require.NoError(t, err)
-	authenticated, err := NewWorkloadAuthMiddleware(handler, verifier, testEntitlementSubject)
-	require.NoError(t, err)
-	return authenticated
+	return NewAuthMiddleware(handler, verifier)
+}
+
+func privilegedTestPrincipal() Principal {
+	return Principal{
+		Issuer:     "https://oidc.eks.example.com",
+		Subject:    testEntitlementSubject,
+		Privileged: true,
+	}
 }
 
 func oktaApplication(id string) oktasdk.ListApplications200ResponseInner {

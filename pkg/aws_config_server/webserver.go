@@ -9,23 +9,8 @@ import (
 	"strings"
 
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
-	oidc "github.com/coreos/go-oidc"
 	"github.com/gorilla/handlers"
 )
-
-type oidcVerifier interface {
-	Verify(context.Context, string) (*oidc.IDToken, error)
-}
-
-type contextKey int
-
-const contextKeyEmail contextKey = 0
-const contextKeySub contextKey = 1
-
-type claims struct {
-	Email   string `json:"email"`
-	Subject string `json:"sub"`
-}
 
 type AWSConfigGenerationParams struct {
 	OIDCProvider string
@@ -42,65 +27,6 @@ func stripBearerPrefixFromTokenString(token string) string {
 	return token
 }
 
-type AuthMiddleware struct {
-	handler  http.Handler
-	verifier oidcVerifier
-}
-
-func NewAuthMiddleware(handler http.Handler, verifier oidcVerifier) *AuthMiddleware {
-	return &AuthMiddleware{
-		handler:  handler,
-		verifier: verifier,
-	}
-}
-
-func (a *AuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	authHeader := r.Header.Get("Authorization")
-	ctx := r.Context()
-	if len(authHeader) <= 0 {
-		slog.Debug(`no "Authorization" header found`)
-		http.Error(w, fmt.Sprintf("%v:%s", 407, http.StatusText(407)), 407)
-		return
-	}
-	rawIDToken := stripBearerPrefixFromTokenString(authHeader)
-
-	idToken, err := a.verifier.Verify(ctx, rawIDToken)
-	if err != nil {
-		slog.Error("verifying idToken", "error", err)
-		http.Error(w, fmt.Sprintf("%v:%s", 401, http.StatusText(401)), 401)
-		return
-	}
-
-	claims := &claims{}
-	err = idToken.Claims(claims)
-	if err != nil {
-		slog.Error("parsing email from id token", "error", err)
-		http.Error(w, fmt.Sprintf("%v:%s", 400, http.StatusText(400)), 400)
-		return
-	}
-	ctxWithValues := context.WithValue(r.Context(), contextKeyEmail, claims.Email)
-	ctxWithValues = context.WithValue(ctxWithValues, contextKeySub, claims.Subject)
-	rWithValues := r.WithContext(ctxWithValues)
-
-	a.handler.ServeHTTP(w, rWithValues)
-}
-
-func getEmailFromCtx(ctx context.Context) *string {
-	email, ok := ctx.Value(contextKeyEmail).(string)
-	if !ok {
-		return nil
-	}
-	return &email
-}
-
-func getSubFromCtx(ctx context.Context) *string {
-	sub, ok := ctx.Value(contextKeySub).(string)
-	if !ok {
-		return nil
-	}
-	return &sub
-}
-
 func Index(
 	awsGenerationParams *AWSConfigGenerationParams,
 	oktaClient okta.AppLister,
@@ -109,17 +35,15 @@ func Index(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		email := getEmailFromCtx(ctx)
-		if email == nil {
-			slog.Error("no email in context")
+		principal, ok := principalFromContext(ctx)
+		if !ok {
+			slog.Error("no principal in context")
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-
-		sub := getSubFromCtx(ctx)
-		if sub == nil {
-			slog.Error(fmt.Sprintf("getting subject ID for %s", *email))
-			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
+		if principal.Issuer != normalizeIssuer(awsGenerationParams.OIDCProvider) ||
+			principal.Email == "" {
+			http.Error(w, fmt.Sprintf("%v:%s", 403, http.StatusText(403)), 403)
 			return
 		}
 
@@ -132,14 +56,14 @@ func Index(
 			return
 		}
 
-		clientIDs, err := okta.GetClientIDs(ctx, *sub, oktaClient)
+		clientIDs, err := okta.GetClientIDs(ctx, principal.Subject, oktaClient)
 		if err != nil {
-			slog.Error(fmt.Sprintf("getting list of ClientIDs for sub %s", *sub), "error", err)
+			slog.Error(fmt.Sprintf("getting list of ClientIDs for sub %s", principal.Subject), "error", err)
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
 
-		slog.Debug("creating aws config", "email", *email, "clientIDsLen", len(clientIDs))
+		slog.Debug("creating aws config", "email", principal.Email, "clientIDsLen", len(clientIDs))
 		awsConfig, err := createAWSConfig(awsGenerationParams.OIDCProvider, clientMappingsByKey, clientIDs)
 		if err != nil {
 			slog.Error("getting AWS Config File", "error", err)
@@ -162,7 +86,7 @@ func Index(
 type MappingsProvider func(ctx context.Context) (okta.OIDCRoleMappingsByKey, error)
 
 type RouterConfig struct {
-	Verifier            oidcVerifier
+	Verifier            IdentityVerifier
 	AwsGenerationParams *AWSConfigGenerationParams
 	OktaAppClient       okta.AppLister
 	MappingsProvider    MappingsProvider
@@ -188,7 +112,10 @@ func GetRouter(
 
 	mux.Handle("/", handle)
 	if config.EntitlementHandler != nil {
-		mux.Handle("/api/v1/entitlements", config.EntitlementHandler)
+		mux.Handle(
+			"/api/v1/entitlements",
+			NewAuthMiddleware(config.EntitlementHandler, config.Verifier),
+		)
 	}
 	mux.Handle("/health", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

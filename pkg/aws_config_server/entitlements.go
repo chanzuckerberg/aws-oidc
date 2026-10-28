@@ -16,8 +16,6 @@ import (
 	"github.com/chanzuckerberg/aws-oidc/pkg/okta"
 )
 
-const requestIDHeader = "X-Request-Id"
-
 var oktaUserIDPattern = regexp.MustCompile(`^00u[A-Za-z0-9]{17}$`)
 
 type EntitlementRequest struct {
@@ -34,61 +32,6 @@ type Entitlement struct {
 
 type EntitlementList struct {
 	Items []Entitlement `json:"items"`
-}
-
-type WorkloadAuthMiddleware struct {
-	handler        http.Handler
-	verifier       oidcVerifier
-	trustedSubject string
-}
-
-func NewWorkloadAuthMiddleware(
-	handler http.Handler,
-	verifier oidcVerifier,
-	trustedSubject string,
-) (*WorkloadAuthMiddleware, error) {
-	if handler == nil {
-		return nil, errors.New("handler is required")
-	}
-	if verifier == nil {
-		return nil, errors.New("verifier is required")
-	}
-	if strings.TrimSpace(trustedSubject) == "" {
-		return nil, errors.New("trusted subject is required")
-	}
-	return &WorkloadAuthMiddleware{
-		handler:        handler,
-		verifier:       verifier,
-		trustedSubject: trustedSubject,
-	}, nil
-}
-
-func (m *WorkloadAuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	requestID := r.Header.Get(requestIDHeader)
-	if requestID != "" {
-		w.Header().Set(requestIDHeader, requestID)
-	}
-	rawToken := stripBearerPrefixFromTokenString(r.Header.Get("Authorization"))
-	if rawToken == "" {
-		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		return
-	}
-	idToken, err := m.verifier.Verify(r.Context(), rawToken)
-	if err != nil {
-		slog.Warn("verifying entitlement caller", "request_id", requestID, "error", err)
-		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		return
-	}
-	if idToken.Subject != m.trustedSubject {
-		slog.Warn(
-			"rejecting entitlement caller",
-			"request_id", requestID,
-			"service_subject", idToken.Subject,
-		)
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-	m.handler.ServeHTTP(w, r)
 }
 
 type EntitlementHandler struct {
@@ -144,7 +87,27 @@ func (h *EntitlementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	if strings.TrimSuffix(request.Issuer, "/") != h.ownerIssuer || !oktaUserIDPattern.MatchString(request.UserID) {
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	targetIssuer := normalizeIssuer(request.Issuer)
+	targetUserID := request.UserID
+	if targetIssuer == "" && targetUserID == "" {
+		targetIssuer = principal.Issuer
+		targetUserID = principal.Subject
+	}
+	if targetIssuer == "" || targetUserID == "" {
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+	targetIsCaller := targetIssuer == principal.Issuer && targetUserID == principal.Subject
+	if !targetIsCaller && !principal.Privileged {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		return
+	}
+	if targetIssuer != h.ownerIssuer || !oktaUserIDPattern.MatchString(targetUserID) {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -155,16 +118,18 @@ func (h *EntitlementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
-	items, err := resolveEntitlements(r.Context(), request.UserID, h.oktaAppClient, mappings)
+	items, err := resolveEntitlements(r.Context(), targetUserID, h.oktaAppClient, mappings)
 	if err != nil {
-		slog.Error("resolving AWS entitlements", "request_id", requestID, "user_id", request.UserID, "error", err)
+		slog.Error("resolving AWS entitlements", "request_id", requestID, "user_id", targetUserID, "error", err)
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
 	slog.Info(
 		"resolved AWS entitlements",
 		"request_id", requestID,
-		"user_id", request.UserID,
+		"principal_issuer", principal.Issuer,
+		"principal_subject", principal.Subject,
+		"target_user_id", targetUserID,
 		"count", len(items),
 	)
 	err = json.NewEncoder(w).Encode(EntitlementList{Items: items})

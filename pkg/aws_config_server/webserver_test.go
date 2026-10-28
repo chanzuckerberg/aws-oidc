@@ -2,25 +2,26 @@ package aws_config_server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	oidc "github.com/coreos/go-oidc"
 	"github.com/okta/okta-sdk-golang/v3/okta"
 	"github.com/stretchr/testify/require"
 )
 
 type idTokenVerifier struct {
 	expectedIDToken string
+	principal       Principal
 }
 
-func (idtv *idTokenVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
+func (idtv *idTokenVerifier) Verify(_ context.Context, idToken string) (Principal, error) {
 	if idtv.expectedIDToken != idToken {
-		return nil, fmt.Errorf("id tokens do not match!")
+		return Principal{}, fmt.Errorf("id tokens do not match")
 	}
-	return &oidc.IDToken{}, nil
+	return idtv.principal, nil
 }
 
 var testAWSConfigGenerationParams = AWSConfigGenerationParams{
@@ -40,6 +41,10 @@ func TestNoEmail(t *testing.T) {
 
 	idTokenVerifier := &idTokenVerifier{
 		expectedIDToken: "this is an id token I want",
+		principal: Principal{
+			Issuer:  testAWSConfigGenerationParams.OIDCProvider,
+			Subject: testEntitlementUserID,
+		},
 	}
 
 	routerConfig := &RouterConfig{
@@ -58,25 +63,7 @@ func TestNoEmail(t *testing.T) {
 
 	resp, err := client.Do(req)
 	r.NoError(err)
-	r.Nil(getEmailFromCtx(req.Context()))
-	r.Equal(400, resp.StatusCode)
-}
-
-func TestGetEmailFromCtx(t *testing.T) {
-	r := require.New(t)
-
-	ctxWithEmail := context.WithValue(context.Background(), contextKeyEmail, "foobar")
-	email := getEmailFromCtx(ctxWithEmail)
-	r.Equal(*email, "foobar")
-
-	emptyCtx := context.Background()
-	email = getEmailFromCtx(emptyCtx)
-	r.Nil(email)
-
-	newKeyValue := contextKeyEmail + 1
-	ctxWithOtherKey := context.WithValue(context.Background(), newKeyValue, "barfoo")
-	email = getEmailFromCtx(ctxWithOtherKey)
-	r.Nil(email)
+	r.Equal(403, resp.StatusCode)
 }
 
 func TestMalformedBearerPrefix(t *testing.T) {
@@ -104,7 +91,6 @@ func TestMalformedBearerPrefix(t *testing.T) {
 
 	resp, err := client.Do(req)
 	r.NoError(err)
-	r.Nil(getEmailFromCtx(req.Context()))
 	r.Equal(401, resp.StatusCode)
 }
 
@@ -124,14 +110,13 @@ func TestMissingAuthHeader(t *testing.T) {
 
 	resp, err := http.Get(server.URL)
 	r.NoError(err)
-	r.Nil(getEmailFromCtx(resp.Request.Context()))
-	r.Equal(407, resp.StatusCode)
+	r.Equal(401, resp.StatusCode)
 }
 
 type failingVerifier struct{}
 
-func (fv *failingVerifier) Verify(ctx context.Context, idToken string) (*oidc.IDToken, error) {
-	return nil, fmt.Errorf("Failing verifier")
+func (fv *failingVerifier) Verify(context.Context, string) (Principal, error) {
+	return Principal{}, errors.New("failing verifier")
 }
 func TestHealthEndpoint(t *testing.T) {
 	ctx := context.Background()

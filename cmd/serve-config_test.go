@@ -6,36 +6,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadOktaEnvEntitlementSettings(t *testing.T) {
+func TestLoadOktaEnvAdditionalIdentitySettings(t *testing.T) {
 	setRequiredOktaEnvironment(t)
-	t.Setenv("OKTA_ENTITLEMENT_TOKEN_ISSUER_URL", "https://issuer.example.com")
-	t.Setenv("OKTA_ENTITLEMENT_TOKEN_AUDIENCE", "aws-oidc-entitlements")
 	t.Setenv(
-		"OKTA_ENTITLEMENT_TOKEN_TRUSTED_SUBJECT",
-		"system:serviceaccount:argus-agent-registry-rdev:agent-registry-api",
+		"OKTA_ADDITIONAL_TOKEN_VERIFIERS",
+		`[{"issuerUrl":"https://first.example.com","clientId":"first"},{"issuerUrl":"https://second.example.com","clientId":"second"}]`,
+	)
+	t.Setenv(
+		"OKTA_PRIVILEGED_IDENTITIES",
+		`[{"issuerUrl":"https://first.example.com","subject":"system:serviceaccount:namespace:api"}]`,
 	)
 
 	environment, err := loadOktaEnv()
 
 	require.NoError(t, err)
-	require.Equal(t, "https://issuer.example.com", environment.ENTITLEMENT_TOKEN_ISSUER_URL)
-	require.Equal(t, "aws-oidc-entitlements", environment.ENTITLEMENT_TOKEN_AUDIENCE)
-	require.Equal(
-		t,
-		"system:serviceaccount:argus-agent-registry-rdev:agent-registry-api",
-		environment.ENTITLEMENT_TOKEN_TRUSTED_SUBJECT,
-	)
+	verifiers, privileged, err := parseAdditionalIdentityConfiguration(environment)
+	require.NoError(t, err)
+	require.Equal(t, []TokenVerifierEnvironment{
+		{IssuerURL: "https://first.example.com", ClientID: "first"},
+		{IssuerURL: "https://second.example.com", ClientID: "second"},
+	}, verifiers)
+	require.Equal(t, []PrivilegedIdentityEnvironment{
+		{
+			IssuerURL: "https://first.example.com",
+			Subject:   "system:serviceaccount:namespace:api",
+		},
+	}, privileged)
 }
 
-func TestLoadOktaEnvRejectsPartialEntitlementSettings(t *testing.T) {
+func TestLoadOktaEnvRejectsInvalidIdentitySettings(t *testing.T) {
 	setRequiredOktaEnvironment(t)
-	t.Setenv("OKTA_ENTITLEMENT_TOKEN_ISSUER_URL", "https://issuer.example.com")
-	t.Setenv("OKTA_ENTITLEMENT_TOKEN_AUDIENCE", "")
-	t.Setenv("OKTA_ENTITLEMENT_TOKEN_TRUSTED_SUBJECT", "")
+	t.Setenv("OKTA_ADDITIONAL_TOKEN_VERIFIERS", "not-json")
 
 	_, err := loadOktaEnv()
 
-	require.ErrorContains(t, err, "all entitlement token settings are required")
+	require.ErrorContains(t, err, "parse additional token verifiers")
 }
 
 func setRequiredOktaEnvironment(t *testing.T) {
