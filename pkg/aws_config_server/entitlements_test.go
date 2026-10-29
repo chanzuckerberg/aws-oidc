@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	oktasdk "github.com/okta/okta-sdk-golang/v3/okta"
@@ -89,9 +88,9 @@ func TestEntitlementEndpoint(t *testing.T) {
 		return mappings, nil
 	})
 	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/entitlements",
-		strings.NewReader(`{"issuer":"https://czi.okta.com","userId":"00u12345678901234567"}`),
+		http.MethodGet,
+		"/api/v1/entitlements?issuer=https%3A%2F%2Fczi.okta.com&userId=00u12345678901234567",
+		nil,
 	)
 	request.Header.Set("Authorization", "Bearer token")
 	request.Header.Set(requestIDHeader, "request-123")
@@ -159,9 +158,9 @@ func TestEntitlementAuthentication(t *testing.T) {
 				},
 			)
 			request := httptest.NewRequest(
-				http.MethodPost,
-				"/api/v1/entitlements",
-				strings.NewReader(`{"issuer":"https://czi.okta.com","userId":"00u12345678901234567"}`),
+				http.MethodGet,
+				"/api/v1/entitlements?issuer=https%3A%2F%2Fczi.okta.com&userId=00u12345678901234567",
+				nil,
 			)
 			request.Header.Set("Authorization", test.authorization)
 			response := httptest.NewRecorder()
@@ -190,9 +189,9 @@ func TestEntitlementEndpointUsesNormalUserIdentity(t *testing.T) {
 		},
 	)
 	request := httptest.NewRequest(
-		http.MethodPost,
+		http.MethodGet,
 		"/api/v1/entitlements",
-		strings.NewReader(`{}`),
+		nil,
 	)
 	request.Header.Set("Authorization", "Bearer token")
 	response := httptest.NewRecorder()
@@ -201,6 +200,24 @@ func TestEntitlementEndpointUsesNormalUserIdentity(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, response.Code)
 	require.Equal(t, 1, apps.calls)
+}
+
+func TestEntitlementEndpointRejectsPost(t *testing.T) {
+	handler := entitlementEndpoint(
+		t,
+		&staticIdentityVerifier{principal: privilegedTestPrincipal()},
+		&entitlementAppLister{pages: [][]oktasdk.ListApplications200ResponseInner{{}}},
+		func(context.Context) (okta.OIDCRoleMappingsByKey, error) {
+			return nil, nil
+		},
+	)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/entitlements", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusMethodNotAllowed, response.Code)
 }
 
 func TestEntitlementRequestValidation(t *testing.T) {
@@ -213,13 +230,15 @@ func TestEntitlementRequestValidation(t *testing.T) {
 		},
 	)
 	tests := map[string]string{
-		"wrong issuer":  `{"issuer":"https://example.com","userId":"00u12345678901234567"}`,
-		"invalid user":  `{"issuer":"https://czi.okta.com","userId":"00u\" or true"}`,
-		"unknown field": `{"issuer":"https://czi.okta.com","userId":"00u12345678901234567","other":true}`,
+		"wrong issuer":  "?issuer=https%3A%2F%2Fexample.com&userId=00u12345678901234567",
+		"invalid user":  "?issuer=https%3A%2F%2Fczi.okta.com&userId=invalid",
+		"unknown field": "?issuer=https%3A%2F%2Fczi.okta.com&userId=00u12345678901234567&other=true",
+		"duplicate field": "?issuer=https%3A%2F%2Fczi.okta.com&issuer=https%3A%2F%2Fczi.okta.com" +
+			"&userId=00u12345678901234567",
 	}
-	for name, body := range tests {
+	for name, query := range tests {
 		t.Run(name, func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, "/api/v1/entitlements", strings.NewReader(body))
+			request := httptest.NewRequest(http.MethodGet, "/api/v1/entitlements"+query, nil)
 			request.Header.Set("Authorization", "Bearer token")
 			response := httptest.NewRecorder()
 
@@ -240,9 +259,9 @@ func TestEntitlementDependencyFailure(t *testing.T) {
 		},
 	)
 	request := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/entitlements",
-		strings.NewReader(`{"issuer":"https://czi.okta.com","userId":"00u12345678901234567"}`),
+		http.MethodGet,
+		"/api/v1/entitlements?issuer=https%3A%2F%2Fczi.okta.com&userId=00u12345678901234567",
+		nil,
 	)
 	request.Header.Set("Authorization", "Bearer token")
 	response := httptest.NewRecorder()
