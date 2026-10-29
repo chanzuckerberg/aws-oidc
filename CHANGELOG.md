@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.40.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.40.0...v0.40.1) (2026-10-29)
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.42.1 to 6.42.2 ([#1293](https://github.com/chanzuckerberg/aws-oidc/issues/1293)) ([ea4f9a9](https://github.com/chanzuckerberg/aws-oidc/commit/ea4f9a96aa7b8ebd82bd8a36e459d46e97aa214e))
+* bump github.com/go-jose/go-jose/v4 from 4.1.4 to 4.1.6 ([#1296](https://github.com/chanzuckerberg/aws-oidc/issues/1296)) ([5b3904a](https://github.com/chanzuckerberg/aws-oidc/commit/5b3904a587188282073df6caf3ecdb1322f203c1))
+
 ## [0.40.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.39.1...v0.40.0) (2026-10-28)
 
 
