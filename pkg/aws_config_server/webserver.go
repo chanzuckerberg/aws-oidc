@@ -32,8 +32,7 @@ func Index(resolver *AccessResolver) http.Handler {
 			http.Error(w, fmt.Sprintf("%v:%s", 500, http.StatusText(500)), 500)
 			return
 		}
-		if principal.Issuer != resolver.OIDCProvider() ||
-			principal.Email == "" {
+		if principal.Issuer != resolver.OIDCProvider() {
 			http.Error(w, fmt.Sprintf("%v:%s", 403, http.StatusText(403)), 403)
 			return
 		}

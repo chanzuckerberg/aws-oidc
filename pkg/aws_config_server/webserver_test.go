@@ -48,7 +48,7 @@ func emptyAccessResolver(t *testing.T) *AccessResolver {
 	return resolver
 }
 
-func TestNoEmail(t *testing.T) {
+func TestIndexAllowsMissingEmail(t *testing.T) {
 	ctx := context.Background()
 	r := require.New(t)
 
@@ -75,7 +75,7 @@ func TestNoEmail(t *testing.T) {
 
 	resp, err := client.Do(req)
 	r.NoError(err)
-	r.Equal(403, resp.StatusCode)
+	r.Equal(http.StatusOK, resp.StatusCode)
 }
 
 func TestIndexReturnsResolvedProfiles(t *testing.T) {
