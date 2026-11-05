@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.40.1...v0.41.0) (2026-11-05)
+
+
+### Features
+
+* **agent-registry:** authorize the staging API ([#1299](https://github.com/chanzuckerberg/aws-oidc/issues/1299)) ([2608773](https://github.com/chanzuckerberg/aws-oidc/commit/2608773d9bc686b337daacf4e854d42f2cb749b7))
+
 ## [0.40.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.40.0...v0.40.1) (2026-10-29)
 
 
