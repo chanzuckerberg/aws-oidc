@@ -3,7 +3,6 @@ package aws_config_server
 import (
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -11,11 +10,6 @@ import (
 )
 
 var oktaUserIDPattern = regexp.MustCompile(`^00u[A-Za-z0-9]{17}$`)
-
-type EntitlementRequest struct {
-	Issuer string `json:"issuer"`
-	UserID string `json:"userId"`
-}
 
 type Entitlement struct {
 	AccountID    string `json:"accountId"`
@@ -46,32 +40,24 @@ func (h *EntitlementHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	var request EntitlementRequest
-	err := decoder.Decode(&request)
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
-	}
-	err = decoder.Decode(&struct{}{})
-	if !errors.Is(err, io.EOF) {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
+	query := r.URL.Query()
+	for key, values := range query {
+		if (key != "issuer" && key != "userId") || len(values) != 1 {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
 	}
 	principal, ok := principalFromContext(r.Context())
 	if !ok {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-	targetIssuer := normalizeIssuer(request.Issuer)
-	targetUserID := request.UserID
+	targetIssuer := normalizeIssuer(query.Get("issuer"))
+	targetUserID := query.Get("userId")
 	if targetIssuer == "" && targetUserID == "" {
 		targetIssuer = principal.Issuer
 		targetUserID = principal.Subject
