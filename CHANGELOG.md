@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.41.0...v0.41.1) (2026-11-21)
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions from 6.42.1 to 6.42.2 ([#1294](https://github.com/chanzuckerberg/aws-oidc/issues/1294)) ([edd2f6d](https://github.com/chanzuckerberg/aws-oidc/commit/edd2f6d734b15181903a8d2ff45528e8e8fa04fa))
+
 ## [0.41.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.40.1...v0.41.0) (2026-11-05)
 
 
