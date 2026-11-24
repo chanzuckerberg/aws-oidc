@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.41.1](https://github.com/chanzuckerberg/aws-oidc/compare/v0.41.0...v0.41.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **deps:** update golang.org/x/crypto ([#1303](https://github.com/chanzuckerberg/aws-oidc/issues/1303)) ([b2b4ef6](https://github.com/chanzuckerberg/aws-oidc/commit/b2b4ef65f025558be3394c1ce503f98a23fc2f5a))
+
+
+### Misc
+
+* bump chanzuckerberg/github-actions from 6.42.1 to 6.42.2 ([#1294](https://github.com/chanzuckerberg/aws-oidc/issues/1294)) ([edd2f6d](https://github.com/chanzuckerberg/aws-oidc/commit/edd2f6d734b15181903a8d2ff45528e8e8fa04fa))
+* bump chanzuckerberg/github-actions from 6.42.2 to 6.42.4 ([#1305](https://github.com/chanzuckerberg/aws-oidc/issues/1305)) ([7830b03](https://github.com/chanzuckerberg/aws-oidc/commit/7830b0311ff9749fd9831f64a7ee36a3cbfb45ea))
+* bump chanzuckerberg/github-actions from 6.42.4 to 6.43.0 ([#1307](https://github.com/chanzuckerberg/aws-oidc/issues/1307)) ([563b448](https://github.com/chanzuckerberg/aws-oidc/commit/563b448c7a1e796dc0d5f5f1bdf63278acb17fbd))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.42.2 to 6.42.4 ([#1306](https://github.com/chanzuckerberg/aws-oidc/issues/1306)) ([89dec34](https://github.com/chanzuckerberg/aws-oidc/commit/89dec34ecd527fc84aef325fd849f43e84f1e162))
+* bump chanzuckerberg/github-actions/.github/workflows/argus-builder-dispatch.yaml from 6.42.4 to 6.43.0 ([#1308](https://github.com/chanzuckerberg/aws-oidc/issues/1308)) ([015b56b](https://github.com/chanzuckerberg/aws-oidc/commit/015b56bea7f7d7c4ecbc552c8c0ffa74a5b1e033))
+
 ## [0.41.0](https://github.com/chanzuckerberg/aws-oidc/compare/v0.40.1...v0.41.0) (2026-11-05)
 
 
